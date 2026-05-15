@@ -48,6 +48,7 @@ export default async function LoginPage({
   const cfg = await authConfigFromApi();
 
   return (
+    <div className="page-inner">
     <main className="card stack">
       <h1>Sign in</h1>
       {err ? (
@@ -85,5 +86,6 @@ export default async function LoginPage({
         <Link href="/">← Back to home</Link>
       </p>
     </main>
+    </div>
   );
 }

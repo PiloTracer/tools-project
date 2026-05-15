@@ -98,7 +98,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(absoluteUrl(req, "/login?error=userinfo"));
   }
 
-  const dest = absoluteUrl(req, "/");
+  const dest = absoluteUrl(req, "/projects");
   const res = NextResponse.redirect(dest);
   res.cookies.set(COOKIE.access, tokens.access_token, {
     httpOnly: true,

@@ -36,7 +36,8 @@ export default async function AdminUsersPage() {
 
   if (forbidden || rows === null) {
     return (
-      <main className="card stack">
+      <div className="page-inner">
+        <main className="card stack wide">
         <h1>User management</h1>
         <p>
           This screen requires a <strong>local superuser</strong> session (JWT issued
@@ -51,18 +52,20 @@ export default async function AdminUsersPage() {
           <Link href="/">← Home</Link>
         </p>
       </main>
+      </div>
     );
   }
 
   return (
-    <main className="card stack">
+    <div className="page-inner">
+      <main className="card stack wide">
       <h1>Local users</h1>
       <p className="muted">
         Admin CRUD via <code>/v1/admin/users</code>. Add UI forms in a follow-up.
       </p>
       <table style={{ width: "100%", borderCollapse: "collapse" }}>
         <thead>
-          <tr style={{ textAlign: "left", borderBottom: "1px solid #e2e8f0" }}>
+          <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border)" }}>
             <th style={{ padding: "0.5rem 0" }}>Email</th>
             <th>Name</th>
             <th>Active</th>
@@ -71,7 +74,7 @@ export default async function AdminUsersPage() {
         </thead>
         <tbody>
           {rows.map((u) => (
-            <tr key={u.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
+            <tr key={u.id} style={{ borderBottom: "1px solid var(--border)" }}>
               <td style={{ padding: "0.35rem 0" }}>{u.email}</td>
               <td>{u.display_name ?? "—"}</td>
               <td>{u.is_active ? "yes" : "no"}</td>
@@ -84,5 +87,6 @@ export default async function AdminUsersPage() {
         <Link href="/">← Home</Link>
       </p>
     </main>
+    </div>
   );
 }

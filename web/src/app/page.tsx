@@ -1,5 +1,9 @@
 import Link from "next/link";
 
+import { DashboardSystem } from "@/app/_components/DashboardSystem";
+import { DashboardWorkspace } from "@/app/_components/DashboardWorkspace";
+import { apiServerFetch, fetchMe } from "@/shared/server/session";
+
 function apiBaseUrl(): string {
   const internal = process.env.API_INTERNAL_URL?.replace(/\/+$/, "");
   if (internal) return internal;
@@ -37,33 +41,81 @@ async function authConfigFromApi(): Promise<{
   }
 }
 
+type ProjectRow = {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+};
+
 export default async function HomePage() {
-  const [backend, cfg] = await Promise.all([apiStatus(), authConfigFromApi()]);
+  const [backend, cfg, me] = await Promise.all([
+    apiStatus(),
+    authConfigFromApi(),
+    fetchMe(),
+  ]);
+
+  let projects: ProjectRow[] = [];
+  if (me) {
+    const pr = await apiServerFetch("/v1/projects");
+    if (pr.ok) {
+      const data = (await pr.json()) as { items?: ProjectRow[] };
+      projects = data.items ?? [];
+    }
+  }
+
+  const apiOk = backend.includes("reachable");
+  const authParts: string[] = [];
+  if (cfg.oauth_enabled) authParts.push("OAuth");
+  if (cfg.local_enabled) authParts.push("Local accounts");
+  const authLabel = authParts.join(" · ") || "—";
+
+  const displayName = me?.display_name || me?.email.split("@")[0] || "";
+
   return (
-    <main className="card stack">
-      <h1>tools-project</h1>
-      <p className="muted">Project hub — projects, tasks, tickets, GitHub context.</p>
-      <p className="muted">{backend}</p>
-      <p className="muted">
-        Auth:{" "}
-        {cfg.oauth_enabled ? "tools-dashboard OAuth supported. " : "OAuth off. "}
-        {cfg.local_enabled ? "Local accounts supported." : "Local accounts off."}
-      </p>
-      <p className="stack" style={{ marginTop: "1rem" }}>
-        <Link className="btn btn-primary" href="/login">
-          Sign in
-        </Link>
-      </p>
-      {cfg.local_enabled ? (
-        <p>
-          <Link href="/admin/users">Local user admin</Link>
-          <span className="muted"> — list users (superuser only).</span>
+    <div className="page-inner stack-lg">
+      <header className="home-hero">
+        <span className="pill">Project hub</span>
+        <h1 style={{ marginTop: "0.65rem" }}>
+          Welcome{me ? `, ${me.display_name || me.email.split("@")[0]}` : ""}
+        </h1>
+        <p className="muted home-hero-lead">
+          Plan work by project, capture tasks and support tickets, and wire GitHub context — all
+          behind your org auth.
+        </p>
+      </header>
+
+      <div className="grid-dashboard">
+        {me ? (
+          <DashboardWorkspace projects={projects} displayName={displayName} />
+        ) : (
+          <div className="dashboard-tile dashboard-tile--workspace">
+            <h2>Workspace</h2>
+            <p className="muted text-sm">
+              Sign in to create projects, see what you’re working on, and jump back in with one
+              click.
+            </p>
+            <div className="dashboard-actions">
+              <Link className="btn btn-primary" href="/login">
+                Sign in
+              </Link>
+            </div>
+          </div>
+        )}
+
+        <DashboardSystem
+          apiOk={apiOk}
+          authLabel={authLabel}
+          showUserAdmin={cfg.local_enabled && !!me?.is_superuser}
+        />
+      </div>
+
+      {!me ? (
+        <p className="muted text-sm">
+          Configure <code>AUTH_*</code>, <code>JWT_SECRET</code>, and optional{" "}
+          <code>BOOTSTRAP_ADMIN_*</code> in <code>.env</code>.
         </p>
       ) : null}
-      <p className="muted">
-        Configure <code>AUTH_*</code>, <code>JWT_SECRET</code>, and optional{" "}
-        <code>BOOTSTRAP_ADMIN_*</code> in <code>.env</code>.
-      </p>
-    </main>
+    </div>
   );
 }

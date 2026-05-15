@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 
 from pydantic import BaseModel, EmailStr, Field
 
@@ -50,3 +51,29 @@ class AdminUserOut(BaseModel):
 
 class AdminUserListResponse(BaseModel):
     items: list[AdminUserOut]
+
+
+class ProjectCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    description: str | None = Field(default=None, max_length=8000)
+    slug: str | None = Field(
+        default=None,
+        max_length=80,
+        pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$",
+    )
+
+
+class ProjectOut(BaseModel):
+    id: uuid.UUID
+    name: str
+    slug: str
+    description: str | None
+    owner_id: uuid.UUID
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class ProjectListResponse(BaseModel):
+    items: list[ProjectOut]

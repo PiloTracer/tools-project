@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.bootstrap import run_bootstrap
 from app.db import init_db, session_factory
-from app.routers import admin_users, auth
+from app.routers import admin_users, auth, projects
 
 
 @asynccontextmanager
@@ -41,17 +41,9 @@ app.add_middleware(
 
 app.include_router(auth.router)
 app.include_router(admin_users.router)
+app.include_router(projects.router)
 
 
 @app.get("/healthz")
 def healthz() -> dict[str, str]:
     return {"status": "ok"}
-
-
-@app.get("/v1/projects")
-def list_projects_stub() -> dict[str, object]:
-    """Placeholder until persistence + auth are wired."""
-    return {
-        "items": [],
-        "message": "Stub — implement projects CRUD",
-    }

@@ -26,7 +26,7 @@ export function LocalLoginForm() {
         setPending(false);
         return;
       }
-      router.replace("/");
+      router.replace("/projects");
       router.refresh();
     } catch {
       setError("Network error");

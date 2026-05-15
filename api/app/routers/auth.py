@@ -2,16 +2,16 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.db import get_db
-from app.deps import get_current_user_local
+from app.deps import get_current_user
 from app.models.user import User
 from app.schemas import LocalLoginRequest, MeResponse, TokenResponse
-from app.services.auth_local import create_local_access_token, verify_password
+from app.services.auth_local import create_local_access_token, verify_password, decode_local_token
 
 router = APIRouter(prefix="/v1/auth", tags=["auth"])
 
@@ -55,11 +55,22 @@ async def local_login(
 
 
 @router.get("/me", response_model=MeResponse)
-async def auth_me(user: Annotated[User, Depends(get_current_user_local)]):
+async def auth_me(
+    request: Request,
+    user: Annotated[User, Depends(get_current_user)],
+):
+    auth_kind = "oauth"
+    if get_settings().auth_local_enabled:
+        auth_header = (request.headers.get("authorization") or "").strip()
+        token = ""
+        if auth_header.lower().startswith("bearer "):
+            token = auth_header[7:].strip()
+        if token and decode_local_token(token):
+            auth_kind = "local"
     return MeResponse(
         id=user.id,
         email=user.email,
         display_name=user.display_name,
         is_superuser=user.is_superuser,
-        auth="local",
+        auth=auth_kind,
     )
