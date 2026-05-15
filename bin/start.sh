@@ -55,14 +55,21 @@ load_env() {
   PUBLIC_HOST="${PUBLIC_HOST:-localhost}"
   WEB_DEV_HOST_PORT="${WEB_DEV_HOST_PORT:-18513}"
   API_HOST_PORT="${API_HOST_PORT:-8300}"
+  POSTGRES_USER="${POSTGRES_USER:-prj}"
+  POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-prj_dev_change_me}"
+  POSTGRES_DB="${POSTGRES_DB:-tools_project}"
   if [[ -f "$envf" ]]; then
     local v
     v="$(read_dotenv_value "$envf" COMPOSE_PROJECT_NAME)" && COMPOSE_PROJECT_NAME="$v"
     v="$(read_dotenv_value "$envf" PUBLIC_HOST)" && PUBLIC_HOST="$v"
     v="$(read_dotenv_value "$envf" WEB_DEV_HOST_PORT)" && WEB_DEV_HOST_PORT="$v"
     v="$(read_dotenv_value "$envf" API_HOST_PORT)" && API_HOST_PORT="$v"
+    v="$(read_dotenv_value "$envf" POSTGRES_USER)" && POSTGRES_USER="$v"
+    v="$(read_dotenv_value "$envf" POSTGRES_PASSWORD)" && POSTGRES_PASSWORD="$v"
+    v="$(read_dotenv_value "$envf" POSTGRES_DB)" && POSTGRES_DB="$v"
   fi
   export COMPOSE_PROJECT_NAME PUBLIC_HOST WEB_DEV_HOST_PORT API_HOST_PORT
+  export POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB
 }
 
 require_compose_file() {
@@ -72,14 +79,43 @@ require_compose_file() {
   fi
 }
 
-# Always scope to this repository and this Compose project name — never touch other stacks.
-dc() {
+# Expanded on each invocation (after load_env sets COMPOSE_PROJECT_NAME) — required for bash `set -u`.
+_compose_invoke() {
   docker compose \
     --project-directory "$REPO_ROOT" \
     -f "$COMPOSE_ABS" \
     -p "$COMPOSE_PROJECT_NAME" \
     --profile "$PROFILE" \
     "$@"
+}
+
+# Always scope to this repository and this Compose project name — never touch other stacks.
+dc() {
+  _compose_invoke "$@"
+}
+
+# Used from the interactive menu (MENU_QUIET=1): swallow compose noise; print transcript on failure only.
+quiet_dc() {
+  local log ec
+  log=$(mktemp "${TMPDIR:-/tmp}/tpr-startsh-compose.XXXXXX")
+  if _compose_invoke "$@" >"$log" 2>&1; then
+    rm -f "$log"
+    return 0
+  fi
+  ec=$?
+  printf '[docker compose exited %s] output:\n' "$ec" >&2
+  cat "$log" >&2
+  rm -f "$log"
+  return "$ec"
+}
+
+# Run docker compose loudly (streams: logs -f, ps).
+_dc_loud() {
+  _compose_invoke "$@"
+}
+
+runs_menu_quiet() {
+  [[ "${MENU_QUIET:-0}" == "1" ]]
 }
 
 print_banner() {
@@ -106,20 +142,51 @@ urls_hint() {
 }
 
 validate_config() {
-  printf 'Validating compose configuration…\n'
-  dc config -q
-  printf 'OK\n\n'
+  printf 'Checking compose file… '
+  if runs_menu_quiet; then
+    quiet_dc config -q && printf 'OK\n\n'
+  else
+    dc config -q && printf 'OK\n\n'
+  fi
 }
 
 cmd_start_attached() {
   validate_config
-  dc up --build
+  # Foreground `docker compose up --build` stops containers on Ctrl+C — use detached up + logs -f instead.
+  if runs_menu_quiet; then
+    printf 'Detached start/rebuild + live logs.\n'
+    printf 'Ctrl+C stops only this log tail — containers stay up.\n\n'
+    quiet_dc up --build --quiet-pull -d || return 1
+    dc ps --format 'table {{.Name}}\t{{.Status}}\t{{.Ports}}'
+    printf '\n'
+    urls_hint
+  else
+    printf '`start-fg`: detached compose up --build -d, then log follow.\n'
+    printf 'Ctrl+C stops only the log viewer; containers stay up.\n\n'
+    _compose_invoke up --build -d || return 1
+    dc ps
+    printf '\n'
+    urls_hint
+  fi
+  printf '\n----- compose logs (follow) ----------------------------\n\n'
+  _dc_loud logs -f --tail=200 || true
+  printf '\nLog follow exited.\n\n'
+  return 0
 }
 
 cmd_start_detached() {
   validate_config
-  dc up --build -d
-  dc ps
+  printf 'Building / starting stack in detached mode…\n'
+  if runs_menu_quiet; then
+    quiet_dc up --build --quiet-pull -d
+  else
+    dc up --build -d
+  fi
+  if runs_menu_quiet; then
+    dc ps --format 'table {{.Name}}\t{{.Status}}\t{{.Ports}}'
+  else
+    dc ps
+  fi
   printf '\nStack is up in the background.\n'
   urls_hint
 }
@@ -127,34 +194,49 @@ cmd_start_detached() {
 cmd_stop() {
   validate_config
   printf 'Stopping stack (containers + project network; named volumes kept)…\n'
-  dc down
+  if runs_menu_quiet; then
+    quiet_dc down
+  else
+    dc down
+  fi
   printf 'Done.\n\n'
 }
 
 cmd_restart() {
   validate_config
-  dc down
-  dc up --build -d
-  dc ps
+  if runs_menu_quiet; then
+    quiet_dc down
+    quiet_dc up --build --quiet-pull -d
+    dc ps --format 'table {{.Name}}\t{{.Status}}\t{{.Ports}}'
+  else
+    dc down
+    dc up --build -d
+    dc ps
+  fi
   printf '\nRestart complete.\n'
   urls_hint
 }
 
 cmd_status() {
   validate_config
-  dc ps -a
+  _dc_loud ps -a
   printf '\n'
 }
 
 cmd_logs() {
   validate_config
   printf 'Following logs (Ctrl+C to stop tailing only; stack keeps running)…\n'
-  dc logs -f --tail=200 || true
+  _dc_loud logs -f --tail=200 || true
 }
 
 cmd_build_only() {
   validate_config
-  dc build --pull
+  printf 'Building images…\n'
+  if runs_menu_quiet; then
+    quiet_dc build --pull
+  else
+    dc build --pull
+  fi
   printf 'Images rebuilt.\n\n'
 }
 
@@ -174,15 +256,102 @@ cmd_nuke() {
     printf 'Aborted.\n'
     return 0
   fi
-  dc down -v --remove-orphans
+  if runs_menu_quiet; then
+    quiet_dc down -v --remove-orphans
+  else
+    dc down -v --remove-orphans
+  fi
   printf 'Done. Stack and its named volumes for this project are removed.\n\n'
+}
+
+cmd_wait_postgres() {
+  validate_config
+  local i
+  for i in $(seq 1 45); do
+    if _compose_invoke exec -T postgresql pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 1
+  done
+  printf 'ERROR: Postgres did not become ready.\n' >&2
+  return 1
+}
+
+cmd_drop_tables() {
+  validate_config
+  print_banner
+  printf 'WARNING: This drops ALL tables in database **%s** (user %s) for Compose project **%s**.\n' \
+    "$POSTGRES_DB" "$POSTGRES_USER" "$COMPOSE_PROJECT_NAME"
+  printf 'This is like a fresh **public** schema — all application data in this DB is removed.\n'
+  printf 'Containers and Docker volumes are NOT removed (unlike option 8).\n\n'
+  read -r -p "$(printf 'Type the database name to confirm [%s]: ' "$POSTGRES_DB")" confirm
+  if [[ "$confirm" != "$POSTGRES_DB" ]]; then
+    printf 'Aborted (database name mismatch).\n'
+    return 0
+  fi
+  read -r -p 'Second confirm: type DROP to proceed: ' confirm2
+  if [[ "$confirm2" != "DROP" ]]; then
+    printf 'Aborted.\n'
+    return 0
+  fi
+  printf 'Ensuring Postgres is running…\n'
+  if runs_menu_quiet; then
+    quiet_dc up -d postgresql >/dev/null
+  else
+    dc up -d postgresql >/dev/null
+  fi
+  cmd_wait_postgres || return 1
+  printf 'Executing DROP SCHEMA public CASCADE…\n'
+  local log
+  if runs_menu_quiet; then
+    log=$(mktemp "${TMPDIR:-/tmp}/tpr-drop-public.XXXXXX")
+    if ! dc exec -T postgresql psql -q -v ON_ERROR_STOP=1 \
+      -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'EOSQL' >"$log" 2>&1
+DROP SCHEMA IF EXISTS public CASCADE;
+CREATE SCHEMA public;
+GRANT ALL ON SCHEMA public TO CURRENT_USER;
+GRANT ALL ON SCHEMA public TO public;
+EOSQL
+    then
+      printf 'DROP SCHEMA failed:\n' >&2
+      cat "$log" >&2
+      rm -f "$log"
+      return 1
+    fi
+    rm -f "$log"
+  else
+    dc exec -T postgresql psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" --set ON_ERROR_STOP=1 <<'EOSQL'
+DROP SCHEMA IF EXISTS public CASCADE;
+CREATE SCHEMA public;
+GRANT ALL ON SCHEMA public TO CURRENT_USER;
+GRANT ALL ON SCHEMA public TO public;
+EOSQL
+  fi
+  printf 'Done. Start the API next (option 2) so sql/schema_*.sql and bootstrap repopulate the DB.\n\n'
+}
+
+cmd_rebuild_schema() {
+  validate_config
+  printf 'Applying sql/schema_changes.sql + sql/schema_indexes.sql (missing objects only)…\n'
+  if runs_menu_quiet; then
+    quiet_dc up -d postgresql >/dev/null
+  else
+    dc up -d postgresql >/dev/null
+  fi
+  cmd_wait_postgres || return 1
+  if runs_menu_quiet; then
+    quiet_dc run --rm api python -m app.cli_schema apply-ddl
+  else
+    dc run --rm api python -m app.cli_schema apply-ddl
+  fi
+  printf 'DDL apply finished. Post-bootstrap scripts run when the API starts.\n\n'
 }
 
 show_menu() {
   print_banner
   cat <<EOF
-  1) Start stack (foreground, rebuild)     — docker compose up --build
-  2) Start stack (detached, rebuild)      — docker compose up --build -d
+  1) Start + follow logs                     — docker compose up -d --build, then logs -f (Ctrl+C: tail only; stack stays up)
+  2) Start stack (detached, rebuild)        — docker compose up --build -d
   3) Stop stack                           — docker compose down
   4) Restart stack (detached)             — down, then up -d
   5) Status                               — docker compose ps -a
@@ -190,6 +359,8 @@ show_menu() {
   7) Build images only                     — docker compose build --pull
   8) Destroy stack + volumes (DANGEROUS)  — docker compose down -v (this project only)
   9) Show URL hints
+  10) Drop all DB tables (DANGEROUS)      — Postgres: DROP SCHEMA public CASCADE (project DB only)
+  11) Rebuild DDL from SQL               — python -m app.cli_schema apply-ddl (missing objects only)
   0) Exit
 EOF
   printf '\n'
@@ -203,7 +374,8 @@ main() {
     print_banner
     printf '%s [command]\n' "${0##*/}"
     printf '  With no args (or `dev`), runs interactively.\n'
-    printf '  Non-interactive: start-fg | start | stop | restart | status | logs | build | nuke | urls\n'
+    printf '  Commands: start-fg (detached up --build, then logs -f; Ctrl+C stops tail only) |\n'
+    printf '           start | stop | restart | status | logs | build | nuke | drop-tables | rebuild-schema | urls\n'
     exit 0
   fi
 
@@ -215,13 +387,17 @@ main() {
     status)   cmd_status ;;
     logs)     cmd_logs ;;
     build)    cmd_build_only ;;
-    nuke)     cmd_nuke ;;
-    urls)     urls_hint ;;
+    nuke)          cmd_nuke ;;
+    drop-tables)   cmd_drop_tables ;;
+    rebuild-schema) cmd_rebuild_schema ;;
+    urls)          urls_hint ;;
     dev|"")
-      # `dev` is a no-op word (profile is always dev); includes `./bin/start.sh dev`.
+      # Interactive menu: MENU_QUIET uses quiet_dc for noisy compose steps; logs -f stays loud on options 1 and 6.
+      MENU_QUIET=1
       while true; do
         show_menu
-        read -r -p 'Choose [0-9]: ' choice || true
+        read -r -p 'Choose [0-11]: ' choice || true
+        set +e
         case "$choice" in
           1) cmd_start_attached ;;
           2) cmd_start_detached ;;
@@ -232,9 +408,12 @@ main() {
           7) cmd_build_only ;;
           8) cmd_nuke ;;
           9) urls_hint ;;
+          10) cmd_drop_tables ;;
+          11) cmd_rebuild_schema ;;
           0) printf 'Bye.\n'; exit 0 ;;
           *) printf 'Invalid option.\n\n' ;;
         esac
+        set -e
       done
       ;;
     *)

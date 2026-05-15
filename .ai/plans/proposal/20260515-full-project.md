@@ -134,7 +134,7 @@ User ── ProjectMember ──► Project ──► Component ──► Task �
 - `/healthz` + `/v1/auth/config` (exist).
 - `/admin/users` forms (create / activate / deactivate / set superuser / reset password for local users).
 - **Audit log** for admin actions and login events.
-- **Alembic** migrations (replace `create_all`).
+- **Declarative PostgreSQL DDL/DML**: repo **`sql/`** (`schema_changes.sql`, `schema_indexes.sql`, `schema_backfill.sql`, `schema_inserts.sql`) applied on API startup (**no Alembic** — see `.cursorrules`).
 
 **UX baseline**
 - Dark + light themes, system default; per-user override.
@@ -291,7 +291,7 @@ Shared:
 ### 8.2 Data
 
 - PostgreSQL 16 (Compose service `postgresql`, exists).
-- **SQLAlchemy 2 async** + **Alembic** (introduce in Phase 1).
+- **SQLAlchemy 2 async** + **hand-maintained `sql/schema_*.sql`** (applied on startup; not Alembic).
 - Soft delete only where it earns its keep (`Task`, `Ticket`, `Project` archive; activity is append-only and immutable except edit-window).
 
 ### 8.3 Real-time
@@ -357,7 +357,7 @@ Each phase ends in a demo-able state. Times are working estimates; sequence is t
 | Phase | Theme | Deliverables (definition of done) |
 |-------|-------|-----------------------------------|
 | **0 — Foundations (mostly done)** | Boilerplate stands up. | `docker compose --profile dev up --build` works end-to-end; local + OAuth login verified; `/admin/users` read-only table; `JWT_SECRET` configurable; this plan committed. |
-| **1 — Domain core** | Projects, components, tasks. | Alembic; `User.display_name`+`avatar_url`; CRUD APIs for projects/components/tasks with RBAC; web Projects list, Project overview, Components, Tasks **Kanban + Table**; refs `PRJ-N`; unified Bearer dependency on API. |
+| **1 — Domain core** | Projects, components, tasks. | Keep **`sql/`** in sync with models; `User.display_name`+`avatar_url`; CRUD APIs for projects/components/tasks with RBAC; web Projects list, Project overview, Components, Tasks **Kanban + Table**; refs `PRJ-N`; unified Bearer dependency on API. |
 | **2 — Activity & tickets** | The PM hub feels alive. | Activity model + SSE; markdown editor with `/`-commands, `@`/`#`, paste-image upload; Tickets CRUD + queue; threaded replies; per-user **My Focus** (`/today`); Quick-Capture inbox + triage; Watchers. |
 | **3 — GitHub & polish** | Context lands next to work. | `GithubLink` + PAT storage; commit poller; commit lane in project & component; `⌘K` palette with actions; saved views & filters; light/dark themes finalized; mobile capture verified. |
 | **4 — Hardening & admin** | Production-ready. | Admin forms on `/admin/users` (create/edit/reset/deactivate); `AuditLog` UI; Postgres FTS; backup runbook; CSP/headers; load-test script; deployment manifests (compose prod + sketch K8s manifests per org standard). |
@@ -379,7 +379,7 @@ A user with a fresh local install or an integrated SSO sign-in can:
 7. See **`/today`** populated with their assigned/overdue/watched items.
 8. Link a **GitHub** repo (PAT) and within 5 minutes see the latest commit appear in the project activity.
 9. As a superuser, **create, deactivate and reset** a local user from `/admin/users`.
-10. Reload — everything persists; no `create_all` magic, only Alembic migrations applied at startup.
+10. Reload — everything persists via **`sql/`** upgrades + idempotent **`schema_*.sql`** applied at startup (no ORM **`create_all`**, **no Alembic**).
 
 ---
 

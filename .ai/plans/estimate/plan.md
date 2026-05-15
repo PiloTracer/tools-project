@@ -33,7 +33,7 @@ Deliver a **project management hub** (projects, components, tasks/TODOs, support
 ## 4. Immediate engineering checklist
 
 1. **E2E OAuth:** register client in tools-dashboard; confirm `/sign-in` → IdP → `/oauth/complete` → cookies with real secrets.
-2. **ORM:** add SQLAlchemy 2 + Alembic (or org standard); first migration for `projects` / membership; connect `DATABASE_URL` in `api`.
+2. **ORM + schema:** SQLAlchemy 2 + repo **`sql/schema_*.sql`** (applied on API startup — **no Alembic**); extend DDL for `projects` / membership; connect `DATABASE_URL` in `api`.
 3. **OpenAPI:** define `/v1/projects`, tasks, tickets CRUD; Bearer JWT validation aligned with dashboard tokens.
 4. **Auth:** document `AUTH_*` for ops — standalone vs integrated vs hybrid; JWT hardening checklist.
 

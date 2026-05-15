@@ -25,6 +25,7 @@ Rolling session snapshot: **`.ai/context/HANDOFF.md`**.
 | **Web** | `web/` | Next.js 16 App Router, TypeScript |
 | **API** | `api/` | FastAPI, Uvicorn, SQLAlchemy 2 **async**, `asyncpg` |
 | **DB** | Compose **`postgresql`** | PostgreSQL 16 |
+| **Schema** | `sql/` | Declarative **`schema_*.sql`** on API startup (mounted **`/sql`** in Compose); **no Alembic** |
 | **Identity** | Env-driven | **`JWT_SECRET`** (local); **`OAUTH_*`** when SSO on — see **`.env.example`** |
 
 ## Related repositories
@@ -65,15 +66,18 @@ Compose does **not** require a root `.env` file; defaults are in **`docker-compo
 
 | Path | Role |
 |------|------|
-| `app/main.py` | FastAPI app, lifespan: **`init_db`** + **`run_bootstrap`** |
-| `app/db.py` | Async engine, sessions; **`create_all`** on startup |
-| `app/config.py` | **`Settings`** (`AUTH_*`, `JWT_*`, `BOOTSTRAP_ADMIN_*`, `DATABASE_URL`) |
+| `app/main.py` | FastAPI app, lifespan: **`sql/` DDL** → **`run_bootstrap`** → **`sql/` backfill & inserts** |
+| `app/db.py` | Async engine, sessions; **`init_db`** runs **`schema_changes` + indexes** from **`sql/`** |
+| `app/schema_sql.py` | **`schema_*.sql`** runner; **`python -m app.cli_schema`** (e.g. `apply-ddl`) |
+| `app/config.py` | **`Settings`** (`AUTH_*`, `JWT_*`, `BOOTSTRAP_ADMIN_*`, `DATABASE_URL`, **`SQL_SCHEMA_*`**) |
 | `app/models/user.py` | **`users`** table |
 | `app/bootstrap.py` | First superuser if DB empty + **`BOOTSTRAP_ADMIN_*`** set |
 | `app/routers/auth.py` | **`/v1/auth/config`**, **`/local/login`**, **`/me`** |
 | `app/routers/admin_users.py` | **`GET/POST/PATCH /v1/admin/users`** (superuser) |
 | `app/deps.py` | **`get_current_user_local`**, **`require_superuser`** (local JWT only) |
 | `app/services/auth_local.py` | bcrypt, JWT encode/decode (`token_typ: local`) |
+
+**`sql/`** (repo root, mounted **`/sql`** in Compose **`api`**): **`schema_changes.sql`** + **`schema_indexes.sql`** each startup (**before bootstrap**); **`schema_backfill.sql`** + **`schema_inserts.sql`** after bootstrap. Idempotent DDL/DML only — **no Alembic** (see **`.cursorrules`**).
 
 Root **`docker-compose.yml`**: services **`postgresql`**, **`api`**, **`web`** (all `profiles: [dev]`).
 
@@ -86,6 +90,8 @@ Root **`docker-compose.yml`**: services **`postgresql`**, **`api`**, **`web`** (
 | `JWT_SECRET` | HMAC signing for **local** access tokens |
 | `BOOTSTRAP_ADMIN_EMAIL` / `PASSWORD` | Optional; only when DB has **zero** users. **`EmailStr`** needs a valid domain (e.g. `admin@example.com`, not `admin@localhost`). |
 | `OAUTH_*`, `PUBLIC_ORIGIN`, `SESSION_COOKIE_NAME`, `REFRESH_COOKIE_NAME` | SSO + cookies |
+| `SQL_SCHEMA_DIR` | Where `schema_*.sql` live (Compose default **`/sql`**) |
+| `SQL_SCHEMA_APPLY` | When false, skips SQL runner (advanced; tables must exist) |
 
 **`GET /v1/auth/config`** returns `{ local_enabled, oauth_enabled }` for the web UI.
 
@@ -104,7 +110,7 @@ docker compose run --rm --no-deps web sh -lc "npm ci --no-audit --no-fund && npm
 
 ## Domain model (north star — persistence is partial)
 
-- **`users`** + **`projects`** (owner-scoped; no **`ProjectMember`** yet) are persisted. **Component**, **Task / TODO**, **Support ticket**, **Activity**, **GitHub** — still to build (see **`NEXT.md`**).
+- **`users`** + **`projects`** (owner-scoped; no **`ProjectMember`** yet) are persisted (DDL **`sql/schema_*.sql`**, aligned with **`api/app/models`**). **Component**, **Task / TODO**, **Support ticket**, **Activity**, **GitHub** — still to build (see **`NEXT.md`**).
 
 ## Security
 

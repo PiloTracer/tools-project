@@ -4,16 +4,20 @@
 **North star:** `.ai/plans/proposal/20260515-full-project.md` (Phase 1 → 2).  
 **Run dev stack:** `.cursorrules` / `docker compose --profile dev up --build` or `./bin/start.sh`.
 
+**Schema**: **declarative `sql/` only** — no Alembic (see `.cursorrules`). On API startup: `schema_changes.sql` → `schema_indexes.sql` → **bootstrap** → `schema_backfill.sql` → `schema_inserts.sql`.
+
 ---
 
-## Batch A — Data & migrations (do first)
+## Batch A — Schema discipline (maintain continually)
 
 | # | Item | Why | Hints |
 |---|------|-----|--------|
-| A1 | **Alembic** in `api/`: env, `alembic revision --autogenerate`, wire startup to **`upgrade head`** (or document “migrate then run” for prod) | Replace ad-hoc **`create_all`**; required before serious schema churn | `api/app/db.py` today calls `Base.metadata.create_all` in `init_db`. Add first revision: `users`, `projects`. |
-| A2 | **Baseline existing DBs** | Anyone with a live `projects` table from `create_all` needs a migration that matches current models or a one-time stamp | If autogenerate conflicts, hand-edit first revision to match `app/models/user.py`, `app/models/project.py`. |
+| A1 | Keep **`sql/schema_changes.sql`** in sync when **`api/app/models`** change | Primary DDL source; **`create_all`** is not used | Use `CREATE TABLE IF NOT EXISTS` / `ALTER TABLE … ADD COLUMN IF NOT EXISTS`; document new columns inline. |
+| A2 | Keep **`sql/schema_indexes.sql`** in sync when adding indexes or constraints | Separation from table DDL | Prefer `CREATE … IF NOT EXISTS` / idempotent guards. |
+| A3 | **Backfill stays current** — extend **`sql/schema_backfill.sql`** whenever a DDL change implies row fixes | One-time data migrations for existing deploys | Idempotent statements only (`WHERE` guards, `WHERE NOT EXISTS`, etc.). |
+| A4 | **Seeds/config** — optional rows in **`sql/schema_inserts.sql`** (`ON CONFLICT` / subqueries); demo project targets oldest superuser | Dev UX | After bootstrap — avoid hard-coded UUIDs unless truly static fixtures. |
 
-**Done when:** `alembic upgrade head` on empty DB creates schema; CI or docs show the command; new columns go through revisions only.
+**Done when:** A change to persisted fields always touches the matching SQL files **in the same PR**; `./bin/start.sh` options **10/11** and `python -m app.cli_schema apply-ddl` behave as documented in `.cursorrules`.
 
 ---
 
@@ -21,7 +25,7 @@
 
 | # | Item | Why | Hints |
 |---|------|-----|--------|
-| B1 | **`ProjectMember`** model (`project_id`, `user_id`, `role`: owner / maintainer / contributor / viewer) | Plan assumes RBAC; today access is **`owner_id` only** | Migration + backfill: set existing `projects.owner_id` as `owner` member. |
+| B1 | **`ProjectMember`** model (`project_id`, `user_id`, `role`: owner / maintainer / contributor / viewer) | Plan assumes RBAC; today access is **`owner_id` only** | Update `sql/schema_*.sql` + SQLAlchemy model; backfill existing `projects.owner_id` as `owner` member rows. |
 | B2 | **API:** `GET/POST/PATCH/DELETE` `/v1/projects/{id}/members` (superuser or project owner to add; enforce role rules) | Multi-user projects | Replace “owner-only” checks in `projects` router with membership + role (e.g. viewer read-only). |
 | B3 | **PATCH** `/v1/projects/{id}` — `name`, `description`, **`status`** `active|archived`, optional **`key`** for future refs | Align with plan domain table | Decide: keep **`slug`** as URL id vs introduce display **`key`** (`PRJ`) + numeric refs when **tasks** land. |
 | B4 | **Web:** project **settings** or **members** sub-page (minimal table + invite by email if user exists) | Makes RBAC real in UI | Start read-only member list + server actions or BFF routes. |
@@ -34,7 +38,7 @@
 
 | # | Item | Why | Hints |
 |---|------|-----|--------|
-| C1 | **`Component`** model + Alembic | Group work inside a project | FK `project_id`, `name`, optional `description`, optional `lead_user_id`. |
+| C1 | **`Component`** model + **`sql/`** updates | Group work inside a project | FK `project_id`, `name`, optional `description`, optional `lead_user_id`. |
 | C2 | **API:** `/v1/projects/{id}/components` CRUD + `/v1/components/{id}` PATCH/DELETE | Matches proposed OpenAPI | Scope by project membership. |
 | C3 | **Web:** under `/projects/[id]/components` (list + create) | User-visible structure | Link from project overview. |
 
@@ -78,10 +82,8 @@ Defer until tasks exist; order within Phase 2:
 
 ```bash
 docker compose --profile dev up --build
-# API
-docker compose run --rm --no-deps api sh -lc "pip install -e . && alembic upgrade head"  # once Alembic exists
+docker compose --profile dev run --rm api python -m app.cli_schema apply-ddl   # DDL + indexes only
 curl -s "http://localhost:8300/docs"
-# Web
 docker compose run --rm --no-deps web sh -lc "npm ci --no-audit --no-fund && npm run check && npm run build"
 ```
 

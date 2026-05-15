@@ -5,7 +5,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.bootstrap import run_bootstrap
-from app.db import init_db, session_factory
+from app.db import get_engine, init_db, session_factory
+from app.schema_sql import run_post_bootstrap
 from app.routers import admin_users, auth, projects
 
 
@@ -15,6 +16,8 @@ async def lifespan(app: FastAPI):
     fac = session_factory()
     async with fac() as session:
         await run_bootstrap(session)
+    async with get_engine().begin() as conn:
+        await run_post_bootstrap(conn)
     yield
 
 

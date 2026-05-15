@@ -5,9 +5,10 @@
 ## Start here (new session)
 
 1. Read **`.ai/context/CONTEXT.md`** — ports, auth modes, repo map.  
-2. Read **`.ai/context/NEXT.md`** — **prioritized next batches** (Alembic → project RBAC → components → tasks → admin).  
+2. Read **`.ai/context/NEXT.md`** — **prioritized next batches** (schema SQL discipline → **`ProjectMember` / RBAC** → components → tasks → admin).  
 3. Full product / MVP scope: **`.ai/plans/proposal/20260515-full-project.md`**.  
-4. **Docker-only** tooling for Node/Python (see **`.cursorrules`**).
+4. **Docker-only** tooling for Node/Python (see **`.cursorrules`**).  
+5. **No Alembic** — DDL lives under **`sql/`** and applies on API startup (`app/schema_sql.py`).
 
 ---
 
@@ -21,15 +22,15 @@
 | **`/v1/auth/me`** | **`get_current_user`**: local JWT **or** (if OAuth on) **Bearer → `OAUTH_USER_INFO_ENDPOINT` → upsert `users` row** — not JWKS yet. |
 | **Web** | **`AppShell`** (nav + user chip + sign out); **home** dashboard; **`/projects`**, **`/projects/new`**, **`/projects/[id]`**; **`POST /api/projects`** proxy; login redirects to **`/projects`**. |
 | **Domain** | **`projects`** table + **`GET/POST /v1/projects`**, **`GET /v1/projects/{id}`** — scoped to **`owner_id`** (no **`ProjectMember`** yet). |
-| **DB** | PostgreSQL + SQLAlchemy **`create_all`** on API startup — **no Alembic yet**. |
-| **Bootstrap** | Optional **`BOOTSTRAP_ADMIN_*`** if DB empty; dev default **`admin@example.com`**. |
+| **DB** | PostgreSQL; **`sql/schema_*.sql`** on startup (after bootstrap: backfill + inserts). **`bootstrap`** fills first superuser when DB empty + local auth + **`BOOTSTRAP_ADMIN_*`**. **`schema_inserts.sql`** adds a demo project for the oldest superuser. |
+| **`./bin/start.sh`** | **10** drop public schema (**warning**); **11** re-apply DDL only (`apply-ddl`). |
 
 ---
 
 ## Verified recently
 
 - **`docker compose run web`**: `npm run check` + **`npm run build`** clean.  
-- **`docker compose`**: API imports with **`httpx`** (declared in **`api/pyproject.toml`**); rebuild API image after dependency changes.
+- **`docker compose`**: API uses **`sqlparse`** (`api/pyproject.toml`) to split startup SQL scripts; **`./sql`** is mounted **`/sql`** for the **`api`** service.
 
 ---
 
@@ -37,7 +38,7 @@
 
 **Detailed tasks and acceptance criteria:** **`.ai/context/NEXT.md`**.
 
-Summary: **Alembic** → **`ProjectMember` + RBAC** → **components** → **tasks (table UI)** → **admin user forms**; then Phase 2 (**activity**, **tickets**, **`/today`**).
+Summary: **`sql/` parity with models + backfills** → **`ProjectMember` + RBAC** → **components** → **tasks (table UI)** → **admin user forms**; then Phase 2 (**activity**, **tickets**, **`/today`**).
 
 Legacy note: older items “unified Bearer via JWKS” and “first `/v1/projects`” are **superseded** by current **userinfo upsert** + existing **projects** router; JWKS remains optional hardening.
 
@@ -49,8 +50,10 @@ Legacy note: older items “unified Bearer via JWKS” and “first `/v1/project
 |-----|------|
 | **`.ai/context/NEXT.md`** | **Next batches** (agent/human checklist) |
 | **`.ai/context/CONTEXT.md`** | Stable technical context |
+| **`.cursorrules`** | **No Alembic**; **`sql/`** workflow |
 | **`.ai/plans/proposal/preliminary.md`** | Short product brief |
 | **`.ai/plans/proposal/20260515-full-project.md`** | Full MVP / north-star plan |
+| **`sql/`** | Declarative schema + seeds |
 | **`api/README.md`**, **`http://localhost:8300/docs`** | API |
 
 ---

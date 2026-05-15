@@ -20,6 +20,11 @@ class Settings(BaseSettings):
         "postgresql+asyncpg://prj:prj_dev_change_me@postgresql:5432/tools_project"
     )
 
+    #: Empty string → repo `sql/` (host dev) else `/sql` if mounted in Docker via compose.
+    sql_schema_dir: str = ""
+    #: When False, skips `sql/*.sql` on startup (e.g. tests); tables must exist.
+    sql_schema_apply: bool = True
+
     jwt_secret: str = "change_me_generate_a_long_random_secret"
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 480  # 8h — adjust per policy

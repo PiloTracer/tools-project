@@ -27,10 +27,18 @@ Reference integration patterns: **`/mnt/work/Projects/tools-rizervox`** (Next OA
 | `.ai/plans/proposal/preliminary.md` | Product / UX brief |
 | `web/` | Next.js (`/login`, `/sign-in`, `/oauth/complete`, `/api/auth/local/login`, `/admin/users`) |
 | `api/` | FastAPI (`/v1/auth/*`, `/v1/admin/users`, `/healthz`, `/docs`) |
+| `sql/` | **Declarative schema** (`schema_changes.sql`, `schema_indexes.sql`, `schema_backfill.sql`, `schema_inserts.sql`) — executed from the API lifespan; Compose mounts this at **`/sql`** |
 | `docker-compose.yml` | `postgresql`, `api`, `web` (all `profiles: [dev]`) |
 | `.env` / `.env.example` | **`AUTH_*`**, **`JWT_SECRET`**, OAuth, bootstrap — **never commit** `.env` |
 
 **OAuth IdP (when `AUTH_OAUTH_ENABLED`):** `/mnt/data/Projects/EPIC/tools-dashboard` — register an OAuth client for integrated/hybrid deploys.
+
+## Database migrations (explicit non-goals)
+
+- **Do not use Alembic** anywhere in this repository (dependencies, tooling, CI, docs, or backlog).
+- **Schema evolution:** hand-maintain **`sql/schema_changes.sql`** (tables / `ADD COLUMN IF NOT EXISTS`), then **`sql/schema_indexes.sql`** (indexes, constraints); **`sql/schema_backfill.sql`** for idempotent row fixes; **`sql/schema_inserts.sql`** for seeds / configuration rows. The API applies these on startup (indexes after DDL; inserts after **`run_bootstrap`**).
+- **`./bin/start.sh`:** option **10** — drop public schema (**warning**); **11** — re-apply DDL only (`python -m app.cli_schema apply-ddl`).
+- Keep SQL layers and **`api/app/models`** in sync; there is **no ORM-generated migration**.
 
 ---
 
@@ -44,6 +52,7 @@ Reference integration patterns: **`/mnt/work/Projects/tools-rizervox`** (Next OA
 | Web shell | `docker compose run --rm web sh` |
 | API shell | `docker compose run --rm api sh` |
 | Web lint + production build | `docker compose run --rm --no-deps web sh -lc "npm ci --no-audit --no-fund && npm run check && npm run build"` |
+| Reapply DDL only (Compose) | `docker compose --profile dev run --rm api python -m app.cli_schema apply-ddl` |
 
 **`web` uses a named volume (`web_node_modules`)** so `node_modules` stays inside Docker.
 

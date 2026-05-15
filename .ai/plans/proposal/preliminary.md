@@ -40,7 +40,7 @@
 
 - **Authentication:** **Configurable** — **local** users (bcrypt + JWT + `/v1/admin/users`) for **standalone** deploys; **tools-dashboard OAuth** (PKCE) when **`AUTH_OAUTH_ENABLED=true`**. Hybrid supported. See **`AUTH_LOCAL_ENABLED`**, **`JWT_SECRET`**, **`BOOTSTRAP_ADMIN_*`** in `.env.example`.
 - **Fully Dockerized** local development; distinct **host ports** from other stacks on the same machine.
-- **Stack in repo:** **Next.js 16** (`web/`) + **FastAPI** + SQLAlchemy async + **PostgreSQL 16** (Compose). Alembic and GitHub integration are follow-on work; see `.ai/context/CONTEXT.md`.
+- **Stack in repo:** **Next.js 16** (`web/`) + **FastAPI** + SQLAlchemy async + **PostgreSQL 16** (Compose). **Schema:** declarative **`sql/`** scripts on startup (**no Alembic** — see `.cursorrules`). GitHub integration remains follow-on work; see `.ai/context/CONTEXT.md`.
 
 ## References
 
