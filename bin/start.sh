@@ -18,14 +18,51 @@ PROFILE="dev"
 # Must match the default in docker-compose.yml for ${COMPOSE_PROJECT_NAME:-…}
 DEFAULT_PROJECT_NAME="tools_project_dev"
 
+# Read KEY=value from a dotenv file without `source` (safe for values like `profile email`,
+# unquoted URLs, etc.). Splits on the first `=`. Returns via stdout; exit 1 if key missing.
+read_dotenv_value() {
+  local file="$1" key="$2" line k v
+  [[ -f "$file" ]] || return 1
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ "$line" =~ ^[[:space:]]*# ]] && continue
+    [[ -z "${line//[[:space:]]/}" ]] && continue
+    [[ "$line" != *"="* ]] && continue
+    k="${line%%=*}"
+    v="${line#*=}"
+    k="${k#"${k%%[![:space:]]*}"}"
+    k="${k%"${k##*[![:space:]]}"}"
+    v="${v#"${v%%[![:space:]]*}"}"
+    v="${v%"${v##*[![:space:]]}"}"
+    if [[ "$k" != "$key" ]]; then
+      continue
+    fi
+    if [[ "$v" == \"*\" ]]; then
+      v="${v#\"}"
+      v="${v%\"}"
+    elif [[ "$v" == \'*\' ]]; then
+      v="${v#\'}"
+      v="${v%\'}"
+    fi
+    printf '%s' "$v"
+    return 0
+  done <"$file"
+  return 1
+}
+
 load_env() {
-  if [[ -f "$REPO_ROOT/.env" ]]; then
-    set -a
-    # shellcheck disable=SC1091
-    source "$REPO_ROOT/.env"
-    set +a
+  local envf="$REPO_ROOT/.env"
+  COMPOSE_PROJECT_NAME="$DEFAULT_PROJECT_NAME"
+  PUBLIC_HOST="${PUBLIC_HOST:-localhost}"
+  WEB_DEV_HOST_PORT="${WEB_DEV_HOST_PORT:-18513}"
+  API_HOST_PORT="${API_HOST_PORT:-8300}"
+  if [[ -f "$envf" ]]; then
+    local v
+    v="$(read_dotenv_value "$envf" COMPOSE_PROJECT_NAME)" && COMPOSE_PROJECT_NAME="$v"
+    v="$(read_dotenv_value "$envf" PUBLIC_HOST)" && PUBLIC_HOST="$v"
+    v="$(read_dotenv_value "$envf" WEB_DEV_HOST_PORT)" && WEB_DEV_HOST_PORT="$v"
+    v="$(read_dotenv_value "$envf" API_HOST_PORT)" && API_HOST_PORT="$v"
   fi
-  export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-$DEFAULT_PROJECT_NAME}"
+  export COMPOSE_PROJECT_NAME PUBLIC_HOST WEB_DEV_HOST_PORT API_HOST_PORT
 }
 
 require_compose_file() {
@@ -58,9 +95,9 @@ print_banner() {
 }
 
 urls_hint() {
-  local host="${PUBLIC_HOST:-localhost}"
-  local web="${WEB_DEV_HOST_PORT:-18513}"
-  local api="${API_HOST_PORT:-8300}"
+  local host="$PUBLIC_HOST"
+  local web="$WEB_DEV_HOST_PORT"
+  local api="$API_HOST_PORT"
   printf 'URLs (from env / defaults):\n'
   printf '  Web   http://%s:%s\n' "$host" "$web"
   printf '  API   http://%s:%s/healthz\n' "$host" "$api"
@@ -165,7 +202,7 @@ main() {
   if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
     print_banner
     printf '%s [command]\n' "${0##*/}"
-    printf '  With no args, runs interactively.\n'
+    printf '  With no args (or `dev`), runs interactively.\n'
     printf '  Non-interactive: start-fg | start | stop | restart | status | logs | build | nuke | urls\n'
     exit 0
   fi
@@ -180,7 +217,8 @@ main() {
     build)    cmd_build_only ;;
     nuke)     cmd_nuke ;;
     urls)     urls_hint ;;
-    "")
+    dev|"")
+      # `dev` is a no-op word (profile is always dev); includes `./bin/start.sh dev`.
       while true; do
         show_menu
         read -r -p 'Choose [0-9]: ' choice || true
