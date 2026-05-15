@@ -14,7 +14,9 @@
 | **Integrated** | `AUTH_LOCAL_ENABLED=false`, `AUTH_OAUTH_ENABLED=true` | **tools-dashboard** OAuth 2.0 + PKCE (same family as **`/mnt/work/Projects/tools-rizervox`**). |
 | **Hybrid** | both `true` | **`/login`** offers SSO and/or local sign-in per **`GET /v1/auth/config`**. |
 
-Product / UX source of truth: **`.ai/plans/proposal/preliminary.md`**.
+Product / UX source of truth: **`.ai/plans/proposal/preliminary.md`**.  
+**Prioritized implementation backlog:** **`.ai/context/NEXT.md`**. Full MVP spec: **`.ai/plans/proposal/20260515-full-project.md`**.  
+Rolling session snapshot: **`.ai/context/HANDOFF.md`**.
 
 ## Tech stack
 
@@ -100,12 +102,12 @@ docker compose --profile dev up --build
 docker compose run --rm --no-deps web sh -lc "npm ci --no-audit --no-fund && npm run check && npm run build"
 ```
 
-## Domain model (north star — not all persisted yet)
+## Domain model (north star — persistence is partial)
 
-- **Project**, **Component**, **Task / TODO**, **Support ticket**, **Activity**, **GitHub** linkage — schema/API still to grow beyond **`users`** and project stubs.
+- **`users`** + **`projects`** (owner-scoped; no **`ProjectMember`** yet) are persisted. **Component**, **Task / TODO**, **Support ticket**, **Activity**, **GitHub** — still to build (see **`NEXT.md`**).
 
 ## Security
 
 - No secrets in git; use **`.env`** / platform secrets in deployment.
 - **Production:** strong **`JWT_SECRET`**, rotate bootstrap passwords, tighten CORS and cookie **`secure`** flags behind HTTPS.
-- **`/v1/admin/users`** and **`/v1/auth/me`** (as wired) expect **local** JWTs. **Dashboard** access tokens in the same cookie are **not** validated as local JWTs until JWKS/introspection unifies Bearer handling.
+- **`/v1/admin/users`** expects a **local** superuser JWT (`get_current_user_local`). **`/v1/auth/me`** and **project** routes use **`get_current_user`**: local JWT **or** OAuth access token resolved via **`OAUTH_USER_INFO_ENDPOINT`** (upserts **`users`**). JWKS-based validation is optional future hardening.

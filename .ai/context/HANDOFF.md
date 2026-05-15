@@ -1,37 +1,61 @@
 # Session handoff — tools-project
 
-**Date:** 2026-05-15
+**Date:** 2026-05-15 (updated)
+
+## Start here (new session)
+
+1. Read **`.ai/context/CONTEXT.md`** — ports, auth modes, repo map.  
+2. Read **`.ai/context/NEXT.md`** — **prioritized next batches** (Alembic → project RBAC → components → tasks → admin).  
+3. Full product / MVP scope: **`.ai/plans/proposal/20260515-full-project.md`**.  
+4. **Docker-only** tooling for Node/Python (see **`.cursorrules`**).
+
+---
 
 ## Snapshot
 
 | Area | Status |
 |------|--------|
-| **Auth** | **Dual mode:** `AUTH_LOCAL_ENABLED` + `AUTH_OAUTH_ENABLED` (defaults **both true** in compose for dev). **`GET /v1/auth/config`** drives **`/login`**. |
-| **Local** | bcrypt (`bcrypt`), JWT (`python-jose`, `token_typ: local`), **`POST /v1/auth/local/login`**, **`GET /v1/auth/me`**, **`/v1/admin/users`** (list/create/patch, superuser). |
-| **OAuth** | **`/sign-in`** → PKCE → **`/oauth/complete`** → cookies; disabled when **`AUTH_OAUTH_ENABLED=false`**. |
-| **Web** | **`/api/auth/local/login`**, **`/api/auth/logout`**; **`/admin/users`** (read-only table, local superuser session). |
-| **DB** | PostgreSQL + **`users`** via SQLAlchemy **`create_all`** on API startup — **no Alembic yet**. |
-| **Bootstrap** | Optional **`BOOTSTRAP_ADMIN_*`** if DB is empty; dev default email **`admin@example.com`** (not `admin@localhost` — **`EmailStr`**). |
+| **Auth** | **Dual mode:** `AUTH_LOCAL_ENABLED` + `AUTH_OAUTH_ENABLED`. **`GET /v1/auth/config`** drives **`/login`**. |
+| **Local** | bcrypt + JWT (`token_typ: local`), **`POST /v1/auth/local/login`**, **`/v1/admin/users`** (API CRUD; **web table only**, no forms yet). |
+| **OAuth** | **`/sign-in`** → PKCE → **`/oauth/complete`** → **`prj_auth`** cookie. |
+| **`/v1/auth/me`** | **`get_current_user`**: local JWT **or** (if OAuth on) **Bearer → `OAUTH_USER_INFO_ENDPOINT` → upsert `users` row** — not JWKS yet. |
+| **Web** | **`AppShell`** (nav + user chip + sign out); **home** dashboard; **`/projects`**, **`/projects/new`**, **`/projects/[id]`**; **`POST /api/projects`** proxy; login redirects to **`/projects`**. |
+| **Domain** | **`projects`** table + **`GET/POST /v1/projects`**, **`GET /v1/projects/{id}`** — scoped to **`owner_id`** (no **`ProjectMember`** yet). |
+| **DB** | PostgreSQL + SQLAlchemy **`create_all`** on API startup — **no Alembic yet**. |
+| **Bootstrap** | Optional **`BOOTSTRAP_ADMIN_*`** if DB empty; dev default **`admin@example.com`**. |
+
+---
 
 ## Verified recently
 
-- **`docker compose --profile dev up --build`**: API **`/healthz`**, **`/v1/auth/config`**, local login with bootstrap user, **`next build`** + eslint clean (see session logs).
+- **`docker compose run web`**: `npm run check` + **`npm run build`** clean.  
+- **`docker compose`**: API imports with **`httpx`** (declared in **`api/pyproject.toml`**); rebuild API image after dependency changes.
 
-## Recommended next work (priority)
+---
 
-1. **Unified Bearer auth on the API** — Accept **dashboard** OAuth JWTs (JWKS / introspection) on the same routes as **local** JWTs so hybrid users and SSO-only tokens work consistently.
-2. **Alembic** — Replace **`create_all`** for production; version **`users`** and future PMS tables.
-3. **Admin UX** — Forms on **`/admin/users`** for create/update user (today: OpenAPI + table + **`PATCH`**).
-4. **Domain** — First real **`/v1/projects`** (or equivalent) with auth dependency and DB models.
+## Recommended next work
+
+**Detailed tasks and acceptance criteria:** **`.ai/context/NEXT.md`**.
+
+Summary: **Alembic** → **`ProjectMember` + RBAC** → **components** → **tasks (table UI)** → **admin user forms**; then Phase 2 (**activity**, **tickets**, **`/today`**).
+
+Legacy note: older items “unified Bearer via JWKS” and “first `/v1/projects`” are **superseded** by current **userinfo upsert** + existing **projects** router; JWKS remains optional hardening.
+
+---
 
 ## Where to read more
 
-- **Stable layout & env:** **`.ai/context/CONTEXT.md`** (this file is the rolling “what’s next”).
-- **Product:** **`.ai/plans/proposal/preliminary.md`**
-- **Rough delivery phases:** **`.ai/plans/estimate/plan.md`**
-- **API surface:** **`api/README.md`**, **`http://localhost:8300/docs`** (when stack is up)
+| Doc | Role |
+|-----|------|
+| **`.ai/context/NEXT.md`** | **Next batches** (agent/human checklist) |
+| **`.ai/context/CONTEXT.md`** | Stable technical context |
+| **`.ai/plans/proposal/preliminary.md`** | Short product brief |
+| **`.ai/plans/proposal/20260515-full-project.md`** | Full MVP / north-star plan |
+| **`api/README.md`**, **`http://localhost:8300/docs`** | API |
+
+---
 
 ## Agent notes
 
-- **Docker-first:** all npm/Python via Compose (see **`.cursorrules`**).
-- **Scratch / informal notes:** **`.ai/plans/proposal/notas`** — not authoritative unless the user says so.
+- **Do not commit** `.env` or `credentials/`.  
+- **Scratch notes:** **`.ai/plans/proposal/notas`** — not authoritative unless the user says so.
