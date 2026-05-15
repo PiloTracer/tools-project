@@ -1,0 +1,31 @@
+# Dependencies
+**/node_modules/
+
+# Next.js
+**/.next/
+**/out/
+
+# Python
+**/__pycache__/
+**/*.py[cod]
+.venv/
+**/dist/
+**/*.egg-info/
+
+# Secrets & local env (never commit)
+.env
+.env.*
+!.env.example
+**/credentials/
+
+# Scratch / temp trees
+**/tmp/
+
+# Logs & OS cruft
+*.log
+.DS_Store
+Thumbs.db
+
+# Tooling / coverage (if added later)
+coverage/
+.nyc_output/
