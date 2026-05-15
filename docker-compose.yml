@@ -112,5 +112,9 @@ services:
         condition: service_healthy
 
 volumes:
+  # Explicit Docker volume names include COMPOSE_PROJECT_NAME so clones/sandboxes stay isolated
+  # when COMPOSE_PROJECT_NAME is unique (see .env.example / bin/start.sh).
   web_node_modules:
+    name: ${COMPOSE_PROJECT_NAME:-tools_project_dev}_web_node_modules
   tpr_pg_data:
+    name: ${COMPOSE_PROJECT_NAME:-tools_project_dev}_tpr_pg_data
