@@ -6,6 +6,8 @@
 # - Every action runs `docker compose` with a fixed compose file, fixed project directory,
 #   profile `dev`, and explicit `--project-name` (default / from .env: COMPOSE_PROJECT_NAME).
 # - No global `docker stop`, `docker kill`, prune, or container ID wildcards.
+# - Interactive menu (`dev` / no args): `START_SH_MENU=1` streams compose up/down/run to the TTY
+#   and pauses for a keypress after each compose step (CLI subcommands keep non-interactive behavior).
 #
 # Usage: from anywhere —  ./bin/start.sh   or   /path/to/tools-project/bin/start.sh
 
@@ -118,6 +120,25 @@ runs_menu_quiet() {
   [[ "${MENU_QUIET:-0}" == "1" ]]
 }
 
+# Interactive menu (./bin/start.sh dev): always stream compose pull/build/up/down to the TTY
+# so Docker shows progress lines ([+] down n/m, ✔ Removed, …). CLI invocations honor MENU_QUIET.
+stream_compose_ops() {
+  [[ "${START_SH_MENU:-0}" == "1" ]] && return 0
+  ! runs_menu_quiet
+}
+
+# After compose start/stop output, let the user read the transcript before the script continues.
+wait_ack_if_menu() {
+  [[ "${START_SH_MENU:-0}" == "1" ]] || return 0
+  printf '\n' >&2
+  if [[ -r /dev/tty ]] && [[ -w /dev/tty ]]; then
+    read -r -n1 -s -p 'Press any key to continue… ' < /dev/tty || true
+  else
+    read -r -n1 -s -p 'Press any key to continue… ' || true
+  fi
+  printf '\n\n' >&2
+}
+
 print_banner() {
   printf '\n'
   printf '=== tools-project (siloed Docker Compose stack) ===\n'
@@ -164,9 +185,15 @@ cmd_start_attached() {
     printf '`start-fg`: detached compose up --build -d, then log follow.\n'
     printf 'Ctrl+C stops only the log viewer; containers stay up.\n\n'
     _compose_invoke up --build -d || return 1
+    if stream_compose_ops; then
+      wait_ack_if_menu
+    fi
     dc ps
     printf '\n'
     urls_hint
+    if stream_compose_ops; then
+      wait_ack_if_menu
+    fi
   fi
   printf '\n----- compose logs (follow) ----------------------------\n\n'
   _dc_loud logs -f --tail=200 || true
@@ -177,10 +204,13 @@ cmd_start_attached() {
 cmd_start_detached() {
   validate_config
   printf 'Building / starting stack in detached mode…\n'
-  if runs_menu_quiet; then
-    quiet_dc up --build --quiet-pull -d
+  if stream_compose_ops; then
+    dc up --build -d || return 1
+    wait_ack_if_menu
+  elif runs_menu_quiet; then
+    quiet_dc up --build --quiet-pull -d || return 1
   else
-    dc up --build -d
+    dc up --build -d || return 1
   fi
   if runs_menu_quiet; then
     dc ps --format 'table {{.Name}}\t{{.Status}}\t{{.Ports}}'
@@ -189,32 +219,47 @@ cmd_start_detached() {
   fi
   printf '\nStack is up in the background.\n'
   urls_hint
+  if stream_compose_ops; then
+    wait_ack_if_menu
+  fi
 }
 
 cmd_stop() {
   validate_config
   printf 'Stopping stack (containers + project network; named volumes kept)…\n'
-  if runs_menu_quiet; then
-    quiet_dc down
+  if stream_compose_ops; then
+    dc down || return 1
+    wait_ack_if_menu
+  elif runs_menu_quiet; then
+    quiet_dc down || return 1
   else
-    dc down
+    dc down || return 1
   fi
   printf 'Done.\n\n'
 }
 
 cmd_restart() {
   validate_config
-  if runs_menu_quiet; then
-    quiet_dc down
-    quiet_dc up --build --quiet-pull -d
+  if stream_compose_ops; then
+    dc down || return 1
+    wait_ack_if_menu
+    dc up --build -d || return 1
+    wait_ack_if_menu
+    dc ps
+  elif runs_menu_quiet; then
+    quiet_dc down || return 1
+    quiet_dc up --build --quiet-pull -d || return 1
     dc ps --format 'table {{.Name}}\t{{.Status}}\t{{.Ports}}'
   else
-    dc down
-    dc up --build -d
+    dc down || return 1
+    dc up --build -d || return 1
     dc ps
   fi
   printf '\nRestart complete.\n'
   urls_hint
+  if stream_compose_ops; then
+    wait_ack_if_menu
+  fi
 }
 
 cmd_status() {
@@ -256,12 +301,18 @@ cmd_nuke() {
     printf 'Aborted.\n'
     return 0
   fi
-  if runs_menu_quiet; then
-    quiet_dc down -v --remove-orphans
+  if stream_compose_ops; then
+    dc down -v --remove-orphans || return 1
+    wait_ack_if_menu
+  elif runs_menu_quiet; then
+    quiet_dc down -v --remove-orphans || return 1
   else
-    dc down -v --remove-orphans
+    dc down -v --remove-orphans || return 1
   fi
   printf 'Done. Stack and its named volumes for this project are removed.\n\n'
+  if stream_compose_ops; then
+    wait_ack_if_menu
+  fi
 }
 
 cmd_wait_postgres() {
@@ -295,10 +346,13 @@ cmd_drop_tables() {
     return 0
   fi
   printf 'Ensuring Postgres is running…\n'
-  if runs_menu_quiet; then
-    quiet_dc up -d postgresql
+  if stream_compose_ops; then
+    dc up -d postgresql || return 1
+    wait_ack_if_menu
+  elif runs_menu_quiet; then
+    quiet_dc up -d postgresql || return 1
   else
-    dc up -d postgresql
+    dc up -d postgresql || return 1
   fi
   cmd_wait_postgres || return 1
   printf 'Executing DROP SCHEMA public CASCADE…\n'
@@ -328,21 +382,30 @@ GRANT ALL ON SCHEMA public TO public;
 EOSQL
   fi
   printf 'Done. Run option 11 (apply sql + bootstrap + seeds) or start the API (option 2) to repopulate.\n\n'
+  if stream_compose_ops; then
+    wait_ack_if_menu
+  fi
 }
 
 cmd_rebuild_schema() {
   validate_config
   printf 'Applying sql/schema_*.sql + bootstrap + seeds (same phases as API startup)…\n'
-  if runs_menu_quiet; then
-    quiet_dc up -d postgresql
+  if stream_compose_ops; then
+    dc up -d postgresql || return 1
+    wait_ack_if_menu
+  elif runs_menu_quiet; then
+    quiet_dc up -d postgresql || return 1
   else
-    dc up -d postgresql
+    dc up -d postgresql || return 1
   fi
   cmd_wait_postgres || return 1
-  if runs_menu_quiet; then
-    quiet_dc run --rm api python -m app.cli_schema apply-ddl
+  if stream_compose_ops; then
+    dc run --rm api python -m app.cli_schema apply-ddl || return 1
+    wait_ack_if_menu
+  elif runs_menu_quiet; then
+    quiet_dc run --rm api python -m app.cli_schema apply-ddl || return 1
   else
-    dc run --rm api python -m app.cli_schema apply-ddl
+    dc run --rm api python -m app.cli_schema apply-ddl || return 1
   fi
   printf 'Schema rebuild finished (DDL → bootstrap → backfill/inserts).\n\n'
 }
@@ -392,7 +455,8 @@ main() {
     rebuild-schema) cmd_rebuild_schema ;;
     urls)          urls_hint ;;
     dev|"")
-      # Stream compose up/down/build progress to the terminal (see quiet_dc + MENU_QUIET if you need silence).
+      # Interactive menu: stream compose up/down/run progress (TTY) and pause after each step.
+      START_SH_MENU=1
       MENU_QUIET=0
       while true; do
         show_menu
