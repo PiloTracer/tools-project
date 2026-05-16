@@ -21,9 +21,16 @@ class Attachment(Base):
         ForeignKey("projects.id", ondelete="CASCADE"),
         index=True,
     )
-    ticket_id: Mapped[uuid.UUID] = mapped_column(
+    ticket_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("tickets.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
+    task_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("tasks.id", ondelete="CASCADE"),
+        nullable=True,
         index=True,
     )
     activity_id: Mapped[uuid.UUID | None] = mapped_column(

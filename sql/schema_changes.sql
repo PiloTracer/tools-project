@@ -151,3 +151,26 @@ CREATE TABLE IF NOT EXISTS attachments (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     CONSTRAINT ck_attachments_size_bytes CHECK (size_bytes > 0 AND size_bytes <= 26214400)
 );
+
+-- Task + inbox + project-level attachments; watchers (Batch G/H parity).
+ALTER TABLE attachments ALTER COLUMN ticket_id DROP NOT NULL;
+ALTER TABLE attachments ADD COLUMN IF NOT EXISTS task_id UUID REFERENCES tasks (id) ON DELETE CASCADE;
+
+CREATE TABLE IF NOT EXISTS inbox_items (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    owner_id UUID NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    body_md TEXT NOT NULL,
+    meta_json JSONB,
+    triaged_to_type VARCHAR(20),
+    triaged_to_id UUID,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS watchers (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    subject_type VARCHAR(40) NOT NULL,
+    subject_id UUID NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);

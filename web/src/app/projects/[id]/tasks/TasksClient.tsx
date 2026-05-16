@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { KanbanBoard } from "@/components/KanbanBoard";
 
 export type TaskRow = {
   id: string;
@@ -259,6 +260,57 @@ export function TaskTable({
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+export function TasksView({
+  tasks,
+  canEdit,
+}: {
+  tasks: TaskRow[];
+  canEdit: boolean;
+}) {
+  const router = useRouter();
+  const [view, setView] = useState<"board" | "table">("board");
+
+  async function onStatusChange(taskId: string, newStatus: string) {
+    await fetch(`/api/tasks/${taskId}/transition`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: newStatus }),
+    });
+    router.refresh();
+  }
+
+  return (
+    <div className="stack" style={{ gap: "0.75rem" }}>
+      <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+        <span className="text-sm muted">View:</span>
+        <button
+          type="button"
+          className={`btn ${view === "board" ? "btn-primary" : "btn-ghost"} text-sm`}
+          onClick={() => setView("board")}
+        >
+          Board
+        </button>
+        <button
+          type="button"
+          className={`btn ${view === "table" ? "btn-primary" : "btn-ghost"} text-sm`}
+          onClick={() => setView("table")}
+        >
+          Table
+        </button>
+      </div>
+      {view === "board" ? (
+        <KanbanBoard
+          tasks={tasks}
+          canEdit={canEdit}
+          onStatusChange={onStatusChange}
+        />
+      ) : (
+        <TaskTable tasks={tasks} canEdit={canEdit} />
+      )}
     </div>
   );
 }

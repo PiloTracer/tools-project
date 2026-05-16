@@ -47,4 +47,11 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_project_counters_project_type ON project_co
 CREATE UNIQUE INDEX IF NOT EXISTS uq_attachments_storage_key ON attachments (storage_key);
 CREATE INDEX IF NOT EXISTS ix_attachments_project_id ON attachments (project_id);
 CREATE INDEX IF NOT EXISTS ix_attachments_ticket_id ON attachments (ticket_id);
+CREATE INDEX IF NOT EXISTS ix_attachments_task_id ON attachments (task_id);
 CREATE INDEX IF NOT EXISTS ix_attachments_activity_id ON attachments (activity_id);
+
+CREATE INDEX IF NOT EXISTS ix_inbox_items_owner_id ON inbox_items (owner_id);
+CREATE INDEX IF NOT EXISTS ix_inbox_items_created_at ON inbox_items (created_at);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_watchers_user_subject ON watchers (user_id, subject_type, subject_id);
+CREATE INDEX IF NOT EXISTS ix_watchers_user_id ON watchers (user_id);

@@ -103,8 +103,15 @@ class ProjectOut(BaseModel):
     created_at: datetime
     updated_at: datetime
     membership_role: str | None = None
+    health: "ProjectHealth | None" = None
 
     model_config = {"from_attributes": True}
+
+
+class ProjectHealth(BaseModel):
+    open_tasks: int = 0
+    open_tickets: int = 0
+    oldest_open_ticket_days: int | None = None
 
 
 class ProjectListResponse(BaseModel):
@@ -263,7 +270,8 @@ class ActivityListResponse(BaseModel):
 class AttachmentOut(BaseModel):
     id: uuid.UUID
     project_id: uuid.UUID
-    ticket_id: uuid.UUID
+    ticket_id: uuid.UUID | None = None
+    task_id: uuid.UUID | None = None
     activity_id: uuid.UUID | None = None
     filename: str
     mime: str
@@ -320,6 +328,11 @@ class TicketOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class TodayTicketBundle(BaseModel):
+    ticket: TicketOut
+    project_name: str
+
+
 class TicketListResponse(BaseModel):
     items: list[TicketOut]
 
@@ -344,3 +357,57 @@ class TodayTaskBundle(BaseModel):
 
 class TodayResponse(BaseModel):
     items: list[TodayTaskBundle]
+    watched_tickets: list[TodayTicketBundle] = Field(default_factory=list)
+
+
+class WatchCreate(BaseModel):
+    subject_type: str = Field(pattern=r"^(project|task|ticket)$")
+    subject_id: uuid.UUID
+
+
+class WatchDelete(BaseModel):
+    subject_type: str = Field(pattern=r"^(project|task|ticket)$")
+    subject_id: uuid.UUID
+
+
+class WatchOut(BaseModel):
+    id: uuid.UUID
+    user_id: uuid.UUID
+    subject_type: str
+    subject_id: uuid.UUID
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class WatchListResponse(BaseModel):
+    items: list[WatchOut]
+
+
+class InboxCreate(BaseModel):
+    body_md: str = Field(min_length=1, max_length=8000)
+
+
+class InboxTriage(BaseModel):
+    into: str = Field(pattern=r"^(task|ticket)$")
+    project_id: uuid.UUID
+    component_id: uuid.UUID | None = None
+    priority: str = Field(default="normal", max_length=20)
+    assignee_id: uuid.UUID | None = None
+
+
+class InboxOut(BaseModel):
+    id: uuid.UUID
+    owner_id: uuid.UUID
+    body_md: str
+    meta_json: dict | None = None
+    triaged_to_type: str | None = None
+    triaged_to_id: uuid.UUID | None = None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class InboxListResponse(BaseModel):
+    items: list[InboxOut]

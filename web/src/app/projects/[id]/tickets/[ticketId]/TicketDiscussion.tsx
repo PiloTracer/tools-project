@@ -68,6 +68,34 @@ export function TicketDiscussion({
   const [isInternal, setIsInternal] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [replyToId, setReplyToId] = useState<string | null>(null);
+
+  function buildThreaded(): ActivityItem[] {
+    const top: ActivityItem[] = [];
+    const replies: Record<string, ActivityItem[]> = {};
+    for (const a of initialItems) {
+      if (a.parent_activity_id) {
+        if (!replies[a.parent_activity_id]) replies[a.parent_activity_id] = [];
+        replies[a.parent_activity_id].push(a);
+      } else {
+        top.push(a);
+      }
+    }
+    return top;
+  }
+
+  function getReplies(parentId: string): ActivityItem[] {
+    const map: Record<string, ActivityItem[]> = {};
+    for (const a of initialItems) {
+      if (a.parent_activity_id) {
+        if (!map[a.parent_activity_id]) map[a.parent_activity_id] = [];
+        map[a.parent_activity_id].push(a);
+      }
+    }
+    return (map[parentId] || []).sort(
+      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+    );
+  }
 
   async function uploadPending(): Promise<string[]> {
     const ids: string[] = [];
@@ -109,6 +137,9 @@ export function TicketDiscussion({
         body: caption || (uploadedIds.length ? "(image)" : ""),
         is_internal: isInternal,
       };
+      if (replyToId) {
+        payload.parent_activity_id = replyToId;
+      }
       if (uploadedIds.length) {
         payload.meta_json = { attachment_ids: uploadedIds };
       }
@@ -130,6 +161,7 @@ export function TicketDiscussion({
       }
       setBody("");
       setIsInternal(false);
+      setReplyToId(null);
       clear();
       router.refresh();
     } catch (err) {
@@ -147,50 +179,99 @@ export function TicketDiscussion({
         <p className="muted text-sm">No comments yet.</p>
       ) : (
         <ul className="stack" style={{ listStyle: "none", margin: 0, padding: 0, gap: "0.75rem" }}>
-          {initialItems.map((a) => {
+          {buildThreaded().map((a) => {
             const ids = attachmentIds(a.meta_json);
             const internal = a.is_internal === true;
+            const childReplies = getReplies(a.id);
             return (
-              <li
-                key={a.id}
-                className="card"
-                style={{
-                  padding: "0.65rem 0.85rem",
-                  background: internal ? "var(--surface-warn, #fff8e1)" : undefined,
-                  borderColor: internal ? "var(--border-warn, #f0c36d)" : undefined,
-                }}
-              >
-                <div className="muted text-sm" style={{ marginBottom: "0.35rem", display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
-                  <span>
-                    {(a.actor_email ?? "user") + " · " + new Date(a.created_at).toLocaleString()}
-                  </span>
-                  {internal ? (
-                    <span
-                      className="pill"
-                      title="Internal note — not customer-visible"
-                      style={{ background: "var(--accent-warn, #c98300)", color: "var(--on-accent, #fff)" }}
-                    >
-                      Internal
+              <li key={a.id}>
+                <div
+                  className="card"
+                  style={{
+                    padding: "0.65rem 0.85rem",
+                    background: internal ? "var(--surface-warn, #fff8e1)" : undefined,
+                    borderColor: internal ? "var(--border-warn, #f0c36d)" : undefined,
+                  }}
+                >
+                  <div className="muted text-sm" style={{ marginBottom: "0.35rem", display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
+                    <span>
+                      {(a.actor_email ?? "user") + " · " + new Date(a.created_at).toLocaleString()}
                     </span>
-                  ) : (
-                    <span className="pill pill-muted" title="Customer-visible (external) note">
-                      External
-                    </span>
-                  )}
-                </div>
-                {a.body !== "(image)" ? <div style={{ whiteSpace: "pre-wrap" }}>{a.body}</div> : null}
-                {ids.length > 0 ? (
-                  <div className="stack" style={{ gap: "0.5rem", marginTop: a.body !== "(image)" ? "0.5rem" : 0 }}>
-                    {ids.map((id) => (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        key={id}
-                        src={`/api/attachments/${id}`}
-                        alt=""
-                        style={{ maxWidth: "min(100%, 720px)", height: "auto", borderRadius: 8 }}
-                      />
-                    ))}
+                    {internal ? (
+                      <span
+                        className="pill"
+                        title="Internal note — not customer-visible"
+                        style={{ background: "var(--accent-warn, #c98300)", color: "var(--on-accent, #fff)" }}
+                      >
+                        Internal
+                      </span>
+                    ) : (
+                      <span className="pill pill-muted" title="Customer-visible (external) note">
+                        External
+                      </span>
+                    )}
                   </div>
+                  {a.body !== "(image)" ? <div style={{ whiteSpace: "pre-wrap" }}>{a.body}</div> : null}
+                  {ids.length > 0 ? (
+                    <div className="stack" style={{ gap: "0.5rem", marginTop: a.body !== "(image)" ? "0.5rem" : 0 }}>
+                      {ids.map((id) => (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          key={id}
+                          src={`/api/attachments/${id}`}
+                          alt=""
+                          style={{ maxWidth: "min(100%, 720px)", height: "auto", borderRadius: 8 }}
+                        />
+                      ))}
+                    </div>
+                  ) : null}
+                  {canEdit ? (
+                    <button
+                      type="button"
+                      className="btn btn-ghost text-sm"
+                      style={{ marginTop: "0.4rem", padding: "0.15rem 0.5rem" }}
+                      onClick={() => setReplyToId(replyToId === a.id ? null : a.id)}
+                    >
+                      {replyToId === a.id ? "Cancel reply" : "Reply"}
+                    </button>
+                  ) : null}
+                </div>
+                {childReplies.length > 0 ? (
+                  <ul className="stack" style={{ listStyle: "none", padding: 0, margin: "0.5rem 0 0 1.5rem", gap: "0.5rem", borderLeft: "2px solid var(--border)", paddingLeft: "0.75rem" }}>
+                    {childReplies.map((cr) => {
+                      const cids = attachmentIds(cr.meta_json);
+                      const cinternal = cr.is_internal === true;
+                      return (
+                        <li key={cr.id}>
+                          <div
+                            className="card"
+                            style={{
+                              padding: "0.55rem 0.75rem",
+                              background: cinternal ? "var(--surface-warn, #fff8e1)" : undefined,
+                              borderColor: cinternal ? "var(--border-warn, #f0c36d)" : undefined,
+                            }}
+                          >
+                            <div className="muted text-sm" style={{ marginBottom: "0.25rem", display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+                              <span>{(cr.actor_email ?? "user") + " · " + new Date(cr.created_at).toLocaleString()}</span>
+                              {cinternal ? (
+                                <span className="pill" style={{ fontSize: "0.6rem", background: "var(--accent-warn, #c98300)", color: "#fff" }}>
+                                  Internal
+                                </span>
+                              ) : null}
+                            </div>
+                            {cr.body !== "(image)" ? <div style={{ whiteSpace: "pre-wrap" }}>{cr.body}</div> : null}
+                            {cids.length > 0 ? (
+                              <div className="stack" style={{ gap: "0.4rem", marginTop: "0.35rem" }}>
+                                {cids.map((id) => (
+                                  <img key={id} src={`/api/attachments/${id}`} alt="" style={{ maxWidth: "min(100%, 600px)", height: "auto", borderRadius: 6 }} />
+                                ))}
+                              </div>
+                            ) : null}
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
                 ) : null}
               </li>
             );
@@ -212,8 +293,16 @@ export function TicketDiscussion({
             addFiles(Array.from(e.dataTransfer.files));
           }}
         >
+          {replyToId ? (
+            <p className="text-sm muted" style={{ margin: 0 }}>
+              Replying to comment.{" "}
+              <button type="button" className="btn btn-ghost text-sm" onClick={() => setReplyToId(null)}>
+                Cancel
+              </button>
+            </p>
+          ) : null}
           <label className="stack" style={{ gap: "0.25rem" }}>
-            <span className="text-sm muted">Add comment</span>
+            <span className="text-sm muted">{replyToId ? "Reply" : "Add comment"}</span>
             <textarea
               className="input"
               rows={4}

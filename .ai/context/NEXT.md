@@ -6,53 +6,51 @@
 
 **Schema:** declarative **`sql/`** only — no Alembic. On API startup: `schema_changes.sql` → `schema_indexes.sql` → bootstrap → `schema_backfill.sql` → `schema_inserts.sql`.
 
-**Latest (repo):** Batches **A–F** delivered (projects, members, components, tasks table + transitions, admin users, activity + mentions + tickets + **`/today`**). **Extended:** ticket **case** page (`/projects/[id]/tickets/[ticketId]`), queue triage ordering, **attachments** (`attachments` table, ticket image upload, activity `meta_json.attachment_ids`, BFF **`/api/attachments/[id]`**), Compose volume **`tpr_attachments`**. **2026-05-15:** **P1** (`activities.is_internal` end-to-end + ticket UI toggle / chip) and **P3** (ticket-queue stale badge `>7d` / `>14d`) closed; web `npm run check` + `npm run build` and API `compileall` green. Batch **A** stays ongoing whenever models change.
+**Latest (repo):** **2026-05-16** — Phase **1** parity items (**Batch G**) and most **carryover P2–P5** + **Batch H** core are implemented in working tree (see **Implementation status** below). **`sql/`** updated: **`inbox_items`**, **`watchers`**, **`attachments.task_id`**, nullable **`attachments.ticket_id`**. Batch **A** stays ongoing whenever models change.
 
 ---
 
-## Carryover priorities (close gaps from the ticket / activity slice)
+## Implementation status (verified 2026-05-16)
 
-These items were explicitly deferred or only partially met vs plan §5.1 / §11.4 — **do first** when opening the next sprint so the slice does not rot.
+| ID | Scope | Status | Evidence / notes |
+|----|-------|--------|------------------|
+| **G1** | Kanban + drag-drop | **Done** | `web/src/components/KanbanBoard.tsx` (HTML5 DnD); `TasksView` in `TasksClient.tsx`; transition via `/api/tasks/[id]/transition`. |
+| **G2** | Task detail route | **Done** | `web/src/app/projects/[id]/tasks/[taskId]/page.tsx`. |
+| **G3** | Human refs in UX | **Done** | Task refs on **`/today`**; **`CmdkPalette`** search by title/ref; tasks table already had Ref column. |
+| **G4** | ⌘K command palette | **Done** | `web/src/components/CmdkPalette.tsx` + `AppShell.tsx`. |
+| **G5** | Project list health | **Done** | `GET /v1/projects` adds `ProjectHealth`; `web/src/app/projects/page.tsx` pills. |
+| **P2** | Threaded replies (1 level) | **Partial** | Ticket **`TicketDiscussion`**: Reply + threaded render; **`POST /v1/.../activities`** rejects nested parent. **Project `/activity`** reply UI still missing. |
+| **P4** | Task attachment parity | **Done** | `POST /v1/projects/{pid}/tasks/{tid}/attachments`; activity **`meta_json`** validation for `subject_type=task`. |
+| **P5** | Non-image uploads | **Partial** | **`api/app/services/file_sniff.py`**: pdf + plain text; **quota / retention** not implemented (doc/counter still open). |
+| **H1** | Inbox + triage | **Done** | **`/v1/inbox`**, **`POST .../triage`** → task or ticket; `web/src/app/inbox/`, BFF `web/src/app/api/inbox/`. |
+| **H2** | Watchers + Today | **Done** | **`watchers`** + **`POST/DELETE /v1/me/watch`**, **`GET /v1/me/watches`**; **`/v1/me/today`** includes **`watched_tickets`**; Today UI + `WatchButtons.tsx`. |
+| **H3** | Richer SSE payload | **Done** | `activities.activity_stream` emits `kind`, `subject_type`, `subject_id` (client may still only use `latest_activity_id`). |
+| **H4** | Markdown-ish editor | **Stub** | `web/src/components/MarkdownEditor.tsx` **not wired** into ticket/task composers. |
+| **H5** | Activity on task mutations | **Done** | `api/app/services/activity_writer.py`; **`tasks`** router calls **`write_activity`** on create, assignee change, status patch, transition. |
 
-| # | Item | Why |
-|---|------|-----|
-| ~~**P1**~~ | ~~`activities.is_internal` end-to-end~~ | **Done 2026-05-15.** SQL column + `ix_activities_subject_internal`, `Activity.is_internal`, `ActivityCreate.is_internal` (rejects on `subject_type=project`), `ActivityOut.is_internal`, list filter `?visibility=internal\|external`; ticket discussion form has “Internal note” toggle + colored card + chip; project activity feed shows the chip. |
-| **P2** | **Threaded replies** in UI: `parent_activity_id` already in API — expose “Reply” on ticket discussion + project **Activity** page; validate one-level depth per plan | §5.1 threaded replies (one level MVP). |
-| ~~**P3**~~ | ~~Ticket queue “stale” signal~~ | **Done 2026-05-15.** Client-side staleness on `TicketsClient`: `> 7 d` warn (○), `> 14 d` stale (●), terminal tickets exempt; queue header now has a legend. Per-project configurable threshold deferred. |
-| **P4** | **Task attachment parity** — same upload pattern for `subject_type=task` (or `POST .../tasks/{id}/attachments`) + activity linking | Avoid permanent ticket-only asymmetry; plan §4.1 Attachment allows task_id. |
-| **P5** | **Non-image uploads** (pdf, txt) + stricter **quota / retention** hook (counter or doc only) | Plan §8.4 caps; §12 risk. |
+**Earlier (2026-05-15, unchanged):** **P1** `activities.is_internal` end-to-end + ticket UI; **P3** ticket queue stale-age badges + legend.
+
+### Open / follow-up (next sprint)
+
+| # | Item |
+|---|------|
+| **P2** | **Reply** on **project** `/activity` (mirror ticket UX). |
+| **H4** | Wire **`MarkdownEditor`** + incremental `#` / `@` helpers. |
+| **P5** | Retention / size **quota** (counter or ops doc). |
+| **H1** | Optional global **`c`** quick-capture shortcut. |
+| **Batch I** | GitHub integration — gate until G+H stable. |
 
 ---
 
-## Batch G — Phase 1 plan parity (domain core “done”)
+## Batch G — Phase 1 (reference)
 
-Aligned with **20260515-full-project.md §10 Phase 1** (Kanban + table, refs, keyboard shortcuts where feasible).
-
-| # | Item | Why | Hints |
-|---|------|-----|--------|
-| G1 | **Kanban** for tasks (`/projects/[id]/tasks`) — columns by `status`, **drag-and-drop** between columns | §5.1 / §10 Phase 1; acceptance §11.3 | Prefer `@dnd-kit` or HTML5 DnD; `PATCH` or `POST .../transition` on drop; emit **activity** (`kind=status_change` or `comment` stub) if not already. |
-| G2 | **Task detail route** ` /projects/[id]/tasks/[taskId]` | §7 web surface | Summary, description, subtasks link, assignee/due, link to component; optional thread later. |
-| G3 | **Surface human refs everywhere** | `ref` already allocated for tasks/tickets — ensure **⌘K** / search can target them when G4 exists; show ref in headers | `api/app/services/ref_alloc.py`; tasks table already shows **Ref** column. |
-| G4 | **`⌘K` command palette** (minimal): jump to project / task / ticket by title or ref; stub actions “New task here” | §5.1 / §10 Phase 1 (palette); §11.6 | `cmdk` or headless pattern from plan §7; server list endpoints or client cache. |
-| G5 | **Project list health badges** (lightweight): open task count, open ticket count, “oldest open ticket age” | §5.1 health card / §10 | Read-only aggregates; defer full health card to later. |
-
-**Done when:** User can **drag a task on Kanban**, open a **task detail** URL, and hit **⌘K** to jump by ref or title; projects list shows **at least one** health signal.
+Original acceptance: Kanban, task detail URL, ⌘K, health on projects list — **met** (see matrix).
 
 ---
 
-## Batch H — Phase 2 remainder (PM hub “alive”)
+## Batch H — Phase 2 (reference)
 
-Aligned with **§10 Phase 2** after P1–P5 and Batch G foundations.
-
-| # | Item | Why | Hints |
-|---|------|-----|--------|
-| H1 | **Quick Capture inbox** ` /inbox` + **`POST /v1/inbox`** + triage **`POST /v1/inbox/{id}/triage`** | §5.1 / §7 | Global modal shortcut `c` can follow; start with page + API. |
-| H2 | **Watchers** model + **`POST/DELETE /v1/me/watch`** + **`/today`** section for watched tickets/tasks | §5.1 My Focus; plan §4.1 Watcher | SQL `watchers` table; RBAC read on subject. |
-| H3 | **Richer SSE** (optional): push `{kind, subject_id}` or activity id so client avoids full reload | §8.3 | Today: poll / lightweight SSE id; extend payload. |
-| H4 | **Markdown-ish editor** shared: `@` mention autocomplete, `#` ref links — incrementally | §5.1 | Can start with plain textarea + server-side mention parse (already partially there). |
-| H5 | **Activity on task mutations** from web (create/assign/status) if not already uniform | §11.3 “see the activity entry” | Verify task create/patch writes `Activity` rows where plan expects. |
-
-**Done when:** Inbox + triage happy path works; user can **watch** a ticket and see it on **`/today`**; task lifecycle creates **visible activity** without gaps.
+Inbox, watches, richer SSE, task activity — **met** (see matrix). **H4** editor integration remains.
 
 ---
 
@@ -71,7 +69,7 @@ Touch only when **G + H** are stable: **`GithubLink`** + PAT storage, commit pol
 | A3 | **`sql/schema_backfill.sql`** | Row fixes for existing DBs | Idempotent only. |
 | A4 | **`sql/schema_inserts.sql`** | Seeds after bootstrap | `ON CONFLICT`; avoid random UUIDs for fixtures unless static. |
 
-**Current tables (non-exhaustive):** `users`, `projects`, `project_members`, `components`, `tasks`, `activities`, `mentions`, `tickets`, **`attachments`**, **`project_counters`**.
+**Current tables (non-exhaustive):** `users`, `projects`, `project_members`, `components`, `tasks`, `activities`, `mentions`, `tickets`, **`attachments`**, **`project_counters`**, **`inbox_items`**, **`watchers`**.
 
 ---
 
@@ -83,7 +81,9 @@ Touch only when **G + H** are stable: **`GithubLink`** + PAT storage, commit pol
 | **C** | Components API + UI | **Done** |
 | **D** | Tasks: API transitions, filters, **table** UI, **`ref`** via counters | **Done** (Kanban = **G1**) |
 | **E** | Admin user forms, auth docs | **Done** |
-| **F** | Activities, mentions, tickets queue API, **`/today`** | **Done** + **ticket case**, **image attachments**, queue ordering |
+| **F** | Activities, mentions, tickets queue API, **`/today`** | **Done** + **ticket case**, **attachments**, queue ordering |
+| **G** | Phase 1 parity: Kanban, task detail, ⌘K, project health | **Done** (see Implementation status) |
+| **H** | Inbox, watches, SSE payload, task activity | **Core done**; **H4** editor wiring open |
 
 ---
 

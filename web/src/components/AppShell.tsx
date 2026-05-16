@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { CmdkPalette } from "@/components/CmdkPalette";
 import { SignOutButton } from "@/components/SignOutButton";
 import { fetchMe } from "@/shared/server/session";
 
@@ -21,9 +22,23 @@ export async function AppShell({ children }: { children: ReactNode }) {
               <>
                 <Link href="/today">Today</Link>
                 <Link href="/projects">Projects</Link>
+                <Link href="/inbox">Inbox</Link>
                 {me.is_superuser ? (
                   <Link href="/admin/users">Admin</Link>
                 ) : null}
+                <span
+                  className="muted text-sm"
+                  style={{
+                    fontFamily: "var(--font-mono, monospace)",
+                    padding: "0.15rem 0.5rem",
+                    background: "var(--bg-elevated)",
+                    borderRadius: 4,
+                    cursor: "default",
+                  }}
+                  title="Press ⌘K or Ctrl+K to open command palette"
+                >
+                  ⌘K
+                </span>
               </>
             ) : (
               <Link href="/login" className="nav-cta">
@@ -52,6 +67,7 @@ export async function AppShell({ children }: { children: ReactNode }) {
         </div>
       </header>
       <div className="app-body">{children}</div>
+      <CmdkPalette />
     </div>
   );
 }

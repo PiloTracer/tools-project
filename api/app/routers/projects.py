@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import re
 import uuid
+from datetime import datetime, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -13,9 +14,12 @@ from app.db import get_db
 from app.deps import get_current_user
 from app.models.project import Project
 from app.models.project_member import ProjectMember
+from app.models.task import Task
+from app.models.ticket import Ticket
 from app.models.user import User
 from app.schemas import (
     ProjectCreate,
+    ProjectHealth,
     ProjectListResponse,
     ProjectMemberCreate,
     ProjectMemberListResponse,
@@ -75,10 +79,57 @@ async def list_projects(
         .order_by(Project.updated_at.desc())
     )
     result = await db.execute(q)
-    items = [
-        ProjectOut.model_validate(p).model_copy(update={"membership_role": role})
-        for p, role in result.all()
-    ]
+    rows = list(result.all())
+
+    project_ids = [p.id for p, _ in rows]
+    items: list[ProjectOut] = []
+    if project_ids:
+        # Aggregate task counts
+        task_counts = {}
+        task_result = await db.execute(
+            select(Task.project_id, func.count())
+            .where(Task.project_id.in_(project_ids))
+            .where(Task.status.not_in(["done", "cancelled"]))
+            .group_by(Task.project_id)
+        )
+        for pid, cnt in task_result.all():
+            task_counts[pid] = cnt
+
+        # Aggregate ticket counts + oldest
+        ticket_result = await db.execute(
+            select(
+                Ticket.project_id,
+                func.count(),
+                func.min(Ticket.created_at),
+            )
+            .where(Ticket.project_id.in_(project_ids))
+            .where(Ticket.status.not_in(["closed", "resolved"]))
+            .group_by(Ticket.project_id)
+        )
+        ticket_info: dict[uuid.UUID, tuple[int, datetime | None]] = {}
+        for pid, cnt, oldest in ticket_result.all():
+            ticket_info[pid] = (cnt, oldest)
+
+        now_utc = datetime.now(timezone.utc)
+        for p, role in rows:
+            health = None
+            open_tasks = task_counts.get(p.id, 0)
+            tc = ticket_info.get(p.id, (0, None))
+            open_tickets = tc[0]
+            oldest_days = None
+            if tc[1] is not None:
+                oldest_days = (now_utc - tc[1]).days
+            if open_tasks > 0 or open_tickets > 0:
+                health = ProjectHealth(
+                    open_tasks=open_tasks,
+                    open_tickets=open_tickets,
+                    oldest_open_ticket_days=oldest_days,
+                )
+            items.append(
+                ProjectOut.model_validate(p).model_copy(
+                    update={"membership_role": role, "health": health}
+                )
+            )
     return ProjectListResponse(items=items)
 
 

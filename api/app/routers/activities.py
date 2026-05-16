@@ -97,19 +97,29 @@ async def _validate_and_link_ticket_attachments(
     ids = _attachment_ids_from_meta(meta)
     if not ids:
         return
-    if subject_type != "ticket":
+    if subject_type not in ("ticket", "task"):
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
-            detail="Image attachments on comments are only supported for tickets in this release",
+            detail="Image attachments on comments are only supported for tickets and tasks",
         )
     for aid in ids:
         att = await db.get(Attachment, aid)
         if att is None:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Attachment not found")
-        if att.project_id != project_id or att.ticket_id != subject_id:
+        if att.project_id != project_id:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                detail="Attachment does not belong to this project",
+            )
+        if subject_type == "ticket" and att.ticket_id != subject_id:
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST,
                 detail="Attachment does not belong to this ticket",
+            )
+        if subject_type == "task" and att.task_id != subject_id:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                detail="Attachment does not belong to this task",
             )
         if att.activity_id is not None and att.activity_id != activity_id:
             raise HTTPException(
@@ -217,6 +227,11 @@ async def create_activity(
                 status.HTTP_400_BAD_REQUEST,
                 detail="parent_activity_id must belong to this project",
             )
+        if parent.parent_activity_id is not None:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                detail="Nested replies beyond one level are not supported",
+            )
     ids = _attachment_ids_from_meta(body.meta_json)
     body_text = body.body.strip()
     if not body_text and not ids:
@@ -274,26 +289,32 @@ async def activity_stream(
     project_id: uuid.UUID,
     user: Annotated[User, Depends(get_current_user)],
 ):
-    """Light SSE: emits latest activity id when it changes (~4s poll). Client may reconnect."""
+    """SSE: emits latest activity when it changes (~4s poll). Includes kind/subject for richer feed."""
     fac = session_factory()
 
     async def gen():
         await asyncio.sleep(0)
         last: str | None = None
-        for _ in range(45):  # ~3 min
+        for _ in range(45):
             async with fac() as session:
                 await require_project_access(session, user, project_id)
                 row = await session.scalar(
-                    select(Activity.id)
+                    select(Activity)
                     .where(Activity.project_id == project_id)
                     .order_by(Activity.created_at.desc())
                     .limit(1)
                 )
-            cur = str(row) if row else None
-            if cur != last:
-                last = cur
-                payload = json.dumps({"latest_activity_id": cur})
-                yield f"data: {payload}\n\n"
+            if row is not None:
+                cur = str(row.id)
+                if cur != last:
+                    last = cur
+                    payload = json.dumps({
+                        "latest_activity_id": cur,
+                        "kind": row.kind,
+                        "subject_type": row.subject_type,
+                        "subject_id": str(row.subject_id),
+                    })
+                    yield f"data: {payload}\n\n"
             await asyncio.sleep(4)
 
     return StreamingResponse(gen(), media_type="text/event-stream")

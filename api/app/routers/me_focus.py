@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,14 +14,23 @@ from app.models.activity import Activity
 from app.models.mention import Mention
 from app.models.project import Project
 from app.models.task import Task
+from app.models.ticket import Ticket
 from app.models.user import User
+from app.models.watcher import Watcher
 from app.schemas import (
     MentionListResponse,
     MentionWithContext,
     TaskOut,
+    TicketOut,
     TodayResponse,
     TodayTaskBundle,
+    TodayTicketBundle,
+    WatchCreate,
+    WatchDelete,
+    WatchListResponse,
+    WatchOut,
 )
+from app.services.project_access import require_project_access
 
 router = APIRouter(prefix="/v1/me", tags=["me"])
 
@@ -31,7 +41,7 @@ async def my_today(
     db: Annotated[AsyncSession, Depends(get_db)],
     days: int = Query(default=7, ge=1, le=30),
 ):
-    """Assigned tasks with a due date in the rolling window (default 7 days from today UTC)."""
+    """Assigned tasks with a due date in the rolling window, plus watched items."""
     now = datetime.now(timezone.utc)
     start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     horizon = start + timedelta(days=days + 1)
@@ -48,6 +58,7 @@ async def my_today(
     )
     result = await db.execute(stmt)
     bundles: list[TodayTaskBundle] = []
+    seen_task_ids: set[uuid.UUID] = set()
     for task, project_name in result.all():
         bundles.append(
             TodayTaskBundle(
@@ -55,7 +66,134 @@ async def my_today(
                 project_name=project_name,
             )
         )
-    return TodayResponse(items=bundles)
+        seen_task_ids.add(task.id)
+
+    # Add watched tasks that are not terminal and not already in the list
+    wt_stmt = (
+        select(Watcher.subject_id, Watcher.subject_type)
+        .where(Watcher.user_id == user.id)
+    )
+    wt_result = await db.execute(wt_stmt)
+    watched_tasks: list[uuid.UUID] = []
+    watched_tickets: list[uuid.UUID] = []
+    for sid, stype in wt_result.all():
+        if stype == "task":
+            watched_tasks.append(sid)
+        elif stype == "ticket":
+            watched_tickets.append(sid)
+
+    if watched_tasks:
+        wtask_stmt = (
+            select(Task, Project.name)
+            .join(Project, Task.project_id == Project.id)
+            .where(Task.id.in_(watched_tasks))
+            .where(Task.status.not_in(["done", "cancelled"]))
+            .order_by(Task.updated_at.desc())
+            .limit(50)
+        )
+        wtask_result = await db.execute(wtask_stmt)
+        for task, project_name in wtask_result.all():
+            if task.id not in seen_task_ids:
+                bundles.append(
+                    TodayTaskBundle(
+                        task=TaskOut.model_validate(task),
+                        project_name=f"[Watched] {project_name}",
+                    )
+                )
+                seen_task_ids.add(task.id)
+
+    watched_ticket_bundles: list[TodayTicketBundle] = []
+    if watched_tickets:
+        wticket_stmt = (
+            select(Ticket, Project.name)
+            .join(Project, Ticket.project_id == Project.id)
+            .where(Ticket.id.in_(watched_tickets))
+            .where(Ticket.status.not_in(["resolved", "closed"]))
+            .order_by(Ticket.updated_at.desc())
+            .limit(50)
+        )
+        wticket_result = await db.execute(wticket_stmt)
+        for ticket, project_name in wticket_result.all():
+            watched_ticket_bundles.append(
+                TodayTicketBundle(
+                    ticket=TicketOut.model_validate(ticket),
+                    project_name=f"[Watched] {project_name}",
+                )
+            )
+
+    return TodayResponse(items=bundles, watched_tickets=watched_ticket_bundles)
+
+
+@router.post("/watch", response_model=WatchOut, status_code=201)
+async def watch_subject(
+    body: WatchCreate,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    if body.subject_type == "project":
+        await require_project_access(db, user, body.subject_id)
+    elif body.subject_type == "task":
+        t = await db.get(Task, body.subject_id)
+        if t is None:
+            raise HTTPException(status_code=404, detail="Task not found")
+        await require_project_access(db, user, t.project_id)
+    elif body.subject_type == "ticket":
+        t = await db.get(Ticket, body.subject_id)
+        if t is None:
+            raise HTTPException(status_code=404, detail="Ticket not found")
+        await require_project_access(db, user, t.project_id)
+    else:
+        raise HTTPException(status_code=400, detail="Invalid subject_type")
+
+    existing = await db.scalar(
+        select(Watcher).where(
+            Watcher.user_id == user.id,
+            Watcher.subject_type == body.subject_type,
+            Watcher.subject_id == body.subject_id,
+        )
+    )
+    if existing is not None:
+        return WatchOut.model_validate(existing)
+
+    row = Watcher(
+        user_id=user.id,
+        subject_type=body.subject_type,
+        subject_id=body.subject_id,
+    )
+    db.add(row)
+    await db.commit()
+    await db.refresh(row)
+    return WatchOut.model_validate(row)
+
+
+@router.delete("/watch", status_code=204)
+async def unwatch_subject(
+    body: WatchDelete,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    row = await db.scalar(
+        select(Watcher).where(
+            Watcher.user_id == user.id,
+            Watcher.subject_type == body.subject_type,
+            Watcher.subject_id == body.subject_id,
+        )
+    )
+    if row is not None:
+        await db.delete(row)
+        await db.commit()
+    return Response(status_code=204)
+
+
+@router.get("/watches", response_model=WatchListResponse)
+async def my_watches(
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    rows = list((await db.scalars(
+        select(Watcher).where(Watcher.user_id == user.id).order_by(Watcher.created_at.desc())
+    )).all())
+    return WatchListResponse(items=[WatchOut.model_validate(r) for r in rows])
 
 
 @router.get("/mentions", response_model=MentionListResponse)

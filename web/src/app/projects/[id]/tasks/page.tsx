@@ -4,7 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { apiServerFetch, fetchMe } from "@/shared/server/session";
 
 import { ProjectSubNav } from "../ProjectSubNav";
-import { NewTaskForm, TaskTable, type TaskRow } from "./TasksClient";
+import { NewTaskForm, TasksView, type TaskRow } from "./TasksClient";
 
 type ProjectRow = {
   id: string;
@@ -71,7 +71,7 @@ export default async function ProjectTasksPage({
         {tasks.length === 0 ? (
           <p className="muted">No tasks yet.</p>
         ) : (
-          <TaskTable tasks={tasks} canEdit={canEdit} />
+          <TasksView tasks={tasks} canEdit={canEdit} />
         )}
       </div>
     </div>

@@ -21,6 +21,7 @@ from app.schemas import (
     TaskPatch,
     TaskTransition,
 )
+from app.services.activity_writer import write_activity
 from app.services.project_access import can_mutate_tasks, require_project_access
 from app.services.ref_alloc import allocate_ref
 
@@ -115,6 +116,16 @@ async def create_task(
         closed_at=closed_at,
     )
     db.add(row)
+    await db.flush()
+    await write_activity(
+        db=db,
+        project_id=project_id,
+        subject_type="task",
+        subject_id=row.id,
+        kind="system",
+        actor_id=user.id,
+        body=f"Task created: {row.title}",
+    )
     await db.commit()
     await db.refresh(row)
     return TaskOut.model_validate(row)
@@ -168,6 +179,8 @@ async def patch_task(
     if body.description is not None:
         v = body.description.strip()
         row.description = v if v else None
+    _prev_status = row.status
+    _prev_assignee = row.assignee_id
     if body.status is not None:
         status_val = body.status.strip()
         if status_val not in TASK_STATUSES:
@@ -192,6 +205,27 @@ async def patch_task(
         row.parent_task_id = body.parent_task_id
     if body.is_todo is not None:
         row.is_todo = body.is_todo
+    await db.flush()
+    if body.status is not None and _prev_status != row.status:
+        await write_activity(
+            db=db,
+            project_id=row.project_id,
+            subject_type="task",
+            subject_id=row.id,
+            kind="status_change",
+            actor_id=user.id,
+            body=f"Status changed from {_prev_status} to {row.status}",
+        )
+    if body.assignee_id is not None and _prev_assignee != row.assignee_id:
+        await write_activity(
+            db=db,
+            project_id=row.project_id,
+            subject_type="task",
+            subject_id=row.id,
+            kind="assignment",
+            actor_id=user.id,
+            body="Assignee changed",
+        )
     await db.commit()
     await db.refresh(row)
     return TaskOut.model_validate(row)
@@ -219,11 +253,23 @@ async def transition_task(
             status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid status: {status_val}. Use one of {sorted(TASK_STATUSES)}",
         )
+    prev = row.status
     row.status = status_val
     if status_val in _TERMINAL_TASK_STATUSES:
         row.closed_at = datetime.now(timezone.utc)
     else:
         row.closed_at = None
+    await db.flush()
+    if prev != status_val:
+        await write_activity(
+            db=db,
+            project_id=row.project_id,
+            subject_type="task",
+            subject_id=row.id,
+            kind="status_change",
+            actor_id=user.id,
+            body=f"Status changed from {prev} to {status_val}",
+        )
     await db.commit()
     await db.refresh(row)
     return TaskOut.model_validate(row)

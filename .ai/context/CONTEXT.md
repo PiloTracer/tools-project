@@ -112,8 +112,9 @@ docker compose run --rm --no-deps web sh -lc "npm ci --no-audit --no-fund && npm
 
 ## Domain model (north star — persistence is partial)
 
-- Persisted: **`users`**, **`projects`**, **`project_members`**, **`components`**, **`tasks`**, **`activities`**, **`mentions`**, **`tickets`**. Schema in **`sql/schema_*.sql`** aligned with **`api/app/models`**.
-- Optional polish: GitHub linkage, richer notifications, Kanban — see **`NEXT.md`** follow-ups.
+- Persisted: **`users`**, **`projects`**, **`project_members`**, **`components`**, **`tasks`**, **`activities`**, **`mentions`**, **`tickets`**, **`attachments`** (ticket and/or **task** / project-scoped rows), **`inbox_items`**, **`watchers`**. Schema in **`sql/schema_*.sql`** aligned with **`api/app/models`**.
+- Web UX: Kanban + task detail, command palette (**⌘K**), project health pills, **Inbox**, **watch** actions — see **`NEXT.md`** implementation status.
+- Optional polish: GitHub linkage, richer notifications, markdown editor wiring — see **`NEXT.md`** follow-ups.
 
 ## Security
 

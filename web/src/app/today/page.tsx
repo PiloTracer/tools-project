@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { apiServerFetch, fetchMe } from "@/shared/server/session";
+import { WatchButtons } from "./WatchButtons";
 
 type TodayItem = {
   task: {
@@ -10,6 +11,18 @@ type TodayItem = {
     status: string;
     due_at: string | null;
     project_id: string;
+    ref: string | null;
+  };
+  project_name: string;
+};
+
+type WatchedTicketRow = {
+  ticket: {
+    id: string;
+    title: string;
+    status: string;
+    project_id: string;
+    ref: string | null;
   };
   project_name: string;
 };
@@ -32,7 +45,9 @@ export default async function TodayPage() {
     apiServerFetch("/v1/me/today"),
     apiServerFetch("/v1/me/mentions"),
   ]);
-  const today = tr.ok ? ((await tr.json()) as { items: TodayItem[] }).items : [];
+  const todayJson = tr.ok ? ((await tr.json()) as { items: TodayItem[]; watched_tickets?: WatchedTicketRow[] }) : { items: [], watched_tickets: [] };
+  const today = todayJson.items ?? [];
+  const watchedTickets = todayJson.watched_tickets ?? [];
   const mentions = mr.ok ? ((await mr.json()) as { items: MentionItem[] }).items : [];
 
   return (
@@ -42,8 +57,13 @@ export default async function TodayPage() {
           <span className="pill">My focus</span>
           <h1>Today</h1>
           <p className="muted text-sm page-header__lead">
-            Assigned tasks with due dates in the next week (UTC), plus @mentions from activity.
+            Assigned tasks with due dates in the next week (UTC), watched items, plus @mentions from activity.
           </p>
+        </div>
+        <div className="page-header__actions">
+          <Link className="btn btn-primary" href="/inbox">
+            Inbox
+          </Link>
         </div>
       </header>
 
@@ -56,20 +76,65 @@ export default async function TodayPage() {
             <ul className="stack" style={{ listStyle: "none", padding: 0, gap: "0.5rem" }}>
               {today.map((row) => (
                 <li key={row.task.id}>
-                  <Link href={`/projects/${row.task.project_id}/tasks`} className="project-row">
-                    <strong>{row.task.title}</strong>
-                    <span className="muted text-sm" style={{ marginLeft: "0.5rem" }}>
-                      {row.project_name} · {row.task.status}
-                      {row.task.due_at
-                        ? ` · due ${new Date(row.task.due_at).toLocaleDateString()}`
-                        : ""}
-                    </span>
-                  </Link>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <Link href={`/projects/${row.task.project_id}/tasks`} className="project-row" style={{ flex: 1 }}>
+                      <strong>
+                        {row.task.ref ? (
+                          <span className="muted" style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "0.75rem", marginRight: "0.35rem" }}>
+                            {row.task.ref}
+                          </span>
+                        ) : null}
+                        {row.task.title}
+                      </strong>
+                      <span className="muted text-sm" style={{ marginLeft: "0.5rem" }}>
+                        {row.project_name} · {row.task.status}
+                        {row.task.due_at
+                          ? ` · due ${new Date(row.task.due_at).toLocaleDateString()}`
+                          : ""}
+                      </span>
+                    </Link>
+                    <WatchButtons subjectType="task" subjectId={row.task.id} />
+                  </div>
                 </li>
               ))}
             </ul>
           )}
         </section>
+
+        {watchedTickets.length > 0 ? (
+          <section className="card wide stack">
+            <h2 style={{ marginTop: 0 }}>Watched tickets</h2>
+            <ul className="stack" style={{ listStyle: "none", padding: 0, gap: "0.5rem" }}>
+              {watchedTickets.map((row) => (
+                <li key={row.ticket.id}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <Link
+                      href={`/projects/${row.ticket.project_id}/tickets/${row.ticket.id}`}
+                      className="project-row"
+                      style={{ flex: 1 }}
+                    >
+                      <strong>
+                        {row.ticket.ref ? (
+                          <span
+                            className="muted"
+                            style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "0.75rem", marginRight: "0.35rem" }}
+                          >
+                            {row.ticket.ref}
+                          </span>
+                        ) : null}
+                        {row.ticket.title}
+                      </strong>
+                      <span className="muted text-sm" style={{ marginLeft: "0.5rem" }}>
+                        {row.project_name} · {row.ticket.status}
+                      </span>
+                    </Link>
+                    <WatchButtons subjectType="ticket" subjectId={row.ticket.id} />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
 
         <section className="card wide stack">
         <h2 style={{ marginTop: 0 }}>Mentions</h2>

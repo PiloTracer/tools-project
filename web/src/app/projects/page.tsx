@@ -10,6 +10,12 @@ type ProjectRow = {
   description: string | null;
   created_at: string;
   status?: string;
+  project_key?: string | null;
+  health?: {
+    open_tasks: number;
+    open_tickets: number;
+    oldest_open_ticket_days: number | null;
+  } | null;
 };
 
 function statusPillClass(status: string | undefined): string {
@@ -74,7 +80,36 @@ export default async function ProjectsPage() {
                       <span className={statusPillClass(p.status)}>{p.status}</span>
                     ) : null}
                   </div>
-                  <span className="slug">{p.slug}</span>
+                  <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginTop: "0.25rem" }}>
+                    <span className="text-sm" style={{ fontFamily: "var(--font-mono, monospace)", color: "var(--muted)" }}>
+                      {p.slug}
+                    </span>
+                    {p.health ? (
+                      <>
+                        {p.health.open_tasks > 0 ? (
+                          <span className="pill pill-ok" style={{ fontSize: "0.65rem" }}>
+                            {p.health.open_tasks} tasks
+                          </span>
+                        ) : null}
+                        {p.health.open_tickets > 0 ? (
+                          <span className="pill" style={{ fontSize: "0.65rem" }}>
+                            {p.health.open_tickets} tickets
+                          </span>
+                        ) : null}
+                        {p.health.oldest_open_ticket_days !== null && p.health.oldest_open_ticket_days >= 0 ? (
+                          <span
+                            className="pill"
+                            title={`Oldest open ticket: ${p.health.oldest_open_ticket_days} days`}
+                            style={{ fontSize: "0.65rem", background: p.health.oldest_open_ticket_days > 14 ? "var(--danger)" : p.health.oldest_open_ticket_days > 7 ? "var(--accent-warn)" : "var(--success)", color: "#fff" }}
+                          >
+                            oldest {p.health.oldest_open_ticket_days}d
+                          </span>
+                        ) : null}
+                      </>
+                    ) : (
+                      <span className="text-sm muted">No open work</span>
+                    )}
+                  </div>
                   {p.description ? (
                     <p className="muted text-sm project-row__desc">
                       {p.description.length > 160
