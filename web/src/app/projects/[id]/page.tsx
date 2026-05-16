@@ -52,9 +52,12 @@ export default async function ProjectDetailPage({
         <Link href="/projects" className="muted text-sm">
           ← Projects
         </Link>
-        <h1 style={{ marginTop: "0.5rem" }}>{p.name}</h1>
+        <p className="muted text-sm" style={{ margin: "0.15rem 0" }}>
+          Project: <strong>{p.name}</strong>
+        </p>
+        <h1 style={{ marginTop: "0.25rem" }}>Overview</h1>
         <p className="slug" style={{ margin: "0.25rem 0" }}>
-          {p.slug}
+          slug: <code>{p.slug}</code>
           {p.project_key ? (
             <span className="muted" style={{ marginLeft: "0.75rem" }}>
               key <code>{p.project_key}</code>
@@ -67,7 +70,7 @@ export default async function ProjectDetailPage({
             <span className="muted text-sm">Your role: {p.membership_role}</span>
           ) : null}
         </div>
-        {p.description ? <p style={{ maxWidth: "40rem" }}>{p.description}</p> : null}
+        {p.description ? <p style={{ maxWidth: "40rem", marginTop: "0.5rem" }}>{p.description}</p> : null}
         <div style={{ marginTop: "1rem" }}>
           <ProjectSubNav projectId={id} current="overview" />
         </div>

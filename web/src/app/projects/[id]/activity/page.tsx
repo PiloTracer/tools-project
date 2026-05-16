@@ -15,7 +15,11 @@ type ActivityRow = {
   created_at: string;
 };
 
-type ProjectRow = { membership_role?: string | null };
+type ProjectRow = {
+  id: string;
+  name: string;
+  membership_role?: string | null;
+};
 
 export default async function ProjectActivityPage({
   params,
@@ -50,7 +54,10 @@ export default async function ProjectActivityPage({
         <Link href="/projects" className="muted text-sm">
           ← Projects
         </Link>
-        <h1 style={{ marginTop: "0.5rem" }}>Activity</h1>
+        <p className="muted text-sm" style={{ margin: "0.15rem 0" }}>
+          Project: <strong>{project.name}</strong>
+        </p>
+        <h1 style={{ marginTop: "0.25rem" }}>Activity</h1>
         <ProjectSubNav projectId={id} current="activity" />
       </div>
       <div className="card wide stack">

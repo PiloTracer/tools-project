@@ -14,6 +14,7 @@ type ComponentRow = {
 
 type ProjectRow = {
   id: string;
+  name: string;
   membership_role?: string | null;
 };
 
@@ -52,7 +53,10 @@ export default async function ProjectComponentsPage({
         <Link href="/projects" className="muted text-sm">
           ← Projects
         </Link>
-        <h1 style={{ marginTop: "0.5rem" }}>Components</h1>
+        <p className="muted text-sm" style={{ margin: "0.15rem 0" }}>
+          Project: <strong>{project.name}</strong>
+        </p>
+        <h1 style={{ marginTop: "0.25rem" }}>Components</h1>
         <ProjectSubNav projectId={id} current="components" />
       </div>
 

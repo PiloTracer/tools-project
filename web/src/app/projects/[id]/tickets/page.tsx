@@ -15,7 +15,11 @@ type TicketRow = {
   queue_slug: string;
 };
 
-type ProjectRow = { membership_role?: string | null };
+type ProjectRow = {
+  id: string;
+  name: string;
+  membership_role?: string | null;
+};
 
 export default async function ProjectTicketsPage({
   params,
@@ -51,7 +55,10 @@ export default async function ProjectTicketsPage({
         <Link href="/projects" className="muted text-sm">
           ← Projects
         </Link>
-        <h1 style={{ marginTop: "0.5rem" }}>Support tickets</h1>
+        <p className="muted text-sm" style={{ margin: "0.15rem 0" }}>
+          Project: <strong>{project.name}</strong>
+        </p>
+        <h1 style={{ marginTop: "0.25rem" }}>Support tickets</h1>
         <ProjectSubNav projectId={id} current="tickets" />
       </div>
       <div className="card wide stack">

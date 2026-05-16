@@ -8,6 +8,7 @@ import { NewTaskForm, TaskTable, type TaskRow } from "./TasksClient";
 
 type ProjectRow = {
   id: string;
+  name: string;
   membership_role?: string | null;
 };
 
@@ -53,7 +54,10 @@ export default async function ProjectTasksPage({
         <Link href="/projects" className="muted text-sm">
           ← Projects
         </Link>
-        <h1 style={{ marginTop: "0.5rem" }}>Tasks</h1>
+        <p className="muted text-sm" style={{ margin: "0.15rem 0" }}>
+          Project: <strong>{project.name}</strong>
+        </p>
+        <h1 style={{ marginTop: "0.25rem" }}>Tasks</h1>
         <ProjectSubNav projectId={id} current="tasks" />
       </div>
 
