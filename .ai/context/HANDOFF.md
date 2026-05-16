@@ -5,8 +5,8 @@
 ## Start here (new session)
 
 1. Read **`.ai/context/CONTEXT.md`** — ports, auth modes, repo map.  
-2. Read **`.ai/context/NEXT.md`** — batches **A–F** (schema discipline through activity / tickets / **`/today`**).  
-3. Full product / MVP scope: **`.ai/plans/proposal/20260515-full-project.md`**.  
+2. Read **`.ai/context/NEXT.md`** — **carryover priorities (P1–P5)** then **Batch G** (Phase 1 parity: Kanban, task detail, ⌘K, health) and **Batch H** (inbox, watchers, activity depth). Batches **B–F** are complete; **A** = ongoing SQL discipline.  
+3. Full product / MVP scope: **`.ai/plans/proposal/20260515-full-project.md`** (incl. **§16** repo alignment).  
 4. **Docker-only** tooling for Node/Python (see **`.cursorrules`**).  
 5. **No Alembic** — DDL lives under **`sql/`** and applies on API startup (`app/schema_sql.py`).
 
@@ -20,27 +20,29 @@
 | **Local** | bcrypt + JWT; **`POST /v1/auth/local/login`**; **`/v1/admin/users`** API + **`/admin/users`** forms (**local JWT only** — SSO documented below). |
 | **OAuth** | **`/sign-in`** → PKCE → **`/oauth/complete`** → **`prj_auth`** cookie. |
 | **`/v1/auth/me`** | **`get_current_user`**: local JWT **or** (OAuth on) **userinfo upsert** — route OpenAPI text describes path (**JWKS** optional future hardening). |
-| **Web** | **`AppShell`** (**`/today`**); **`/projects/*`** (members, components, tasks, **activity**, **tickets**); **`/api/*`** BFF + **activity SSE** proxy. |
-| **Domain** | **`projects`**, **`project_members`**, **`components`**, **`tasks`**, **`activities`**, **`mentions`**, **`tickets`** — RBAC; **`/v1/me/today`** & **`/v1/me/mentions`**. |
+| **Web** | **`AppShell`** (**`/today`**); **`/projects/*`** (members, components, **tasks** table, **activity**, **tickets** queue + **ticket case** `.../tickets/[ticketId]`); **`/api/*`** BFF + **activity SSE** proxy; **`/api/attachments/[id]`** for authenticated image fetch. |
+| **Domain** | **`projects`**, **`project_members`**, **`components`**, **`tasks`** (with **`ref`**), **`activities`**, **`mentions`**, **`tickets`**, **`attachments`** (ticket images, **`meta_json.attachment_ids`** on activity) — RBAC; **`/v1/me/today`** & **`/v1/me/mentions`**. |
 | **DB** | PostgreSQL; **`sql/schema_*.sql`** on startup (after bootstrap: backfill + inserts). **`bootstrap`** fills first superuser when DB empty + local auth + **`BOOTSTRAP_ADMIN_*`**. **`schema_inserts.sql`** adds a demo project for the oldest superuser. |
+| **Storage** | **`ATTACHMENTS_DIR`** (default `/data/attachments`); Compose named volume **`tpr_attachments`** on **`api`**. |
 | **`./bin/start.sh`** | **10** drop public schema (**warning**); **11** `apply-ddl` (DDL → bootstrap → seeds). |
 
 ---
 
 ## Verified recently
 
-- **`docker compose run web`**: `npm run check` + **`npm run build`** clean.  
+- **`docker compose run --rm --no-deps web`**: `npm run check` + **`npm run build`** clean.  
+- **API image**: `python-multipart` for uploads; **`python -m compileall app`** clean after router changes.  
 - **`docker compose`**: API uses **`sqlparse`** (`api/pyproject.toml`) to split startup SQL scripts; **`./sql`** is mounted **`/sql`** for the **`api`** service.
 
 ---
 
 ## Recommended next work
 
-**Detailed tasks and acceptance criteria:** **`.ai/context/NEXT.md`**.
+**Checklist and acceptance-style tasks:** **`.ai/context/NEXT.md`**.
 
-Summary: **NEXT batches A–F shipped** (Batch **A** = ongoing SQL discipline). Optional next: Kanban, human task refs, richer SSE payloads, notification delivery.
+**Order of attack:** (1) **P1–P3** (internal notes, threaded UI, stale queue) — closes ticket/activity acceptance gaps. (2) **Batch G** — Kanban + task detail + ⌘K + health badges toward Phase 1 “done”. (3) **Batch H** — inbox + watchers + richer activity/SSE.
 
-Legacy note: older items “unified Bearer via JWKS” and “first `/v1/projects`” are **superseded** by current **userinfo upsert** + existing **projects** router; JWKS remains optional hardening.
+Legacy note: older items “unified Bearer via JWKS” and “first `/v1/projects`” are **superseded** by current **userinfo upsert** + **projects** router; JWKS remains optional hardening.
 
 ---
 

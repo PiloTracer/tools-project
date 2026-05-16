@@ -1,86 +1,89 @@
 # Next batch — tools-project (prioritized work)
 
-**Purpose:** Concrete backlog after **projects foundation** (owner-scoped CRUD, web shell, SSO → `users` via userinfo).  
-**North star:** `.ai/plans/proposal/20260515-full-project.md` (Phase 1 → 2).  
+**Purpose:** Backlog derived from **`.ai/plans/proposal/20260515-full-project.md`** (phases §10–§11) and repo reality.  
+**North star:** same file — Phase **1** (domain core) → **2** (activity & tickets depth) → **3** (GitHub & polish).  
 **Run dev stack:** `.cursorrules` / `docker compose --profile dev up --build` or `./bin/start.sh`.
 
-**Schema**: **declarative `sql/` only** — no Alembic (see `.cursorrules`). On API startup: `schema_changes.sql` → `schema_indexes.sql` → **bootstrap** → `schema_backfill.sql` → `schema_inserts.sql`.
+**Schema:** declarative **`sql/`** only — no Alembic. On API startup: `schema_changes.sql` → `schema_indexes.sql` → bootstrap → `schema_backfill.sql` → `schema_inserts.sql`.
 
-**Latest:** Batches **A–F** are implemented in-repo (A remains ongoing discipline when models change). Phase 2 can extend activity parsing, Kanban, human task refs, etc.
+**Latest (repo):** Batches **A–F** delivered (projects, members, components, tasks table + transitions, admin users, activity + mentions + tickets + **`/today`**). **Extended:** ticket **case** page (`/projects/[id]/tickets/[ticketId]`), queue triage ordering, **attachments** (`attachments` table, ticket image upload, activity `meta_json.attachment_ids`, BFF **`/api/attachments/[id]`**), Compose volume **`tpr_attachments`**. Batch **A** stays ongoing whenever models change.
+
+---
+
+## Carryover priorities (close gaps from the ticket / activity slice)
+
+These items were explicitly deferred or only partially met vs plan §5.1 / §11.4 — **do first** when opening the next sprint so the slice does not rot.
+
+| # | Item | Why |
+|---|------|-----|
+| **P1** | **`activities.is_internal`** (SQL + model + `ActivityCreate` / `ActivityOut`) + **UI** on ticket (and later task) comments: “Internal note” vs customer-visible | Plan §5.1 / acceptance §11.4 (internal + external note on a ticket). |
+| **P2** | **Threaded replies** in UI: `parent_activity_id` already in API — expose “Reply” on ticket discussion + project **Activity** page; validate one-level depth per plan | §5.1 threaded replies (one level MVP). |
+| **P3** | **Ticket queue “stale” signal** — color or badge when ticket is older than N days without status change (N configurable per project later; start with global default) | Plan §5.1 queue + §13 success metric. |
+| **P4** | **Task attachment parity** — same upload pattern for `subject_type=task` (or `POST .../tasks/{id}/attachments`) + activity linking | Avoid permanent ticket-only asymmetry; plan §4.1 Attachment allows task_id. |
+| **P5** | **Non-image uploads** (pdf, txt) + stricter **quota / retention** hook (counter or doc only) | Plan §8.4 caps; §12 risk. |
+
+---
+
+## Batch G — Phase 1 plan parity (domain core “done”)
+
+Aligned with **20260515-full-project.md §10 Phase 1** (Kanban + table, refs, keyboard shortcuts where feasible).
+
+| # | Item | Why | Hints |
+|---|------|-----|--------|
+| G1 | **Kanban** for tasks (`/projects/[id]/tasks`) — columns by `status`, **drag-and-drop** between columns | §5.1 / §10 Phase 1; acceptance §11.3 | Prefer `@dnd-kit` or HTML5 DnD; `PATCH` or `POST .../transition` on drop; emit **activity** (`kind=status_change` or `comment` stub) if not already. |
+| G2 | **Task detail route** ` /projects/[id]/tasks/[taskId]` | §7 web surface | Summary, description, subtasks link, assignee/due, link to component; optional thread later. |
+| G3 | **Surface human refs everywhere** | `ref` already allocated for tasks/tickets — ensure **⌘K** / search can target them when G4 exists; show ref in headers | `api/app/services/ref_alloc.py`; tasks table already shows **Ref** column. |
+| G4 | **`⌘K` command palette** (minimal): jump to project / task / ticket by title or ref; stub actions “New task here” | §5.1 / §10 Phase 1 (palette); §11.6 | `cmdk` or headless pattern from plan §7; server list endpoints or client cache. |
+| G5 | **Project list health badges** (lightweight): open task count, open ticket count, “oldest open ticket age” | §5.1 health card / §10 | Read-only aggregates; defer full health card to later. |
+
+**Done when:** User can **drag a task on Kanban**, open a **task detail** URL, and hit **⌘K** to jump by ref or title; projects list shows **at least one** health signal.
+
+---
+
+## Batch H — Phase 2 remainder (PM hub “alive”)
+
+Aligned with **§10 Phase 2** after P1–P5 and Batch G foundations.
+
+| # | Item | Why | Hints |
+|---|------|-----|--------|
+| H1 | **Quick Capture inbox** ` /inbox` + **`POST /v1/inbox`** + triage **`POST /v1/inbox/{id}/triage`** | §5.1 / §7 | Global modal shortcut `c` can follow; start with page + API. |
+| H2 | **Watchers** model + **`POST/DELETE /v1/me/watch`** + **`/today`** section for watched tickets/tasks | §5.1 My Focus; plan §4.1 Watcher | SQL `watchers` table; RBAC read on subject. |
+| H3 | **Richer SSE** (optional): push `{kind, subject_id}` or activity id so client avoids full reload | §8.3 | Today: poll / lightweight SSE id; extend payload. |
+| H4 | **Markdown-ish editor** shared: `@` mention autocomplete, `#` ref links — incrementally | §5.1 | Can start with plain textarea + server-side mention parse (already partially there). |
+| H5 | **Activity on task mutations** from web (create/assign/status) if not already uniform | §11.3 “see the activity entry” | Verify task create/patch writes `Activity` rows where plan expects. |
+
+**Done when:** Inbox + triage happy path works; user can **watch** a ticket and see it on **`/today`**; task lifecycle creates **visible activity** without gaps.
+
+---
+
+## Batch I — Phase 3 preview (GitHub & polish)
+
+Touch only when **G + H** are stable: **`GithubLink`** + PAT storage, commit poller, commit rows in activity (`github_commit`); saved views; theme polish per plan §10 Phase 3.
 
 ---
 
 ## Batch A — Schema discipline (maintain continually)
 
-Ongoing process: whenever **`api/app/models`** gain persisted fields, update **`sql/schema_*.sql`** in the same change. **Current tree:** `users`, `projects` (+ `status`, `project_key`), `project_members`, `components`, `tasks`, **`activities`**, **`mentions`**, **`tickets`** — see **`sql/schema_changes.sql`** and indexes.
-
 | # | Item | Why | Hints |
 |---|------|-----|--------|
-| A1 | Keep **`sql/schema_changes.sql`** in sync when **`api/app/models`** change | Primary DDL source; **`create_all`** is not used | Use `CREATE TABLE IF NOT EXISTS` / `ALTER TABLE … ADD COLUMN IF NOT EXISTS`; document new columns inline. |
-| A2 | Keep **`sql/schema_indexes.sql`** in sync when adding indexes or constraints | Separation from table DDL | Prefer `CREATE … IF NOT EXISTS` / idempotent guards. |
-| A3 | **Backfill stays current** — extend **`sql/schema_backfill.sql`** whenever a DDL change implies row fixes | One-time data migrations for existing deploys | Idempotent statements only (`WHERE` guards, `WHERE NOT EXISTS`, etc.). |
-| A4 | **Seeds/config** — optional rows in **`sql/schema_inserts.sql`** (`ON CONFLICT` / subqueries); demo project targets oldest superuser | Dev UX | After bootstrap — avoid hard-coded UUIDs unless truly static fixtures. |
+| A1 | **`sql/schema_changes.sql`** ↔ **`api/app/models`** | Primary DDL | `IF NOT EXISTS` / `ADD COLUMN IF NOT EXISTS`. |
+| A2 | **`sql/schema_indexes.sql`** | Indexes / constraints | Idempotent. |
+| A3 | **`sql/schema_backfill.sql`** | Row fixes for existing DBs | Idempotent only. |
+| A4 | **`sql/schema_inserts.sql`** | Seeds after bootstrap | `ON CONFLICT`; avoid random UUIDs for fixtures unless static. |
 
-**Done when:** A change to persisted fields always touches the matching SQL files **in the same PR**; `./bin/start.sh` options **10/11** and `python -m app.cli_schema apply-ddl` behave as documented in `.cursorrules`.
+**Current tables (non-exhaustive):** `users`, `projects`, `project_members`, `components`, `tasks`, `activities`, `mentions`, `tickets`, **`attachments`**, **`project_counters`**.
 
 ---
 
-## Batch B — Projects: membership & RBAC (plan §4 / §6)
+## Completed batches (reference — do not reopen unless regressing)
 
-| # | Item | Why | Hints |
-|---|------|-----|--------|
-| B1 | **`ProjectMember`** model (`project_id`, `user_id`, `role`: owner / maintainer / contributor / viewer) | Plan assumes RBAC | **Done:** `sql/` + `api/app/models/project_member.py`; backfill inserts owner rows for legacy `projects.owner_id`. |
-| B2 | **API:** `GET/POST/PATCH/DELETE` `/v1/projects/{id}/members` | Multi-user projects | **Done:** `api/app/routers/projects.py` + membership checks; superusers treated as owner-level for admin. |
-| B3 | **PATCH** `/v1/projects/{id}` — `name`, `description`, **`status`** `active|archived`, optional **`project_key`** | Align with plan | **Done:** API + **`ProjectSettingsForm`** on **`/projects/[id]`** (owners/maintainers). |
-| B4 | **Web:** project **settings** or **members** sub-page | RBAC in UI | **Done:** **`/projects/[id]/members`** + settings card on overview. |
-
-**Done when:** Non-owner collaborator can see project; viewer cannot mutate tasks (once tasks exist); owner can archive.
-
----
-
-## Batch C — Components (plan Phase 1)
-
-| # | Item | Why | Hints |
-|---|------|-----|--------|
-| C1 | **`Component`** model + **`sql/`** updates | Group work inside a project | **Done:** `components` table + ORM. |
-| C2 | **API:** `/v1/projects/{id}/components` CRUD + `/v1/components/{id}` PATCH/DELETE | OpenAPI-style | **Done:** `api/app/routers/components.py`. |
-| C3 | **Web:** under `/projects/[id]/components` (list + create) | User-visible structure | **Done:** + nav from overview. |
-
-**Done when:** API + UI list/create components for a project the user can access.
-
----
-
-## Batch D — Tasks & TODOs (MVP slice, plan Phase 1)
-
-| # | Item | Why | Hints |
-|---|------|-----|--------|
-| D1 | **`Task`** model … | Core PM | **Done:** UUID-first `tasks` row (no human **`ref`** / counters yet — follow-up). |
-| D2 | **API:** list/create/patch/delete + `POST .../transition` | Matches plan | **Done:** filters `status`, `assignee_id`, `component_id`. |
-| D3 | **Web:** **table view** first (sortable); **Kanban** second PR | Table first | **Done:** **`/projects/[id]/tasks`** with **sortable** columns + assignee/due; Kanban explicitly later. |
-
-**Done when:** Authenticated member can CRUD tasks scoped to project; list shows assigned/due basics.
-
----
-
-## Batch E — Admin & auth clarity (parallelizable)
-
-| # | Item | Why | Hints |
-|---|------|-----|--------|
-| E1 | **`/admin/users` forms** — create / patch / deactivate / reset password (local) | Plan §5.1 | **Done:** `AdminUsersPanel` + `/api/admin/users`. |
-| E2 | **Document or implement admin for SSO** | `/v1/admin/*` local JWT only | **Done:** documented in **`/admin/users`** + **HANDOFF** (IdP claims = future). |
-| E3 | **`GET /v1/auth/me` auth path** | JWKS vs userinfo | **Done:** OpenAPI description on route (`auth.py`). |
-
----
-
-## Batch F — Phase 2 starter (**implemented — MVP slice**)
-
-| Deliverable | Status |
-|-------------|--------|
-| **Activity** model + `GET`/`POST` per project + optional **SSE** stream (`/activities/stream`) | **Done** — `activities` table; `@email` in body creates **`mentions`** rows for existing users. |
-| **Ticket** model + queue UI (separate from tasks) | **Done** — `tickets` + **`queue_slug`**; **`/projects/[id]/tickets`** + API **`/v1/projects/{id}/tickets`**, **`/v1/tickets/{id}`**. |
-| **`/today`** + mentions | **Done** — **`GET /v1/me/today`** (assigned tasks with `due_at` in rolling window), **`GET /v1/me/mentions`**; web **`/today`** + nav link. |
-
-Further hardening (not required to “close” F): richer SSE payloads, IdP-driven admin, human **`PRJ-123`** task refs, Kanban, mention notifications.
+| Batch | Scope | Status |
+|-------|--------|--------|
+| **B** | Project members, RBAC, PATCH project, web members/settings | **Done** |
+| **C** | Components API + UI | **Done** |
+| **D** | Tasks: API transitions, filters, **table** UI, **`ref`** via counters | **Done** (Kanban = **G1**) |
+| **E** | Admin user forms, auth docs | **Done** |
+| **F** | Activities, mentions, tickets queue API, **`/today`** | **Done** + **ticket case**, **image attachments**, queue ordering |
 
 ---
 
