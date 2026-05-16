@@ -10,6 +10,7 @@ type ActivityRow = {
   body: string;
   subject_type: string;
   created_at: string;
+  is_internal?: boolean;
 };
 
 export function ActivityComposer({
@@ -132,15 +133,37 @@ export function ActivityFeed({ initial }: { initial: ActivityRow[] }) {
       {initial.length === 0 ? (
         <li className="muted">No activity yet.</li>
       ) : (
-        initial.map((a) => (
-          <li key={a.id} className="card" style={{ padding: "0.75rem 1rem" }}>
-            <div className="text-sm muted">
-              {a.actor_email ?? "user"} · <span className="pill" style={{ fontSize: "0.65rem" }}>{a.kind}</span> · {a.subject_type} ·{" "}
-              {new Date(a.created_at).toLocaleString()}
-            </div>
-            <p style={{ margin: "0.35rem 0 0", whiteSpace: "pre-wrap" }}>{a.body}</p>
-          </li>
-        ))
+        initial.map((a) => {
+          const internal = a.is_internal === true;
+          return (
+            <li
+              key={a.id}
+              className="card"
+              style={{
+                padding: "0.75rem 1rem",
+                background: internal ? "var(--surface-warn, #fff8e1)" : undefined,
+                borderColor: internal ? "var(--border-warn, #f0c36d)" : undefined,
+              }}
+            >
+              <div className="text-sm muted" style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", alignItems: "center" }}>
+                <span>{a.actor_email ?? "user"}</span>
+                <span className="pill" style={{ fontSize: "0.65rem" }}>{a.kind}</span>
+                <span>· {a.subject_type} ·</span>
+                <span>{new Date(a.created_at).toLocaleString()}</span>
+                {internal ? (
+                  <span
+                    className="pill"
+                    title="Internal note — not customer-visible"
+                    style={{ background: "var(--accent-warn, #c98300)", color: "var(--on-accent, #fff)", fontSize: "0.65rem" }}
+                  >
+                    Internal
+                  </span>
+                ) : null}
+              </div>
+              <p style={{ margin: "0.35rem 0 0", whiteSpace: "pre-wrap" }}>{a.body}</p>
+            </li>
+          );
+        })
       )}
     </ul>
   );

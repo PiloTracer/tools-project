@@ -6,7 +6,7 @@
 
 **Schema:** declarative **`sql/`** only — no Alembic. On API startup: `schema_changes.sql` → `schema_indexes.sql` → bootstrap → `schema_backfill.sql` → `schema_inserts.sql`.
 
-**Latest (repo):** Batches **A–F** delivered (projects, members, components, tasks table + transitions, admin users, activity + mentions + tickets + **`/today`**). **Extended:** ticket **case** page (`/projects/[id]/tickets/[ticketId]`), queue triage ordering, **attachments** (`attachments` table, ticket image upload, activity `meta_json.attachment_ids`, BFF **`/api/attachments/[id]`**), Compose volume **`tpr_attachments`**. Batch **A** stays ongoing whenever models change.
+**Latest (repo):** Batches **A–F** delivered (projects, members, components, tasks table + transitions, admin users, activity + mentions + tickets + **`/today`**). **Extended:** ticket **case** page (`/projects/[id]/tickets/[ticketId]`), queue triage ordering, **attachments** (`attachments` table, ticket image upload, activity `meta_json.attachment_ids`, BFF **`/api/attachments/[id]`**), Compose volume **`tpr_attachments`**. **2026-05-15:** **P1** (`activities.is_internal` end-to-end + ticket UI toggle / chip) and **P3** (ticket-queue stale badge `>7d` / `>14d`) closed; web `npm run check` + `npm run build` and API `compileall` green. Batch **A** stays ongoing whenever models change.
 
 ---
 
@@ -16,9 +16,9 @@ These items were explicitly deferred or only partially met vs plan §5.1 / §11.
 
 | # | Item | Why |
 |---|------|-----|
-| **P1** | **`activities.is_internal`** (SQL + model + `ActivityCreate` / `ActivityOut`) + **UI** on ticket (and later task) comments: “Internal note” vs customer-visible | Plan §5.1 / acceptance §11.4 (internal + external note on a ticket). |
+| ~~**P1**~~ | ~~`activities.is_internal` end-to-end~~ | **Done 2026-05-15.** SQL column + `ix_activities_subject_internal`, `Activity.is_internal`, `ActivityCreate.is_internal` (rejects on `subject_type=project`), `ActivityOut.is_internal`, list filter `?visibility=internal\|external`; ticket discussion form has “Internal note” toggle + colored card + chip; project activity feed shows the chip. |
 | **P2** | **Threaded replies** in UI: `parent_activity_id` already in API — expose “Reply” on ticket discussion + project **Activity** page; validate one-level depth per plan | §5.1 threaded replies (one level MVP). |
-| **P3** | **Ticket queue “stale” signal** — color or badge when ticket is older than N days without status change (N configurable per project later; start with global default) | Plan §5.1 queue + §13 success metric. |
+| ~~**P3**~~ | ~~Ticket queue “stale” signal~~ | **Done 2026-05-15.** Client-side staleness on `TicketsClient`: `> 7 d` warn (○), `> 14 d` stale (●), terminal tickets exempt; queue header now has a legend. Per-project configurable threshold deferred. |
 | **P4** | **Task attachment parity** — same upload pattern for `subject_type=task` (or `POST .../tasks/{id}/attachments`) + activity linking | Avoid permanent ticket-only asymmetry; plan §4.1 Attachment allows task_id. |
 | **P5** | **Non-image uploads** (pdf, txt) + stricter **quota / retention** hook (counter or doc only) | Plan §8.4 caps; §12 risk. |
 

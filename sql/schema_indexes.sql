@@ -29,6 +29,9 @@ CREATE INDEX IF NOT EXISTS ix_activities_created_at ON activities (created_at);
 CREATE INDEX IF NOT EXISTS ix_activities_actor_id ON activities (actor_id);
 CREATE INDEX IF NOT EXISTS ix_activities_parent ON activities (parent_activity_id);
 CREATE INDEX IF NOT EXISTS ix_activities_kind ON activities (kind);
+-- Quick filter for "external (customer-visible) notes only" on ticket cases.
+CREATE INDEX IF NOT EXISTS ix_activities_subject_internal
+  ON activities (subject_type, subject_id, is_internal);
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_mentions_activity_user ON mentions (activity_id, mentioned_user_id);
 CREATE INDEX IF NOT EXISTS ix_mentions_mentioned_user_id ON mentions (mentioned_user_id);

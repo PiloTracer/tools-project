@@ -54,6 +54,12 @@ export default async function ProjectTicketsPage({
           Open cases first, oldest first (triage). Open a row for the full case: description and threaded-style comments via
           activity.
         </p>
+        <p className="muted text-sm" style={{ margin: "0.25rem 0 0" }}>
+          Age signal: <span style={{ color: "var(--accent-warn, #c98300)" }}>○ &gt; 7 d</span>{" "}
+          ·{" "}
+          <span style={{ color: "var(--accent-bad, #c0392b)", fontWeight: 600 }}>● &gt; 14 d</span>{" "}
+          (terminal tickets are not flagged).
+        </p>
         <ProjectSubNav projectId={id} current="tickets" />
       </div>
       <div className="card wide stack">

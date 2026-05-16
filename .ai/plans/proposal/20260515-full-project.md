@@ -440,7 +440,7 @@ These notes exist so **UI and schema do not silently drift** from §4–§5 whil
 |-------------|--------------|--------|
 | `Task.body_md` / `Ticket.body_md` | `tasks.description`, `tickets.description` (`TEXT`) | Same role: long-form issue / work description. Rename to `body_md` only when the markdown editor pipeline is wired; until then treat `description` as markdown-capable plain text. |
 | `Activity.body_md` | `activities.body` (`TEXT`) | Same role: comments, threaded replies, future paste-image. |
-| `Activity.is_internal` | *not in DB yet* | MVP acceptance (§11.4) expects internal vs external notes; add a boolean column + API when the ticket detail thread is hardened. |
+| `Activity.is_internal` | `activities.is_internal BOOLEAN NOT NULL DEFAULT FALSE` + index `ix_activities_subject_internal`; API: `ActivityCreate.is_internal` (rejected for `subject_type=project`), `ActivityOut.is_internal`, `GET .../activities?visibility=internal\|external`; UI: ticket discussion has “Internal note” toggle + amber card + chip, project Activity feed shows the chip. | Closes MVP §11.4 (internal + external note on a ticket). |
 | `Attachment` | `attachments` table + `POST /v1/projects/{id}/tickets/{ticket_id}/attachments` + `GET /v1/attachments/{id}`; `ATTACHMENTS_DIR` (Compose volume `tpr_attachments` → `/data/attachments`) | Ticket-scoped image uploads (PNG/JPEG/GIF/WebP, 25 MB); linked to activity via `meta_json.attachment_ids`. Task uploads and S3-backed `AttachmentStorage` port still TBD. |
 | Ticket vs Task | Two tables + shared `Activity` with `subject_type` `task` \| `ticket` | Correct split per plan: different status enums and SLA-style fields on **Ticket** only; engineering workflow stays on **Task**. |
 

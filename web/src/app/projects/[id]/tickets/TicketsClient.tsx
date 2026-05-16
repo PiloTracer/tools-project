@@ -30,6 +30,56 @@ function ageLabel(iso: string): string {
   return `${m}m`;
 }
 
+const TERMINAL_TICKET_STATUSES = new Set(["resolved", "closed"]);
+// Plan §13 success metric: flag any ticket > 14d without movement; warn at 7d.
+const STALE_DAYS_WARN = 7;
+const STALE_DAYS_BAD = 14;
+
+function ageDays(iso: string): number {
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return 0;
+  return Math.floor((Date.now() - t) / 86400000);
+}
+
+type Staleness = "fresh" | "warn" | "stale";
+
+function ticketStaleness(row: TicketQueueRow): Staleness {
+  if (TERMINAL_TICKET_STATUSES.has(row.status)) return "fresh";
+  const d = ageDays(row.created_at);
+  if (d >= STALE_DAYS_BAD) return "stale";
+  if (d >= STALE_DAYS_WARN) return "warn";
+  return "fresh";
+}
+
+function StaleAge({ row }: { row: TicketQueueRow }) {
+  const s = ticketStaleness(row);
+  const color =
+    s === "stale"
+      ? "var(--accent-bad, #c0392b)"
+      : s === "warn"
+        ? "var(--accent-warn, #c98300)"
+        : undefined;
+  const title =
+    s === "stale"
+      ? `No movement for ${ageDays(row.created_at)}d (>${STALE_DAYS_BAD}d) — escalate or update`
+      : s === "warn"
+        ? `Open for ${ageDays(row.created_at)}d (>${STALE_DAYS_WARN}d) — review soon`
+        : "Within fresh window";
+  return (
+    <span
+      title={title}
+      style={{
+        color,
+        fontWeight: s === "stale" ? 600 : undefined,
+        whiteSpace: "nowrap",
+      }}
+    >
+      {ageLabel(row.created_at)}
+      {s === "stale" ? " ●" : s === "warn" ? " ○" : ""}
+    </span>
+  );
+}
+
 function PendingThumbnails({
   pending,
   onRemove,
@@ -296,8 +346,8 @@ export function TicketTable({
       <tbody>
         {tickets.map((t) => (
           <tr key={t.id} style={{ borderBottom: "1px solid var(--border)" }}>
-            <td className="muted text-sm" style={{ padding: "0.35rem 0", whiteSpace: "nowrap" }}>
-              {ageLabel(t.created_at)}
+            <td className="text-sm" style={{ padding: "0.35rem 0", whiteSpace: "nowrap" }}>
+              <StaleAge row={t} />
             </td>
             <td className="muted text-sm" style={{ padding: "0.35rem 0", fontFamily: "var(--font-mono, monospace)", fontSize: "0.8rem" }}>
               {t.ref || "—"}

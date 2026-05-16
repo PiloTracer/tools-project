@@ -155,6 +155,11 @@ async def list_activities(
     subject_type: str | None = None,
     subject_id: uuid.UUID | None = None,
     kind: str | None = None,
+    visibility: str | None = Query(
+        default=None,
+        description="Filter by note visibility: 'internal' (staff-only) or 'external' (customer-visible).",
+        pattern=r"^(internal|external)$",
+    ),
     limit: int = Query(default=50, ge=1, le=200),
 ):
     await require_project_access(db, user, project_id)
@@ -170,6 +175,10 @@ async def list_activities(
         stmt = stmt.where(Activity.subject_id == subject_id)
     if kind is not None:
         stmt = stmt.where(Activity.kind == kind.strip().lower())
+    if visibility == "internal":
+        stmt = stmt.where(Activity.is_internal.is_(True))
+    elif visibility == "external":
+        stmt = stmt.where(Activity.is_internal.is_(False))
     rows = list((await db.scalars(stmt)).all())
     items = [
         ActivityOut.model_validate(r).model_copy(
@@ -217,6 +226,14 @@ async def create_activity(
         )
     if not body_text and ids:
         body_text = "(image)"
+    is_internal = bool(body.is_internal)
+    if is_internal and st not in ("task", "ticket"):
+        # Project-wide notes are visible to all members by design; internal toggle
+        # only makes sense on a specific work item (task / ticket case thread).
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail="is_internal is only valid on task or ticket activity entries",
+        )
     row = Activity(
         project_id=project_id,
         subject_type=st,
@@ -226,6 +243,7 @@ async def create_activity(
         parent_activity_id=body.parent_activity_id,
         body=body_text,
         meta_json=body.meta_json,
+        is_internal=is_internal,
     )
     db.add(row)
     await db.flush()

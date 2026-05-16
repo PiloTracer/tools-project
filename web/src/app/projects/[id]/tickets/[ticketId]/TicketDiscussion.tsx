@@ -12,6 +12,7 @@ export type ActivityItem = {
   created_at: string;
   parent_activity_id: string | null;
   meta_json?: Record<string, unknown> | null;
+  is_internal?: boolean;
 };
 
 function attachmentIds(meta: Record<string, unknown> | null | undefined): string[] {
@@ -64,6 +65,7 @@ export function TicketDiscussion({
   const router = useRouter();
   const { pending, addFiles, remove, clear } = usePendingImages();
   const [body, setBody] = useState("");
+  const [isInternal, setIsInternal] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -105,6 +107,7 @@ export function TicketDiscussion({
         subject_id: ticketId,
         kind: "comment",
         body: caption || (uploadedIds.length ? "(image)" : ""),
+        is_internal: isInternal,
       };
       if (uploadedIds.length) {
         payload.meta_json = { attachment_ids: uploadedIds };
@@ -126,6 +129,7 @@ export function TicketDiscussion({
         return;
       }
       setBody("");
+      setIsInternal(false);
       clear();
       router.refresh();
     } catch (err) {
@@ -145,10 +149,34 @@ export function TicketDiscussion({
         <ul className="stack" style={{ listStyle: "none", margin: 0, padding: 0, gap: "0.75rem" }}>
           {initialItems.map((a) => {
             const ids = attachmentIds(a.meta_json);
+            const internal = a.is_internal === true;
             return (
-              <li key={a.id} className="card" style={{ padding: "0.65rem 0.85rem" }}>
-                <div className="muted text-sm" style={{ marginBottom: "0.35rem" }}>
-                  {(a.actor_email ?? "user") + " · " + new Date(a.created_at).toLocaleString()}
+              <li
+                key={a.id}
+                className="card"
+                style={{
+                  padding: "0.65rem 0.85rem",
+                  background: internal ? "var(--surface-warn, #fff8e1)" : undefined,
+                  borderColor: internal ? "var(--border-warn, #f0c36d)" : undefined,
+                }}
+              >
+                <div className="muted text-sm" style={{ marginBottom: "0.35rem", display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
+                  <span>
+                    {(a.actor_email ?? "user") + " · " + new Date(a.created_at).toLocaleString()}
+                  </span>
+                  {internal ? (
+                    <span
+                      className="pill"
+                      title="Internal note — not customer-visible"
+                      style={{ background: "var(--accent-warn, #c98300)", color: "var(--on-accent, #fff)" }}
+                    >
+                      Internal
+                    </span>
+                  ) : (
+                    <span className="pill pill-muted" title="Customer-visible (external) note">
+                      External
+                    </span>
+                  )}
                 </div>
                 {a.body !== "(image)" ? <div style={{ whiteSpace: "pre-wrap" }}>{a.body}</div> : null}
                 {ids.length > 0 ? (
@@ -216,10 +244,22 @@ export function TicketDiscussion({
             />
             <PendingThumbnails pending={pending} onRemove={remove} />
           </div>
-          <div>
+          <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
             <button type="submit" className="btn btn-primary" disabled={busy || (!body.trim() && pending.length === 0)}>
-              {busy ? "Posting…" : "Post comment"}
+              {busy ? "Posting…" : isInternal ? "Post internal note" : "Post comment"}
             </button>
+            <label
+              className="text-sm"
+              style={{ display: "inline-flex", gap: "0.4rem", alignItems: "center", cursor: "pointer" }}
+              title="Internal notes are visible only to project members (not customer-visible)."
+            >
+              <input
+                type="checkbox"
+                checked={isInternal}
+                onChange={(e) => setIsInternal(e.target.checked)}
+              />
+              Internal note (staff only)
+            </label>
           </div>
           {msg ? <p className="err text-sm">{msg}</p> : null}
         </form>

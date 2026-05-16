@@ -226,6 +226,7 @@ class ActivityCreate(BaseModel):
     parent_activity_id: uuid.UUID | None = None
     body: str = Field(default="", max_length=8000)
     meta_json: dict | None = None
+    is_internal: bool = False
 
     @field_validator("meta_json")
     @classmethod
@@ -249,6 +250,7 @@ class ActivityOut(BaseModel):
     parent_activity_id: uuid.UUID | None = None
     body: str
     meta_json: dict | None = None
+    is_internal: bool = False
     created_at: datetime
 
     model_config = {"from_attributes": True}

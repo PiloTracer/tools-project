@@ -5,8 +5,8 @@
 ## Start here (new session)
 
 1. Read **`.ai/context/CONTEXT.md`** — ports, auth modes, repo map.  
-2. Read **`.ai/context/NEXT.md`** — **carryover priorities (P1–P5)** then **Batch G** (Phase 1 parity: Kanban, task detail, ⌘K, health) and **Batch H** (inbox, watchers, activity depth). Batches **B–F** are complete; **A** = ongoing SQL discipline.  
-3. Full product / MVP scope: **`.ai/plans/proposal/20260515-full-project.md`** (incl. **§16** repo alignment).  
+2. Read **`.ai/context/NEXT.md`** — **carryover priorities** (**P1 & P3 closed 2026-05-15**, **P2 / P4 / P5 open**) then **Batch G** (Phase 1 parity: Kanban, task detail, ⌘K, health) and **Batch H** (inbox, watchers, activity depth). Batches **B–F** are complete; **A** = ongoing SQL discipline.  
+3. Full product / MVP scope: **`.ai/plans/proposal/20260515-full-project.md`** (incl. **§16** repo alignment — `Activity.is_internal` row is now **done**).  
 4. **Docker-only** tooling for Node/Python (see **`.cursorrules`**).  
 5. **No Alembic** — DDL lives under **`sql/`** and applies on API startup (`app/schema_sql.py`).
 
@@ -30,9 +30,9 @@
 
 ## Verified recently
 
-- **`docker compose run --rm --no-deps web`**: `npm run check` + **`npm run build`** clean.  
-- **API image**: `python-multipart` for uploads; **`python -m compileall app`** clean after router changes.  
-- **`docker compose`**: API uses **`sqlparse`** (`api/pyproject.toml`) to split startup SQL scripts; **`./sql`** is mounted **`/sql`** for the **`api`** service.
+- **2026-05-15:** `docker compose run --rm --no-deps web sh -lc "npm run check && npm run build"` → clean (16/16 static, all 38 routes).  
+- **2026-05-15:** `docker compose run --rm --no-deps api python -m compileall -q app` clean; smoke-imported `Activity` + `ActivityCreate` + `ActivityOut` to confirm `is_internal` is present on all three.  
+- **API image**: `python-multipart` for uploads; uses **`sqlparse`** (`api/pyproject.toml`) to split startup SQL scripts; **`./sql`** is mounted **`/sql`** for the **`api`** service.
 
 ---
 
@@ -40,7 +40,7 @@
 
 **Checklist and acceptance-style tasks:** **`.ai/context/NEXT.md`**.
 
-**Order of attack:** (1) **P1–P3** (internal notes, threaded UI, stale queue) — closes ticket/activity acceptance gaps. (2) **Batch G** — Kanban + task detail + ⌘K + health badges toward Phase 1 “done”. (3) **Batch H** — inbox + watchers + richer activity/SSE.
+**Order of attack:** (1) **P2** (threaded reply UI — DB column `parent_activity_id` already in place) → **P4** (task attachments, mirroring ticket pattern) → **P5** (non-image uploads + retention hook). (2) **Batch G** — Kanban + task detail + ⌘K + health badges toward Phase 1 “done”. (3) **Batch H** — inbox + watchers + richer activity/SSE.
 
 Legacy note: older items “unified Bearer via JWKS” and “first `/v1/projects`” are **superseded** by current **userinfo upsert** + **projects** router; JWKS remains optional hardening.
 

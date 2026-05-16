@@ -87,12 +87,15 @@ CREATE TABLE IF NOT EXISTS activities (
     parent_activity_id UUID REFERENCES activities (id) ON DELETE SET NULL,
     body TEXT NOT NULL,
     meta_json JSONB,
+    is_internal BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 ALTER TABLE activities ADD COLUMN IF NOT EXISTS kind VARCHAR(40) NOT NULL DEFAULT 'comment';
 ALTER TABLE activities ADD COLUMN IF NOT EXISTS parent_activity_id UUID REFERENCES activities (id) ON DELETE SET NULL;
 ALTER TABLE activities ADD COLUMN IF NOT EXISTS meta_json JSONB;
+-- Plan §5.1 / §11.4: internal vs external (customer-visible) note distinction on ticket / task threads.
+ALTER TABLE activities ADD COLUMN IF NOT EXISTS is_internal BOOLEAN NOT NULL DEFAULT FALSE;
 
 CREATE TABLE IF NOT EXISTS mentions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
