@@ -5,7 +5,7 @@
 ## Start here (new session)
 
 1. Read **`.ai/context/CONTEXT.md`** — ports, auth modes, repo map.  
-2. Read **`.ai/context/NEXT.md`** — **implementation status matrix** (Batch **G** + **H** + carryovers); remaining: **Batch I** (GitHub), **`MarkdownEditor` `#` ref** (`refSuggestions` + ref-search API), global **`c`** shortcut for inbox capture, attachment **retention job** / per-project **byte** quota.  
+2. Read **`.ai/context/NEXT.md`** — **implementation status matrix** (Batch **G** + **H** + carryovers **all Done**); **open:** retention **purge** job, optional Inbox **`c`** shortcut, **Batch I** (GitHub).  
 3. Full product / MVP scope: **`.ai/plans/proposal/20260515-full-project.md`**. Short brief: **`preliminary.md`**.  
 4. **Docker-only** tooling for Node/Python (see **`.cursorrules`**).  
 5. **No Alembic** — DDL under **`sql/`** (`schema_changes` → `schema_indexes` → bootstrap → `schema_backfill` → `schema_inserts`).
@@ -29,7 +29,7 @@
 - `docker compose --profile dev run --rm --no-deps api python -m compileall -q app` — clean.  
 - `docker compose --profile dev run --rm --no-deps web sh -lc "npm ci && npm run check && npm run build"` — clean (1 ESLint **warning**: `@next/next/no-img-element` in **`TicketDiscussion.tsx`**).  
 - `docker compose --profile dev run --rm api python -m app.cli_schema apply-ddl` — clean after DDL additions.  
-- All API routers importable, all routes registered (inbox, watch, task attachments, user search).
+- All API routers importable, all routes registered (inbox, watch, attachments, user search, ref search).
 
 ---
 

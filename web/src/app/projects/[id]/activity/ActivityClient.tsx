@@ -286,6 +286,7 @@ export function ActivityFeed({
                       rows={3}
                       placeholder="Write a reply…"
                       mentionSuggestions={_searchUsers}
+                      refSuggestions={_searchRefs}
                     />
                     <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
                       <button type="submit" className="btn btn-primary text-sm" disabled={replyBusy || !replyBody.trim()}>
