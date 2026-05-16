@@ -37,6 +37,13 @@ class Settings(BaseSettings):
     bootstrap_admin_password: str | None = None
     bootstrap_admin_display_name: str = "Administrator"
 
+    # Attachments: per-project quota (MVP). Set to 0 for unlimited.
+    attachment_max_per_project: int = 500
+    # Retention: number of days after which attachments may be cleaned up by
+    # a scheduled job (0 = never delete). The hook point lives in
+    # `app/services/attachment_storage.py:retention_cutoff()`.
+    attachment_retention_days: int = 0
+
 
 @lru_cache
 def get_settings() -> Settings:

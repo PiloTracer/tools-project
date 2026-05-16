@@ -113,18 +113,17 @@ export function MarkdownEditor({
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={onKeyDown}
         onPaste={(e) => {
-          if (onPasteFiles) {
-            const items = e.clipboardData?.items;
-            if (items) {
-              const files: File[] = [];
-              for (let i = 0; i < items.length; i++) {
-                const f = items[i].getAsFile();
-                if (f) files.push(f);
-              }
-              if (files.length) {
-                onPasteFiles(files);
-              }
-            }
+          if (!onPasteFiles) return;
+          const items = e.clipboardData?.items;
+          if (!items) return;
+          const files: File[] = [];
+          for (let i = 0; i < items.length; i++) {
+            const f = items[i].getAsFile();
+            if (f) files.push(f);
+          }
+          if (files.length) {
+            e.preventDefault();
+            onPasteFiles(files);
           }
         }}
         placeholder={placeholder}

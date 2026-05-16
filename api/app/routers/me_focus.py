@@ -21,10 +21,9 @@ from app.schemas import (
     MentionListResponse,
     MentionWithContext,
     TaskOut,
-    TicketOut,
     TodayResponse,
     TodayTaskBundle,
-    TodayTicketBundle,
+    UserSearchResult,
     WatchCreate,
     WatchDelete,
     WatchListResponse,
@@ -227,3 +226,23 @@ async def my_mentions(
             )
         )
     return MentionListResponse(items=items)
+
+
+@router.get("/users/search")
+async def search_users(
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    q: str = Query(default="", min_length=1),
+    limit: int = Query(default=10, ge=1, le=50),
+):
+    """Return users with a matching email prefix (for @mention autocomplete)."""
+    stmt = (
+        select(User.id, User.email, User.display_name)
+        .where(User.is_active.is_(True))
+        .where(User.email.ilike(f"{q.strip()}%"))
+        .order_by(User.email.asc())
+        .limit(limit)
+    )
+    result = await db.execute(stmt)
+    rows = result.all()
+    return [UserSearchResult(id=uid, email=email, display_name=name) for uid, email, name in rows]

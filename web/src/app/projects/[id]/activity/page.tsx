@@ -12,7 +12,10 @@ type ActivityRow = {
   kind: string;
   body: string;
   subject_type: string;
+  subject_id?: string;
   created_at: string;
+  parent_activity_id?: string | null;
+  is_internal?: boolean;
 };
 
 type ProjectRow = {
@@ -67,7 +70,7 @@ export default async function ProjectActivityPage({
       <div className="card wide stack">
         <h2 style={{ marginTop: 0 }}>Feed</h2>
         <ActivityStreamHint projectId={id} />
-        <ActivityFeed initial={items} />
+        <ActivityFeed initial={items} projectId={id} canPost={canPost} />
       </div>
     </div>
   );

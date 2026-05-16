@@ -2,10 +2,19 @@
 
 import { useCallback, useState } from "react";
 
-export type PendingImage = { key: string; file: File; url: string };
+export type PendingAttachment = { key: string; file: File; url?: string };
 
 export function filterImageFiles(files: Iterable<File>): File[] {
   return Array.from(files).filter((f) => f.type.startsWith("image/"));
+}
+
+/** Matches server `file_sniff` allowlist for ticket/task uploads (browser MIME only). */
+export function filterUploadableFiles(files: Iterable<File>): File[] {
+  return Array.from(files).filter((f) => {
+    if (f.type.startsWith("image/")) return true;
+    if (f.type === "application/pdf" || f.type === "text/plain") return true;
+    return false;
+  });
 }
 
 export function clipboardImageFiles(ev: ClipboardEvent): File[] {
@@ -22,16 +31,30 @@ export function clipboardImageFiles(ev: ClipboardEvent): File[] {
   return out;
 }
 
+export function clipboardUploadableFiles(ev: ClipboardEvent): File[] {
+  const items = ev.clipboardData?.items;
+  if (!items) return [];
+  const raw: File[] = [];
+  for (let i = 0; i < items.length; i++) {
+    const it = items[i];
+    if (it.kind !== "file") continue;
+    const f = it.getAsFile();
+    if (f) raw.push(f);
+  }
+  return filterUploadableFiles(raw);
+}
+
 export function usePendingImages() {
-  const [pending, setPending] = useState<PendingImage[]>([]);
+  const [pending, setPending] = useState<PendingAttachment[]>([]);
 
   const addFiles = useCallback((files: File[]) => {
-    const imgs = filterImageFiles(files);
-    if (!imgs.length) return;
+    const usable = filterUploadableFiles(files);
+    if (!usable.length) return;
     setPending((prev) => {
       const next = [...prev];
-      for (const file of imgs) {
-        next.push({ key: crypto.randomUUID(), file, url: URL.createObjectURL(file) });
+      for (const file of usable) {
+        const url = file.type.startsWith("image/") ? URL.createObjectURL(file) : undefined;
+        next.push({ key: crypto.randomUUID(), file, url });
       }
       return next;
     });
@@ -40,14 +63,16 @@ export function usePendingImages() {
   const remove = useCallback((key: string) => {
     setPending((prev) => {
       const hit = prev.find((x) => x.key === key);
-      if (hit) URL.revokeObjectURL(hit.url);
+      if (hit?.url) URL.revokeObjectURL(hit.url);
       return prev.filter((x) => x.key !== key);
     });
   }, []);
 
   const clear = useCallback(() => {
     setPending((prev) => {
-      prev.forEach((p) => URL.revokeObjectURL(p.url));
+      prev.forEach((p) => {
+        if (p.url) URL.revokeObjectURL(p.url);
+      });
       return [];
     });
   }, []);

@@ -6,10 +6,12 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
 from app.deps import get_current_user
+from app.config import get_settings
 from app.models.attachment import Attachment
 from app.models.task import Task
 from app.models.ticket import Ticket
@@ -20,6 +22,7 @@ from app.services.file_sniff import ALLOWED_MIMES, MIME_TO_EXT, sniff_file_mime
 from app.services.project_access import can_mutate_tasks, require_project_access
 
 MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024
+_MAX_ATTACHMENTS_PER_PROJECT = 500
 
 router = APIRouter(
     prefix="/v1/projects/{project_id}/attachments",
@@ -103,6 +106,18 @@ async def _upload_attachment(
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,
             detail="Viewers cannot upload attachments",
+        )
+
+    # Per-project soft quota (MVP; driven by ATTACHMENT_MAX_PER_PROJECT config, default 500)
+    _max = get_settings().attachment_max_per_project or _MAX_ATTACHMENTS_PER_PROJECT
+    current_count = int(
+        await db.scalar(select(func.count(Attachment.id)).where(Attachment.project_id == project_id))
+        or 0
+    )
+    if _max > 0 and current_count >= _max:
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Project attachment limit reached ({_max} files per project)",
         )
     if ticket_subject_id is not None:
         row = await db.get(Ticket, ticket_subject_id)

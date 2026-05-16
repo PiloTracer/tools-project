@@ -411,3 +411,9 @@ class InboxOut(BaseModel):
 
 class InboxListResponse(BaseModel):
     items: list[InboxOut]
+
+
+class UserSearchResult(BaseModel):
+    id: uuid.UUID
+    email: str
+    display_name: str | None = None

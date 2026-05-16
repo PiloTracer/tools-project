@@ -3,7 +3,18 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { clipboardImageFiles, usePendingImages } from "../use-pending-images";
+import { MarkdownEditor } from "@/components/MarkdownEditor";
+import { usePendingImages } from "../use-pending-images";
+
+async function _searchUsers(prefix: string): Promise<{ label: string; insert: string }[]> {
+  const r = await fetch(`/api/me/users/search?q=${encodeURIComponent(prefix)}&limit=8`);
+  if (!r.ok) return [];
+  const rows = (await r.json()) as { email: string; display_name: string | null }[];
+  return rows.map((u) => ({
+    label: u.display_name ? `${u.display_name} <${u.email}>` : u.email,
+    insert: u.email,
+  }));
+}
 
 export type ActivityItem = {
   id: string;
@@ -26,7 +37,7 @@ function PendingThumbnails({
   pending,
   onRemove,
 }: {
-  pending: { key: string; url: string }[];
+  pending: { key: string; url?: string; file: File }[];
   onRemove: (key: string) => void;
 }) {
   if (!pending.length) return null;
@@ -34,14 +45,33 @@ function PendingThumbnails({
     <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", alignItems: "flex-start" }}>
       {pending.map((p) => (
         <div key={p.key} style={{ position: "relative" }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={p.url} alt="" style={{ width: 72, height: 72, objectFit: "cover", borderRadius: 6, border: "1px solid var(--border)" }} />
+          {p.url ? (
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={p.url} alt="" style={{ width: 72, height: 72, objectFit: "cover", borderRadius: 6, border: "1px solid var(--border)" }} />
+            </>
+          ) : (
+            <div
+              className="text-sm muted"
+              style={{
+                width: 120,
+                minHeight: 72,
+                padding: "0.35rem",
+                borderRadius: 6,
+                border: "1px solid var(--border)",
+                wordBreak: "break-all",
+              }}
+              title={p.file.name}
+            >
+              {p.file.name}
+            </div>
+          )}
           <button
             type="button"
             className="btn btn-ghost text-sm"
             style={{ position: "absolute", top: -6, right: -6, padding: "0 0.35rem", minHeight: 0 }}
             onClick={() => onRemove(p.key)}
-            aria-label="Remove image"
+            aria-label="Remove attachment"
           >
             ×
           </button>
@@ -303,26 +333,20 @@ export function TicketDiscussion({
           ) : null}
           <label className="stack" style={{ gap: "0.25rem" }}>
             <span className="text-sm muted">{replyToId ? "Reply" : "Add comment"}</span>
-            <textarea
-              className="input"
-              rows={4}
+            <MarkdownEditor
               value={body}
-              onChange={(e) => setBody(e.target.value)}
-              onPaste={(e) => {
-                const files = clipboardImageFiles(e.nativeEvent);
-                if (files.length) {
-                  e.preventDefault();
-                  addFiles(files);
-                }
-              }}
+              onChange={setBody}
+              rows={4}
               placeholder="What happened, next steps, customer-facing summary…"
+              onPasteFiles={(files) => addFiles(files)}
+              mentionSuggestions={_searchUsers}
             />
           </label>
           <div className="stack" style={{ gap: "0.35rem" }}>
-            <span className="text-sm muted">Images (optional)</span>
+            <span className="text-sm muted">Attachments — images, PDF, or plain text (optional)</span>
             <input
               type="file"
-              accept="image/png,image/jpeg,image/gif,image/webp"
+              accept="image/png,image/jpeg,image/gif,image/webp,application/pdf,text/plain"
               multiple
               className="text-sm"
               onChange={(e) => {
