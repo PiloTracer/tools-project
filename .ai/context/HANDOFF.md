@@ -17,10 +17,9 @@
 | Area | Status |
 |------|--------|
 | **Auth** | Dual **local** + **OAuth**; **`GET /v1/auth/config`** drives **`/login`**. |
-| **Web** | **`AppShell`**: Today, Projects, **Inbox**, **⌘K** + **`CmdkPalette`**; Kanban (`KanbanBoard` HTML5 DnD) + task detail; project **health** pills; ticket **threaded** discussion + **project Activity threaded replies**; **`MarkdownEditor`** wired with live `@mention` autocomplete (via `GET /v1/me/users/search`); **`WatchButtons`** on Today with watched tickets section. |
-| **API** | Inbox, watches, **`/me/today`** + **`watched_tickets`**; task/project attachments + **`file_sniff`** (images + PDF + TXT); **per-project file-count cap** (default 500, **`ATTACHMENT_MAX_PER_PROJECT`**); **per-file 25 MiB** limit; **`retention_cutoff()`** helper + **`ATTACHMENT_RETENTION_DAYS`** on settings (**no purge job wired yet**); task **activity** writes on create/transition/patch; **SSE** richer payload (`kind`, `subject_type`, `subject_id`); **user search** (`GET /v1/me/users/search?q=`) for `@mention` autocomplete. |
-| **DB** | Tables: **`inbox_items`**, **`watchers`**; **`attachments.task_id`** nullable **`ticket_id`** (project- or task-scoped files). Indexes: **`uq_watchers_user_subject`**, **`ix_attachments_task_id`**, inbox indexes. |
-| **Config** | New settings: `attachment_max_per_project` (default 500), `attachment_retention_days` (default 0). |
+| **Web** | **`AppShell`**: Today, Projects, **Inbox**, **⌘K** + **`CmdkPalette`**; Kanban (`KanbanBoard` HTML5 DnD) + task detail; project **health** pills; ticket **threaded** discussion + **project Activity threaded replies**; **`MarkdownEditor`** wired with live `@mention` **+ `#ref`** autocomplete; **`WatchButtons`** on Today with watched tickets section. |
+| **API** | Inbox, watches, **`/me/today`** + **`watched_tickets`**; task/project attachments + **`file_sniff`** (images + PDF + TXT); **per-project quotas** (file count via `ATTACHMENT_MAX_PER_PROJECT` + **byte total** via `ATTACHMENT_MAX_BYTES_PER_PROJECT`); **per-file 25 MiB** limit; **`retention_cutoff()`** helper + `ATTACHMENT_RETENTION_DAYS` config (hook ready, purge job deferred); task **activity** writes on create/transition/patch; **SSE** richer payload; **user search** (`GET /v1/me/users/search`) + **ref search** (`GET /v1/me/refs/search`) for autocomplete. |
+| **Config** | New settings: `attachment_max_per_project` (default 500), `attachment_max_bytes_per_project` (default 0 = unlimited), `attachment_retention_days` (default 0). |
 | **`./bin/start.sh`** | Interactive menu: compose progress + keypress ack (see script header). |
 
 ---
@@ -38,7 +37,7 @@
 
 See **`.ai/context/NEXT.md`** and **Batch I** when Phase 1–2 are stable.
 
-Small polish: wire **`refSuggestions`** / `#` task–ticket refs into `MarkdownEditor` (ref-search API or reuse palette data); global **`c`** shortcut for Inbox capture; swap inline `<img>` in ticket discussion for `next/image` or suppress the ESLint rule.
+Small polish: wire retention purge job cron (hook exists in `attachment_storage.retention_cutoff()`); add global **`c`** shortcut for Inbox capture; swap inline `<img>` in ticket discussion for `next/image` or suppress ESLint rule.
 
 ---
 
@@ -57,4 +56,4 @@ Small polish: wire **`refSuggestions`** / `#` task–ticket refs into `MarkdownE
 
 - **Do not commit** `.env` or `credentials/`.  
 - Removed dead **`api/app/services/image_sniff.py`** — use **`file_sniff.py`** only.
-- `MarkdownEditor` supports `mentionSuggestions` and `refSuggestions`; **`mentionSuggestions`** is wired on **project Activity** + **ticket discussion** (`GET /v1/me/users/search`); **`refSuggestions`** is still unused pending a ref-search endpoint.
+- `MarkdownEditor` supports `mentionSuggestions` and `refSuggestions`; both are wired everywhere via `GET /v1/me/users/search` and `GET /v1/me/refs/search`. Type `@` for user mention, `#` for task/ticket ref lookup.

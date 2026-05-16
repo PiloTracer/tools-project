@@ -109,7 +109,8 @@ async def _upload_attachment(
         )
 
     # Per-project soft quota (MVP; driven by ATTACHMENT_MAX_PER_PROJECT config, default 500)
-    _max = get_settings().attachment_max_per_project or _MAX_ATTACHMENTS_PER_PROJECT
+    settings = get_settings()
+    _max = settings.attachment_max_per_project or _MAX_ATTACHMENTS_PER_PROJECT
     current_count = int(
         await db.scalar(select(func.count(Attachment.id)).where(Attachment.project_id == project_id))
         or 0
@@ -119,6 +120,19 @@ async def _upload_attachment(
             status.HTTP_429_TOO_MANY_REQUESTS,
             detail=f"Project attachment limit reached ({_max} files per project)",
         )
+
+    # Per-project byte quota (MVP; driven by ATTACHMENT_MAX_BYTES_PER_PROJECT, default 0 = off)
+    _byte_max = settings.attachment_max_bytes_per_project
+    if _byte_max > 0:
+        current_bytes = int(
+            await db.scalar(select(func.coalesce(func.sum(Attachment.size_bytes), 0)).where(Attachment.project_id == project_id))
+            or 0
+        )
+        if current_bytes >= _byte_max:
+            raise HTTPException(
+                status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=f"Project storage limit reached ({_byte_max} bytes total)",
+            )
     if ticket_subject_id is not None:
         row = await db.get(Ticket, ticket_subject_id)
         if row is None or row.project_id != project_id:

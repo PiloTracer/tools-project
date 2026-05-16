@@ -20,6 +20,7 @@ from app.models.watcher import Watcher
 from app.schemas import (
     MentionListResponse,
     MentionWithContext,
+    RefSearchResult,
     TaskOut,
     TodayResponse,
     TodayTaskBundle,
@@ -246,3 +247,50 @@ async def search_users(
     result = await db.execute(stmt)
     rows = result.all()
     return [UserSearchResult(id=uid, email=email, display_name=name) for uid, email, name in rows]
+
+
+@router.get("/refs/search")
+async def search_refs(
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    q: str = Query(default="", min_length=1),
+    limit: int = Query(default=10, ge=1, le=50),
+):
+    """Return tasks and tickets matching a ref prefix or title fragment, for #ref autocomplete."""
+    term = q.strip()
+    results: list[RefSearchResult] = []
+
+    task_stmt = (
+        select(Task.id, Task.ref, Task.title, Task.project_id, Project.name)
+        .join(Project, Task.project_id == Project.id)
+        .where(
+            (Task.ref.ilike(f"{term}%")) | (Task.title.ilike(f"%{term}%"))
+        )
+        .order_by(Task.updated_at.desc())
+        .limit(limit)
+    )
+    task_rows = (await db.execute(task_stmt)).all()
+    for tid, ref, title, pid, pname in task_rows:
+        results.append(RefSearchResult(
+            id=str(tid), ref=ref, title=title,
+            project_id=str(pid), project_name=pname, kind="task",
+        ))
+
+    if len(results) < limit:
+        ticket_stmt = (
+            select(Ticket.id, Ticket.ref, Ticket.title, Ticket.project_id, Project.name)
+            .join(Project, Ticket.project_id == Project.id)
+            .where(
+                (Ticket.ref.ilike(f"{term}%")) | (Ticket.title.ilike(f"%{term}%"))
+            )
+            .order_by(Ticket.updated_at.desc())
+            .limit(limit - len(results))
+        )
+        ticket_rows = (await db.execute(ticket_stmt)).all()
+        for tid, ref, title, pid, pname in ticket_rows:
+            results.append(RefSearchResult(
+                id=str(tid), ref=ref, title=title,
+                project_id=str(pid), project_name=pname, kind="ticket",
+            ))
+
+    return results

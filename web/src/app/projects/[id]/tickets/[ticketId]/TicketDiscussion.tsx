@@ -16,6 +16,16 @@ async function _searchUsers(prefix: string): Promise<{ label: string; insert: st
   }));
 }
 
+async function _searchRefs(prefix: string): Promise<{ label: string; insert: string }[]> {
+  const r = await fetch(`/api/me/refs/search?q=${encodeURIComponent(prefix)}&limit=10`);
+  if (!r.ok) return [];
+  const rows = (await r.json()) as { ref: string | null; title: string; project_name: string; kind: string }[];
+  return rows.map((row) => ({
+    label: `${row.ref || row.kind} · ${row.title} (${row.project_name})`,
+    insert: row.ref || row.title,
+  }));
+}
+
 export type ActivityItem = {
   id: string;
   actor_email: string | null;
@@ -340,6 +350,7 @@ export function TicketDiscussion({
               placeholder="What happened, next steps, customer-facing summary…"
               onPasteFiles={(files) => addFiles(files)}
               mentionSuggestions={_searchUsers}
+              refSuggestions={_searchRefs}
             />
           </label>
           <div className="stack" style={{ gap: "0.35rem" }}>

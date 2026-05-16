@@ -15,6 +15,16 @@ async function _searchUsers(prefix: string): Promise<{ label: string; insert: st
   }));
 }
 
+async function _searchRefs(prefix: string): Promise<{ label: string; insert: string }[]> {
+  const r = await fetch(`/api/me/refs/search?q=${encodeURIComponent(prefix)}&limit=10`);
+  if (!r.ok) return [];
+  const rows = (await r.json()) as { ref: string | null; title: string; project_name: string; kind: string }[];
+  return rows.map((row) => ({
+    label: `${row.ref || row.kind} · ${row.title} (${row.project_name})`,
+    insert: row.ref || row.title,
+  }));
+}
+
 type ActivityRow = {
   id: string;
   actor_email: string | null;
@@ -100,6 +110,7 @@ export function ActivityComposer({
           rows={4}
           placeholder="Type a message…"
           mentionSuggestions={_searchUsers}
+          refSuggestions={_searchRefs}
         />
       </label>
       <button type="submit" className="btn btn-primary">

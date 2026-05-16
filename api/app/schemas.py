@@ -417,3 +417,12 @@ class UserSearchResult(BaseModel):
     id: uuid.UUID
     email: str
     display_name: str | None = None
+
+
+class RefSearchResult(BaseModel):
+    id: str
+    ref: str | None = None
+    title: str
+    project_id: str
+    project_name: str
+    kind: str  # "task" or "ticket"

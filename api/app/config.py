@@ -39,6 +39,8 @@ class Settings(BaseSettings):
 
     # Attachments: per-project quota (MVP). Set to 0 for unlimited.
     attachment_max_per_project: int = 500
+    # Byte quota: total bytes stored per project (0 = unlimited).
+    attachment_max_bytes_per_project: int = 0
     # Retention: number of days after which attachments may be cleaned up by
     # a scheduled job (0 = never delete). The hook point lives in
     # `app/services/attachment_storage.py:retention_cutoff()`.
