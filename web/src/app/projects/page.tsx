@@ -12,6 +12,14 @@ type ProjectRow = {
   status?: string;
 };
 
+function statusPillClass(status: string | undefined): string {
+  if (!status) return "pill";
+  const s = status.toLowerCase();
+  if (s === "active") return "pill pill-ok";
+  if (s === "archived") return "pill pill-muted";
+  return "pill";
+}
+
 export default async function ProjectsPage() {
   const me = await fetchMe();
   if (!me) {
@@ -31,49 +39,55 @@ export default async function ProjectsPage() {
   const items = data.items ?? [];
 
   return (
-    <div className="page-inner stack-lg">
-      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: "1rem" }}>
-        <div style={{ flex: "1 1 200px" }}>
+    <div className="page-inner">
+      <header className="page-header">
+        <div className="page-header__text">
           <span className="pill">Your workspace</span>
-          <h1 style={{ marginTop: "0.65rem" }}>Projects</h1>
-          <p className="muted">Create a project for each initiative or product line.</p>
+          <h1>Projects</h1>
+          <p className="muted page-header__lead">
+            Create a project for each initiative or product line.
+          </p>
         </div>
-        <Link className="btn btn-primary" href="/projects/new">
-          New project
-        </Link>
-      </div>
-
-      {items.length === 0 ? (
-        <div className="card wide">
-          <p className="muted">No projects yet.</p>
+        <div className="page-header__actions">
           <Link className="btn btn-primary" href="/projects/new">
-            Create your first project
+            New project
           </Link>
         </div>
-      ) : (
-        <ul className="project-list">
-          {items.map((p) => (
-            <li key={p.id}>
-              <Link href={`/projects/${p.id}`} className="project-row">
-                <h3>{p.name}</h3>
-                <span className="slug">{p.slug}</span>
-                {p.status ? (
-                  <span className="pill" style={{ marginLeft: "0.5rem", fontSize: "0.72rem" }}>
-                    {p.status}
-                  </span>
-                ) : null}
-                {p.description ? (
-                  <p className="muted text-sm" style={{ margin: "0.35rem 0 0" }}>
-                    {p.description.length > 160
-                      ? `${p.description.slice(0, 160)}…`
-                      : p.description}
-                  </p>
-                ) : null}
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
+      </header>
+
+      <section className="page-body" aria-label="Project list">
+        {items.length === 0 ? (
+          <div className="card wide">
+            <p className="muted">No projects yet.</p>
+            <Link className="btn btn-primary" href="/projects/new">
+              Create your first project
+            </Link>
+          </div>
+        ) : (
+          <ul className="project-list">
+            {items.map((p) => (
+              <li key={p.id}>
+                <Link href={`/projects/${p.id}`} className="project-row">
+                  <div className="project-row__titleline">
+                    <h3>{p.name}</h3>
+                    {p.status ? (
+                      <span className={statusPillClass(p.status)}>{p.status}</span>
+                    ) : null}
+                  </div>
+                  <span className="slug">{p.slug}</span>
+                  {p.description ? (
+                    <p className="muted text-sm project-row__desc">
+                      {p.description.length > 160
+                        ? `${p.description.slice(0, 160)}…`
+                        : p.description}
+                    </p>
+                  ) : null}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </div>
   );
 }

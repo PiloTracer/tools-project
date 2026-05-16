@@ -1,0 +1,231 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+
+import { clipboardImageFiles, usePendingImages } from "../use-pending-images";
+
+export type ActivityItem = {
+  id: string;
+  actor_email: string | null;
+  body: string;
+  created_at: string;
+  parent_activity_id: string | null;
+  meta_json?: Record<string, unknown> | null;
+};
+
+function attachmentIds(meta: Record<string, unknown> | null | undefined): string[] {
+  if (meta == null) return [];
+  const raw = meta.attachment_ids;
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((x): x is string => typeof x === "string");
+}
+
+function PendingThumbnails({
+  pending,
+  onRemove,
+}: {
+  pending: { key: string; url: string }[];
+  onRemove: (key: string) => void;
+}) {
+  if (!pending.length) return null;
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", alignItems: "flex-start" }}>
+      {pending.map((p) => (
+        <div key={p.key} style={{ position: "relative" }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={p.url} alt="" style={{ width: 72, height: 72, objectFit: "cover", borderRadius: 6, border: "1px solid var(--border)" }} />
+          <button
+            type="button"
+            className="btn btn-ghost text-sm"
+            style={{ position: "absolute", top: -6, right: -6, padding: "0 0.35rem", minHeight: 0 }}
+            onClick={() => onRemove(p.key)}
+            aria-label="Remove image"
+          >
+            ×
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function TicketDiscussion({
+  projectId,
+  ticketId,
+  initialItems,
+  canEdit,
+}: {
+  projectId: string;
+  ticketId: string;
+  initialItems: ActivityItem[];
+  canEdit: boolean;
+}) {
+  const router = useRouter();
+  const { pending, addFiles, remove, clear } = usePendingImages();
+  const [body, setBody] = useState("");
+  const [msg, setMsg] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function uploadPending(): Promise<string[]> {
+    const ids: string[] = [];
+    for (const p of pending) {
+      const fd = new FormData();
+      fd.append("file", p.file);
+      const ur = await fetch(`/api/projects/${projectId}/tickets/${ticketId}/attachments`, {
+        method: "POST",
+        body: fd,
+      });
+      const ut = await ur.text();
+      if (!ur.ok) {
+        try {
+          const j = JSON.parse(ut) as { detail?: string };
+          throw new Error(j.detail ?? ut);
+        } catch (e) {
+          if (e instanceof Error && e.message !== ut) throw e;
+          throw new Error(ut || `Upload failed (${ur.status})`);
+        }
+      }
+      const row = JSON.parse(ut) as { id: string };
+      ids.push(row.id);
+    }
+    return ids;
+  }
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const caption = body.trim();
+    if (!caption && pending.length === 0) return;
+    setMsg(null);
+    setBusy(true);
+    try {
+      const uploadedIds = pending.length ? await uploadPending() : [];
+      const payload: Record<string, unknown> = {
+        subject_type: "ticket",
+        subject_id: ticketId,
+        kind: "comment",
+        body: caption || (uploadedIds.length ? "(image)" : ""),
+      };
+      if (uploadedIds.length) {
+        payload.meta_json = { attachment_ids: uploadedIds };
+      }
+      const r = await fetch(`/api/projects/${projectId}/activities`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const t = await r.text();
+      if (!r.ok) {
+        try {
+          const j = JSON.parse(t) as { detail?: string };
+          setMsg(j.detail ?? t);
+        } catch {
+          setMsg(t || `Error ${r.status}`);
+        }
+        setBusy(false);
+        return;
+      }
+      setBody("");
+      clear();
+      router.refresh();
+    } catch (err) {
+      setMsg(err instanceof Error ? err.message : "Upload failed");
+    }
+    setBusy(false);
+  }
+
+  return (
+    <div className="stack" style={{ gap: "1rem" }}>
+      <p className="muted text-sm" style={{ margin: 0 }}>
+        Comments are project <strong>activity</strong> entries. Paste or attach images below; they upload when you post.
+      </p>
+      {initialItems.length === 0 ? (
+        <p className="muted text-sm">No comments yet.</p>
+      ) : (
+        <ul className="stack" style={{ listStyle: "none", margin: 0, padding: 0, gap: "0.75rem" }}>
+          {initialItems.map((a) => {
+            const ids = attachmentIds(a.meta_json);
+            return (
+              <li key={a.id} className="card" style={{ padding: "0.65rem 0.85rem" }}>
+                <div className="muted text-sm" style={{ marginBottom: "0.35rem" }}>
+                  {(a.actor_email ?? "user") + " · " + new Date(a.created_at).toLocaleString()}
+                </div>
+                {a.body !== "(image)" ? <div style={{ whiteSpace: "pre-wrap" }}>{a.body}</div> : null}
+                {ids.length > 0 ? (
+                  <div className="stack" style={{ gap: "0.5rem", marginTop: a.body !== "(image)" ? "0.5rem" : 0 }}>
+                    {ids.map((id) => (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        key={id}
+                        src={`/api/attachments/${id}`}
+                        alt=""
+                        style={{ maxWidth: "min(100%, 720px)", height: "auto", borderRadius: 8 }}
+                      />
+                    ))}
+                  </div>
+                ) : null}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {canEdit ? (
+        <form
+          onSubmit={onSubmit}
+          className="stack"
+          style={{ gap: "0.5rem" }}
+          onDragOver={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            addFiles(Array.from(e.dataTransfer.files));
+          }}
+        >
+          <label className="stack" style={{ gap: "0.25rem" }}>
+            <span className="text-sm muted">Add comment</span>
+            <textarea
+              className="input"
+              rows={4}
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              onPaste={(e) => {
+                const files = clipboardImageFiles(e.nativeEvent);
+                if (files.length) {
+                  e.preventDefault();
+                  addFiles(files);
+                }
+              }}
+              placeholder="What happened, next steps, customer-facing summary…"
+            />
+          </label>
+          <div className="stack" style={{ gap: "0.35rem" }}>
+            <span className="text-sm muted">Images (optional)</span>
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/gif,image/webp"
+              multiple
+              className="text-sm"
+              onChange={(e) => {
+                const list = e.target.files;
+                if (list?.length) addFiles(Array.from(list));
+                e.target.value = "";
+              }}
+            />
+            <PendingThumbnails pending={pending} onRemove={remove} />
+          </div>
+          <div>
+            <button type="submit" className="btn btn-primary" disabled={busy || (!body.trim() && pending.length === 0)}>
+              {busy ? "Posting…" : "Post comment"}
+            </button>
+          </div>
+          {msg ? <p className="err text-sm">{msg}</p> : null}
+        </form>
+      ) : (
+        <p className="muted text-sm">Viewers cannot post comments.</p>
+      )}
+    </div>
+  );
+}

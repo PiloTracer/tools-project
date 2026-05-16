@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
-from sqlalchemy import select
+from sqlalchemy import case, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
@@ -46,7 +46,14 @@ async def list_tickets(
         stmt = stmt.where(Ticket.queue_slug == queue_slug.strip())
     if ticket_status:
         stmt = stmt.where(Ticket.status == ticket_status.strip())
-    stmt = stmt.order_by(Ticket.updated_at.desc())
+    # Support queue: open work first, oldest first (age / triage); terminal tickets sink.
+    stmt = stmt.order_by(
+        case(
+            (Ticket.status.in_(("resolved", "closed")), 1),
+            else_=0,
+        ),
+        Ticket.created_at.asc(),
+    )
     rows = list((await db.scalars(stmt)).all())
     return TicketListResponse(items=[TicketOut.model_validate(r) for r in rows])
 

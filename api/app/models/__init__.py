@@ -1,4 +1,5 @@
 from app.models.activity import Activity
+from app.models.attachment import Attachment
 from app.models.component import Component
 from app.models.mention import Mention
 from app.models.project import Project
@@ -10,6 +11,7 @@ from app.models.user import User
 
 __all__ = [
     "Activity",
+    "Attachment",
     "Component",
     "Mention",
     "Project",

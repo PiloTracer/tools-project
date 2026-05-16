@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import json
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
 # --- Status constants (align with plan §4.1) ---
@@ -223,7 +224,18 @@ class ActivityCreate(BaseModel):
     subject_id: uuid.UUID
     kind: str = Field(default="comment", max_length=40)
     parent_activity_id: uuid.UUID | None = None
-    body: str = Field(min_length=1, max_length=8000)
+    body: str = Field(default="", max_length=8000)
+    meta_json: dict | None = None
+
+    @field_validator("meta_json")
+    @classmethod
+    def _meta_json_size(cls, v: dict | None) -> dict | None:
+        if v is None:
+            return v
+        raw = json.dumps(v, separators=(",", ":"))
+        if len(raw) > 8192:
+            raise ValueError("meta_json exceeds max serialized size (8192 bytes)")
+        return v
 
 
 class ActivityOut(BaseModel):
@@ -244,6 +256,21 @@ class ActivityOut(BaseModel):
 
 class ActivityListResponse(BaseModel):
     items: list[ActivityOut]
+
+
+class AttachmentOut(BaseModel):
+    id: uuid.UUID
+    project_id: uuid.UUID
+    ticket_id: uuid.UUID
+    activity_id: uuid.UUID | None = None
+    filename: str
+    mime: str
+    size_bytes: int
+    storage_key: str
+    created_by: uuid.UUID
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
 
 
 class TicketCreate(BaseModel):

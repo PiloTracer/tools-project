@@ -36,39 +36,42 @@ export default async function TodayPage() {
   const mentions = mr.ok ? ((await mr.json()) as { items: MentionItem[] }).items : [];
 
   return (
-    <div className="page-inner stack-lg">
-      <div>
-        <span className="pill">My focus</span>
-        <h1 style={{ marginTop: "0.65rem" }}>Today</h1>
-        <p className="muted text-sm">
-          Assigned tasks with due dates in the next week (UTC), plus @mentions from activity.
-        </p>
-      </div>
+    <div className="page-inner">
+      <header className="page-header">
+        <div className="page-header__text">
+          <span className="pill">My focus</span>
+          <h1>Today</h1>
+          <p className="muted text-sm page-header__lead">
+            Assigned tasks with due dates in the next week (UTC), plus @mentions from activity.
+          </p>
+        </div>
+      </header>
 
-      <section className="card wide stack">
-        <h2 style={{ marginTop: 0 }}>Upcoming assigned tasks</h2>
-        {today.length === 0 ? (
-          <p className="muted">Nothing due in the window, or no assignee+due set.</p>
-        ) : (
-          <ul className="stack" style={{ listStyle: "none", padding: 0, gap: "0.5rem" }}>
-            {today.map((row) => (
-              <li key={row.task.id}>
-                <Link href={`/projects/${row.task.project_id}/tasks`} className="project-row">
-                  <strong>{row.task.title}</strong>
-                  <span className="muted text-sm" style={{ marginLeft: "0.5rem" }}>
-                    {row.project_name} · {row.task.status}
-                    {row.task.due_at
-                      ? ` · due ${new Date(row.task.due_at).toLocaleDateString()}`
-                      : ""}
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      <div className="page-body stack-lg">
+        <section className="card wide stack">
+          <h2 style={{ marginTop: 0 }}>Upcoming assigned tasks</h2>
+          {today.length === 0 ? (
+            <p className="muted">Nothing due in the window, or no assignee+due set.</p>
+          ) : (
+            <ul className="stack" style={{ listStyle: "none", padding: 0, gap: "0.5rem" }}>
+              {today.map((row) => (
+                <li key={row.task.id}>
+                  <Link href={`/projects/${row.task.project_id}/tasks`} className="project-row">
+                    <strong>{row.task.title}</strong>
+                    <span className="muted text-sm" style={{ marginLeft: "0.5rem" }}>
+                      {row.project_name} · {row.task.status}
+                      {row.task.due_at
+                        ? ` · due ${new Date(row.task.due_at).toLocaleDateString()}`
+                        : ""}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
 
-      <section className="card wide stack">
+        <section className="card wide stack">
         <h2 style={{ marginTop: 0 }}>Mentions</h2>
         {mentions.length === 0 ? (
           <p className="muted">
@@ -90,11 +93,12 @@ export default async function TodayPage() {
             ))}
           </ul>
         )}
-      </section>
+        </section>
 
-      <p>
-        <Link href="/projects">← Projects</Link>
-      </p>
+        <p>
+          <Link href="/projects">← Projects</Link>
+        </p>
+      </div>
     </div>
   );
 }

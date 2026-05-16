@@ -48,6 +48,7 @@ services:
       DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://prj:prj_dev_change_me@postgresql:5432/tools_project}
       SQL_SCHEMA_DIR: ${SQL_SCHEMA_DIR:-/sql}
       SQL_SCHEMA_APPLY: ${SQL_SCHEMA_APPLY:-true}
+      ATTACHMENTS_DIR: ${ATTACHMENTS_DIR:-/data/attachments}
       AUTH_LOCAL_ENABLED: ${AUTH_LOCAL_ENABLED:-true}
       AUTH_OAUTH_ENABLED: ${AUTH_OAUTH_ENABLED:-true}
       JWT_SECRET: ${JWT_SECRET:-change_me_generate_a_long_random_secret}
@@ -60,6 +61,7 @@ services:
     volumes:
       - ./api:/app
       - ./sql:/sql:ro
+      - tpr_attachments:/data/attachments
     working_dir: /app
     depends_on:
       postgresql:
@@ -124,3 +126,5 @@ volumes:
     name: ${COMPOSE_PROJECT_NAME:-tools_project_dev}_web_node_modules
   tpr_pg_data:
     name: ${COMPOSE_PROJECT_NAME:-tools_project_dev}_tpr_pg_data
+  tpr_attachments:
+    name: ${COMPOSE_PROJECT_NAME:-tools_project_dev}_tpr_attachments

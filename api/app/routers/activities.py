@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db import get_db, session_factory
 from app.deps import get_current_user
 from app.models.activity import Activity
+from app.models.attachment import Attachment
 from app.models.mention import Mention
 from app.models.task import Task
 from app.models.ticket import Ticket
@@ -59,6 +60,66 @@ async def _validate_subject(
             )
         return
     raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Invalid subject_type")
+
+
+def _attachment_ids_from_meta(meta: dict | None) -> list[uuid.UUID]:
+    if not meta:
+        return []
+    raw = meta.get("attachment_ids")
+    if raw is None:
+        return []
+    if not isinstance(raw, list):
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail="meta_json.attachment_ids must be a list of UUID strings",
+        )
+    out: list[uuid.UUID] = []
+    for x in raw:
+        try:
+            out.append(uuid.UUID(str(x)))
+        except (ValueError, TypeError) as exc:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                detail="meta_json.attachment_ids must be a list of UUID strings",
+            ) from exc
+    return out
+
+
+async def _validate_and_link_ticket_attachments(
+    db: AsyncSession,
+    *,
+    project_id: uuid.UUID,
+    subject_type: str,
+    subject_id: uuid.UUID,
+    activity_id: uuid.UUID,
+    meta: dict | None,
+) -> None:
+    ids = _attachment_ids_from_meta(meta)
+    if not ids:
+        return
+    if subject_type != "ticket":
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail="Image attachments on comments are only supported for tickets in this release",
+        )
+    for aid in ids:
+        att = await db.get(Attachment, aid)
+        if att is None:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Attachment not found")
+        if att.project_id != project_id or att.ticket_id != subject_id:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                detail="Attachment does not belong to this ticket",
+            )
+        if att.activity_id is not None and att.activity_id != activity_id:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                detail="Attachment already linked to another comment",
+            )
+    for aid in ids:
+        att = await db.get(Attachment, aid)
+        if att is not None:
+            att.activity_id = activity_id
 
 
 async def _insert_mentions_for_activity(
@@ -147,6 +208,15 @@ async def create_activity(
                 status.HTTP_400_BAD_REQUEST,
                 detail="parent_activity_id must belong to this project",
             )
+    ids = _attachment_ids_from_meta(body.meta_json)
+    body_text = body.body.strip()
+    if not body_text and not ids:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail="Provide a comment body and/or images (attachment_ids)",
+        )
+    if not body_text and ids:
+        body_text = "(image)"
     row = Activity(
         project_id=project_id,
         subject_type=st,
@@ -154,10 +224,19 @@ async def create_activity(
         kind=kind_val,
         actor_id=user.id,
         parent_activity_id=body.parent_activity_id,
-        body=body.body.strip(),
+        body=body_text,
+        meta_json=body.meta_json,
     )
     db.add(row)
     await db.flush()
+    await _validate_and_link_ticket_attachments(
+        db,
+        project_id=project_id,
+        subject_type=st,
+        subject_id=body.subject_id,
+        activity_id=row.id,
+        meta=body.meta_json,
+    )
     await _insert_mentions_for_activity(
         db,
         project_id=project_id,

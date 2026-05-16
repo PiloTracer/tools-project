@@ -133,3 +133,18 @@ CREATE TABLE IF NOT EXISTS project_counters (
     counter_type VARCHAR(20) NOT NULL,
     next_value INT NOT NULL DEFAULT 1
 );
+
+-- Ticket images/files (MVP: images only; stored on API volume under ATTACHMENTS_DIR).
+CREATE TABLE IF NOT EXISTS attachments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    project_id UUID NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
+    ticket_id UUID NOT NULL REFERENCES tickets (id) ON DELETE CASCADE,
+    activity_id UUID REFERENCES activities (id) ON DELETE SET NULL,
+    filename VARCHAR(500) NOT NULL,
+    mime VARCHAR(200) NOT NULL,
+    size_bytes INT NOT NULL,
+    storage_key VARCHAR(512) NOT NULL,
+    created_by UUID NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT ck_attachments_size_bytes CHECK (size_bytes > 0 AND size_bytes <= 26214400)
+);

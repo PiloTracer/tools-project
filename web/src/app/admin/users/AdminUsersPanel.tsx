@@ -89,18 +89,18 @@ export function AdminUsersPanel({
     <div className="stack-lg">
       <section className="card wide stack">
         <h2 style={{ marginTop: 0 }}>Create local user</h2>
-        <form className="stack" style={{ gap: "0.65rem", maxWidth: "28rem" }} onSubmit={createUser}>
+        <form className="stack" style={{ gap: "0.65rem", maxWidth: "28rem" }} onSubmit={createUser} autoComplete="off">
           <label className="stack" style={{ gap: "0.25rem" }}>
             <span className="text-sm muted">Email</span>
-            <input className="input" name="email" type="email" required />
+            <input className="input" name="email" type="email" required autoComplete="off" />
           </label>
           <label className="stack" style={{ gap: "0.25rem" }}>
             <span className="text-sm muted">Password (min 8)</span>
-            <input className="input" name="password" type="password" minLength={8} required />
+            <input className="input" name="password" type="password" minLength={8} required autoComplete="new-password" />
           </label>
           <label className="stack" style={{ gap: "0.25rem" }}>
             <span className="text-sm muted">Display name</span>
-            <input className="input" name="display_name" />
+            <input className="input" name="display_name" autoComplete="off" />
           </label>
           <label className="row" style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
             <input name="is_superuser" type="checkbox" />
@@ -125,6 +125,7 @@ export function AdminUsersPanel({
                 padding: "0.75rem 0",
                 borderBottom: "1px solid var(--border)",
               }}
+              autoComplete="off"
               onSubmit={(e) => {
                 e.preventDefault();
                 patchUser(u.id, e.currentTarget);
@@ -143,6 +144,7 @@ export function AdminUsersPanel({
                     className="input text-sm"
                     name="display_name"
                     defaultValue={u.display_name ?? ""}
+                    autoComplete="off"
                     style={{ minHeight: "2.25rem" }}
                   />
                 </label>
@@ -166,6 +168,7 @@ export function AdminUsersPanel({
                     name="password"
                     type="password"
                     minLength={8}
+                    autoComplete="new-password"
                     placeholder="optional"
                     style={{ minHeight: "2.25rem" }}
                   />

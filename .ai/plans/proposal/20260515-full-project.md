@@ -429,3 +429,21 @@ A user with a fresh local install or an integrated SSO sign-in can:
 ---
 
 *This document is internal planning for `tools-project`. Update as scope changes; keep `preliminary.md` as the short product brief and this file as the buildable plan.*
+
+---
+
+## 16. Repository alignment (implementation notes)
+
+These notes exist so **UI and schema do not silently drift** from §4–§5 while the stack is still mid-delivery.
+
+| Plan (§4.1) | Current repo | Notes |
+|-------------|--------------|--------|
+| `Task.body_md` / `Ticket.body_md` | `tasks.description`, `tickets.description` (`TEXT`) | Same role: long-form issue / work description. Rename to `body_md` only when the markdown editor pipeline is wired; until then treat `description` as markdown-capable plain text. |
+| `Activity.body_md` | `activities.body` (`TEXT`) | Same role: comments, threaded replies, future paste-image. |
+| `Activity.is_internal` | *not in DB yet* | MVP acceptance (§11.4) expects internal vs external notes; add a boolean column + API when the ticket detail thread is hardened. |
+| `Attachment` | `attachments` table + `POST /v1/projects/{id}/tickets/{ticket_id}/attachments` + `GET /v1/attachments/{id}`; `ATTACHMENTS_DIR` (Compose volume `tpr_attachments` → `/data/attachments`) | Ticket-scoped image uploads (PNG/JPEG/GIF/WebP, 25 MB); linked to activity via `meta_json.attachment_ids`. Task uploads and S3-backed `AttachmentStorage` port still TBD. |
+| Ticket vs Task | Two tables + shared `Activity` with `subject_type` `task` \| `ticket` | Correct split per plan: different status enums and SLA-style fields on **Ticket** only; engineering workflow stays on **Task**. |
+
+**Ticket queue (API):** list ordering targets support triage: non-terminal tickets first, then **oldest `created_at` first**, then priority (see `api/app/routers/tickets.py`).
+
+**Web:** `/projects/[id]/tickets` is the **queue**; `/projects/[id]/tickets/[ticketId]` is the **case** view (description + discussion via Activity). That mirrors §7 (`tickets/page.tsx` queue + `[ticketId]/page.tsx` detail).

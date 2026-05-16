@@ -40,3 +40,8 @@ CREATE INDEX IF NOT EXISTS ix_tickets_status ON tickets (status);
 CREATE INDEX IF NOT EXISTS ix_tickets_assignee_id ON tickets (assignee_id);
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_project_counters_project_type ON project_counters (project_id, counter_type);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_attachments_storage_key ON attachments (storage_key);
+CREATE INDEX IF NOT EXISTS ix_attachments_project_id ON attachments (project_id);
+CREATE INDEX IF NOT EXISTS ix_attachments_ticket_id ON attachments (ticket_id);
+CREATE INDEX IF NOT EXISTS ix_attachments_activity_id ON attachments (activity_id);

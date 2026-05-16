@@ -4,16 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { apiServerFetch, fetchMe } from "@/shared/server/session";
 
 import { ProjectSubNav } from "../ProjectSubNav";
-import { NewTicketForm, TicketTable } from "./TicketsClient";
-
-type TicketRow = {
-  id: string;
-  ref: string | null;
-  title: string;
-  status: string;
-  priority: string;
-  queue_slug: string;
-};
+import { NewTicketForm, TicketTable, type TicketQueueRow } from "./TicketsClient";
 
 type ProjectRow = {
   id: string;
@@ -44,7 +35,7 @@ export default async function ProjectTicketsPage({
   }
   const project = (await pr.json()) as ProjectRow;
   const tr = await apiServerFetch(`/v1/projects/${id}/tickets`);
-  const items = tr.ok ? ((await tr.json()) as { items: TicketRow[] }).items : [];
+  const items = tr.ok ? ((await tr.json()) as { items: TicketQueueRow[] }).items : [];
   const role = project.membership_role ?? "";
   const canEdit = ["owner", "maintainer", "contributor"].includes(role) || me.is_superuser;
   const canDelete = ["owner", "maintainer"].includes(role) || me.is_superuser;
@@ -58,7 +49,11 @@ export default async function ProjectTicketsPage({
         <p className="muted text-sm" style={{ margin: "0.15rem 0" }}>
           Project: <strong>{project.name}</strong>
         </p>
-        <h1 style={{ marginTop: "0.25rem" }}>Support tickets</h1>
+        <h1 style={{ marginTop: "0.25rem" }}>Support ticket queue</h1>
+        <p className="muted text-sm" style={{ margin: "0.35rem 0 0" }}>
+          Open cases first, oldest first (triage). Open a row for the full case: description and threaded-style comments via
+          activity.
+        </p>
         <ProjectSubNav projectId={id} current="tickets" />
       </div>
       <div className="card wide stack">
@@ -70,7 +65,7 @@ export default async function ProjectTicketsPage({
         {items.length === 0 ? (
           <p className="muted">No tickets.</p>
         ) : (
-          <TicketTable tickets={items} canEdit={canEdit} canDelete={canDelete} />
+          <TicketTable projectId={id} tickets={items} canEdit={canEdit} canDelete={canDelete} />
         )}
       </div>
     </div>
