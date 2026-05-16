@@ -82,7 +82,7 @@ Defer until tasks exist; order within Phase 2:
 
 ```bash
 docker compose --profile dev up --build
-docker compose --profile dev run --rm api python -m app.cli_schema apply-ddl   # DDL + indexes only
+docker compose --profile dev run --rm api python -m app.cli_schema apply-ddl   # DDL → bootstrap → backfill/inserts
 curl -s "http://localhost:8300/docs"
 docker compose run --rm --no-deps web sh -lc "npm ci --no-audit --no-fund && npm run check && npm run build"
 ```

@@ -5,7 +5,7 @@ FastAPI service for the internal project hub. Run in Docker (see repo root).
 ## Database schema (**no Alembic**)
 
 - Repo-root **`sql/`** contains **`schema_changes.sql`**, **`schema_indexes.sql`**, **`schema_backfill.sql`**, **`schema_inserts.sql`**. The API lifespan applies DDL + indexes, then (**after `run_bootstrap`**) backfill + inserts — keep aligned with **`app/models`** (see repo **`.cursorrules`**).
-- **CLI:** `python -m app.cli_schema apply-ddl` reapplies **`schema_changes` + `schema_indexes`** only (see **`bin/start.sh`** option **11**).
+- **CLI:** `python -m app.cli_schema apply-ddl` runs **`schema_changes` → `schema_indexes` → `run_bootstrap` → `schema_backfill` → `schema_inserts`** (same as API startup; see **`bin/start.sh`** option **11**).
 - Compose mounts **`./sql` → `/sql`** and defaults **`SQL_SCHEMA_DIR=/sql`**.
 
 ## Endpoints (bootstrap)

@@ -94,7 +94,7 @@ dc() {
   _compose_invoke "$@"
 }
 
-# Used from the interactive menu (MENU_QUIET=1): swallow compose noise; print transcript on failure only.
+# Optional (MENU_QUIET=1): swallow compose stdout/stderr; print transcript on failure only.
 quiet_dc() {
   local log ec
   log=$(mktemp "${TMPDIR:-/tmp}/tpr-startsh-compose.XXXXXX")
@@ -296,9 +296,9 @@ cmd_drop_tables() {
   fi
   printf 'Ensuring Postgres is running…\n'
   if runs_menu_quiet; then
-    quiet_dc up -d postgresql >/dev/null
+    quiet_dc up -d postgresql
   else
-    dc up -d postgresql >/dev/null
+    dc up -d postgresql
   fi
   cmd_wait_postgres || return 1
   printf 'Executing DROP SCHEMA public CASCADE…\n'
@@ -327,16 +327,16 @@ GRANT ALL ON SCHEMA public TO CURRENT_USER;
 GRANT ALL ON SCHEMA public TO public;
 EOSQL
   fi
-  printf 'Done. Start the API next (option 2) so sql/schema_*.sql and bootstrap repopulate the DB.\n\n'
+  printf 'Done. Run option 11 (apply sql + bootstrap + seeds) or start the API (option 2) to repopulate.\n\n'
 }
 
 cmd_rebuild_schema() {
   validate_config
-  printf 'Applying sql/schema_changes.sql + sql/schema_indexes.sql (missing objects only)…\n'
+  printf 'Applying sql/schema_*.sql + bootstrap + seeds (same phases as API startup)…\n'
   if runs_menu_quiet; then
-    quiet_dc up -d postgresql >/dev/null
+    quiet_dc up -d postgresql
   else
-    dc up -d postgresql >/dev/null
+    dc up -d postgresql
   fi
   cmd_wait_postgres || return 1
   if runs_menu_quiet; then
@@ -344,7 +344,7 @@ cmd_rebuild_schema() {
   else
     dc run --rm api python -m app.cli_schema apply-ddl
   fi
-  printf 'DDL apply finished. Post-bootstrap scripts run when the API starts.\n\n'
+  printf 'Schema rebuild finished (DDL → bootstrap → backfill/inserts).\n\n'
 }
 
 show_menu() {
@@ -360,7 +360,7 @@ show_menu() {
   8) Destroy stack + volumes (DANGEROUS)  — docker compose down -v (this project only)
   9) Show URL hints
   10) Drop all DB tables (DANGEROUS)      — Postgres: DROP SCHEMA public CASCADE (project DB only)
-  11) Rebuild DDL from SQL               — python -m app.cli_schema apply-ddl (missing objects only)
+  11) Rebuild DDL from SQL               — sql/schema_*.sql + bootstrap + seeds (mirrors API startup)
   0) Exit
 EOF
   printf '\n'
@@ -392,8 +392,8 @@ main() {
     rebuild-schema) cmd_rebuild_schema ;;
     urls)          urls_hint ;;
     dev|"")
-      # Interactive menu: MENU_QUIET uses quiet_dc for noisy compose steps; logs -f stays loud on options 1 and 6.
-      MENU_QUIET=1
+      # Stream compose up/down/build progress to the terminal (see quiet_dc + MENU_QUIET if you need silence).
+      MENU_QUIET=0
       while true; do
         show_menu
         read -r -p 'Choose [0-11]: ' choice || true

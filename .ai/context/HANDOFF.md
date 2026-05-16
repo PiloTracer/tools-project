@@ -23,7 +23,7 @@
 | **Web** | **`AppShell`** (nav + user chip + sign out); **home** dashboard; **`/projects`**, **`/projects/new`**, **`/projects/[id]`**; **`POST /api/projects`** proxy; login redirects to **`/projects`**. |
 | **Domain** | **`projects`** table + **`GET/POST /v1/projects`**, **`GET /v1/projects/{id}`** — scoped to **`owner_id`** (no **`ProjectMember`** yet). |
 | **DB** | PostgreSQL; **`sql/schema_*.sql`** on startup (after bootstrap: backfill + inserts). **`bootstrap`** fills first superuser when DB empty + local auth + **`BOOTSTRAP_ADMIN_*`**. **`schema_inserts.sql`** adds a demo project for the oldest superuser. |
-| **`./bin/start.sh`** | **10** drop public schema (**warning**); **11** re-apply DDL only (`apply-ddl`). |
+| **`./bin/start.sh`** | **10** drop public schema (**warning**); **11** `apply-ddl` (DDL → bootstrap → seeds). |
 
 ---
 
