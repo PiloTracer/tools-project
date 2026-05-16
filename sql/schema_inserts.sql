@@ -30,3 +30,18 @@ WHERE u.is_superuser = TRUE
 ORDER BY u.created_at ASC
 LIMIT 1
 ON CONFLICT (slug) DO NOTHING;
+
+-- Membership rows for seeded demo projects (backfill runs before these INSERTs).
+INSERT INTO project_members (id, project_id, user_id, role, created_at)
+SELECT gen_random_uuid(),
+       p.id,
+       p.owner_id,
+       'owner',
+       now()
+FROM projects p
+WHERE p.slug IN ('demo-workspace', 'demo-sandbox')
+  AND NOT EXISTS (
+      SELECT 1
+      FROM project_members pm
+      WHERE pm.project_id = p.id AND pm.user_id = p.owner_id
+  );

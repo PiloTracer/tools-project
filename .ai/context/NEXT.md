@@ -6,9 +6,13 @@
 
 **Schema**: **declarative `sql/` only** — no Alembic (see `.cursorrules`). On API startup: `schema_changes.sql` → `schema_indexes.sql` → **bootstrap** → `schema_backfill.sql` → `schema_inserts.sql`.
 
+**Latest:** Batches **A–F** are implemented in-repo (A remains ongoing discipline when models change). Phase 2 can extend activity parsing, Kanban, human task refs, etc.
+
 ---
 
 ## Batch A — Schema discipline (maintain continually)
+
+Ongoing process: whenever **`api/app/models`** gain persisted fields, update **`sql/schema_*.sql`** in the same change. **Current tree:** `users`, `projects` (+ `status`, `project_key`), `project_members`, `components`, `tasks`, **`activities`**, **`mentions`**, **`tickets`** — see **`sql/schema_changes.sql`** and indexes.
 
 | # | Item | Why | Hints |
 |---|------|-----|--------|
@@ -25,10 +29,10 @@
 
 | # | Item | Why | Hints |
 |---|------|-----|--------|
-| B1 | **`ProjectMember`** model (`project_id`, `user_id`, `role`: owner / maintainer / contributor / viewer) | Plan assumes RBAC; today access is **`owner_id` only** | Update `sql/schema_*.sql` + SQLAlchemy model; backfill existing `projects.owner_id` as `owner` member rows. |
-| B2 | **API:** `GET/POST/PATCH/DELETE` `/v1/projects/{id}/members` (superuser or project owner to add; enforce role rules) | Multi-user projects | Replace “owner-only” checks in `projects` router with membership + role (e.g. viewer read-only). |
-| B3 | **PATCH** `/v1/projects/{id}` — `name`, `description`, **`status`** `active|archived`, optional **`key`** for future refs | Align with plan domain table | Decide: keep **`slug`** as URL id vs introduce display **`key`** (`PRJ`) + numeric refs when **tasks** land. |
-| B4 | **Web:** project **settings** or **members** sub-page (minimal table + invite by email if user exists) | Makes RBAC real in UI | Start read-only member list + server actions or BFF routes. |
+| B1 | **`ProjectMember`** model (`project_id`, `user_id`, `role`: owner / maintainer / contributor / viewer) | Plan assumes RBAC | **Done:** `sql/` + `api/app/models/project_member.py`; backfill inserts owner rows for legacy `projects.owner_id`. |
+| B2 | **API:** `GET/POST/PATCH/DELETE` `/v1/projects/{id}/members` | Multi-user projects | **Done:** `api/app/routers/projects.py` + membership checks; superusers treated as owner-level for admin. |
+| B3 | **PATCH** `/v1/projects/{id}` — `name`, `description`, **`status`** `active|archived`, optional **`project_key`** | Align with plan | **Done:** API + **`ProjectSettingsForm`** on **`/projects/[id]`** (owners/maintainers). |
+| B4 | **Web:** project **settings** or **members** sub-page | RBAC in UI | **Done:** **`/projects/[id]/members`** + settings card on overview. |
 
 **Done when:** Non-owner collaborator can see project; viewer cannot mutate tasks (once tasks exist); owner can archive.
 
@@ -38,9 +42,9 @@
 
 | # | Item | Why | Hints |
 |---|------|-----|--------|
-| C1 | **`Component`** model + **`sql/`** updates | Group work inside a project | FK `project_id`, `name`, optional `description`, optional `lead_user_id`. |
-| C2 | **API:** `/v1/projects/{id}/components` CRUD + `/v1/components/{id}` PATCH/DELETE | Matches proposed OpenAPI | Scope by project membership. |
-| C3 | **Web:** under `/projects/[id]/components` (list + create) | User-visible structure | Link from project overview. |
+| C1 | **`Component`** model + **`sql/`** updates | Group work inside a project | **Done:** `components` table + ORM. |
+| C2 | **API:** `/v1/projects/{id}/components` CRUD + `/v1/components/{id}` PATCH/DELETE | OpenAPI-style | **Done:** `api/app/routers/components.py`. |
+| C3 | **Web:** under `/projects/[id]/components` (list + create) | User-visible structure | **Done:** + nav from overview. |
 
 **Done when:** API + UI list/create components for a project the user can access.
 
@@ -50,9 +54,9 @@
 
 | # | Item | Why | Hints |
 |---|------|-----|--------|
-| D1 | **`Task`** model: `project_id`, optional `component_id`, `title`, `body`/`description`, **`status`** enum, **`priority`**, `assignee_id`, `reporter_id`, `due_at`, optional `parent_task_id`, **`is_todo`** bool | Core PM | Add `project_counters` + human **`ref`** (`PRJ-123`) when ready; can ship UUID-first + ref in follow-up. |
-| D2 | **API:** list/create/patch/delete + optional `POST .../transition` | Matches plan | Filters: `status`, `assignee_id`, `component_id`. |
-| D3 | **Web:** **table view** first (sortable); **Kanban** second PR | Table is faster to ship | `/projects/[id]/tasks` — reuse dashboard styling. |
+| D1 | **`Task`** model … | Core PM | **Done:** UUID-first `tasks` row (no human **`ref`** / counters yet — follow-up). |
+| D2 | **API:** list/create/patch/delete + `POST .../transition` | Matches plan | **Done:** filters `status`, `assignee_id`, `component_id`. |
+| D3 | **Web:** **table view** first (sortable); **Kanban** second PR | Table first | **Done:** **`/projects/[id]/tasks`** with **sortable** columns + assignee/due; Kanban explicitly later. |
 
 **Done when:** Authenticated member can CRUD tasks scoped to project; list shows assigned/due basics.
 
@@ -62,19 +66,21 @@
 
 | # | Item | Why | Hints |
 |---|------|-----|--------|
-| E1 | **`/admin/users` forms** — create / patch / deactivate / reset password (local) | Plan §5.1; today mostly table | Use existing OpenAPI contracts. |
-| E2 | **Document or implement admin for SSO** | `/v1/admin/*` still **`get_current_user_local`** — intentional for now | Either keep “local superuser only” and document, or map IdP admin claims later (see **HANDOFF**). |
-| E3 | **`GET /v1/auth/me` auth path** | Plan §8.1 mentions JWKS; **current** code uses **userinfo + upsert** for OAuth | Update plan text or add JWKS as Phase-4 hardening so docs match code. |
+| E1 | **`/admin/users` forms** — create / patch / deactivate / reset password (local) | Plan §5.1 | **Done:** `AdminUsersPanel` + `/api/admin/users`. |
+| E2 | **Document or implement admin for SSO** | `/v1/admin/*` local JWT only | **Done:** documented in **`/admin/users`** + **HANDOFF** (IdP claims = future). |
+| E3 | **`GET /v1/auth/me` auth path** | JWKS vs userinfo | **Done:** OpenAPI description on route (`auth.py`). |
 
 ---
 
-## Batch F — Phase 2 starter (after Batch D)
+## Batch F — Phase 2 starter (**implemented — MVP slice**)
 
-Defer until tasks exist; order within Phase 2:
+| Deliverable | Status |
+|-------------|--------|
+| **Activity** model + `GET`/`POST` per project + optional **SSE** stream (`/activities/stream`) | **Done** — `activities` table; `@email` in body creates **`mentions`** rows for existing users. |
+| **Ticket** model + queue UI (separate from tasks) | **Done** — `tickets` + **`queue_slug`**; **`/projects/[id]/tickets`** + API **`/v1/projects/{id}/tickets`**, **`/v1/tickets/{id}`**. |
+| **`/today`** + mentions | **Done** — **`GET /v1/me/today`** (assigned tasks with `due_at` in rolling window), **`GET /v1/me/mentions`**; web **`/today`** + nav link. |
 
-- **Activity** model + `POST`/`GET` activity per subject; **SSE** optional second step.
-- **Ticket** model + queue UI (separate from tasks).
-- **`/today`** (My focus): assigned tasks due, mentions (needs Mention model or placeholder).
+Further hardening (not required to “close” F): richer SSE payloads, IdP-driven admin, human **`PRJ-123`** task refs, Kanban, mention notifications.
 
 ---
 

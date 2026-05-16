@@ -1,0 +1,249 @@
+from __future__ import annotations
+
+import uuid
+from datetime import datetime, timezone
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.db import get_db
+from app.deps import get_current_user
+from app.models.component import Component
+from app.models.task import Task
+from app.models.user import User
+from app.schemas import (
+    TASK_STATUSES,
+    TaskCreate,
+    TaskListResponse,
+    TaskOut,
+    TaskPatch,
+    TaskTransition,
+)
+from app.services.project_access import can_mutate_tasks, require_project_access
+from app.services.ref_alloc import allocate_ref
+
+project_router = APIRouter(
+    prefix="/v1/projects/{project_id}/tasks",
+    tags=["tasks"],
+)
+detail_router = APIRouter(prefix="/v1/tasks", tags=["tasks"])
+
+_TERMINAL_TASK_STATUSES: frozenset[str] = frozenset({"done", "cancelled"})
+
+
+async def _require_task_project(task: Task, user: User, db: AsyncSession):
+    acc = await require_project_access(db, user, task.project_id)
+    return acc
+
+
+@project_router.get("", response_model=TaskListResponse)
+async def list_tasks(
+    project_id: uuid.UUID,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    task_status: str | None = Query(default=None, alias="status"),
+    assignee_id: uuid.UUID | None = None,
+    component_id: uuid.UUID | None = None,
+    is_todo: bool | None = Query(default=None),
+):
+    await require_project_access(db, user, project_id)
+    stmt = select(Task).where(Task.project_id == project_id)
+    if task_status:
+        stmt = stmt.where(Task.status == task_status.strip())
+    if assignee_id is not None:
+        stmt = stmt.where(Task.assignee_id == assignee_id)
+    if component_id is not None:
+        stmt = stmt.where(Task.component_id == component_id)
+    if is_todo is not None:
+        stmt = stmt.where(Task.is_todo == is_todo)
+    stmt = stmt.order_by(Task.updated_at.desc())
+    result = await db.scalars(stmt)
+    rows = list(result.all())
+    return TaskListResponse(items=[TaskOut.model_validate(r) for r in rows])
+
+
+@project_router.post("", response_model=TaskOut, status_code=status.HTTP_201_CREATED)
+async def create_task(
+    project_id: uuid.UUID,
+    body: TaskCreate,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    acc = await require_project_access(db, user, project_id)
+    if not can_mutate_tasks(acc.role):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            detail="Viewers cannot create tasks",
+        )
+    if body.component_id is not None:
+        comp = await db.get(Component, body.component_id)
+        if comp is None or comp.project_id != project_id:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                detail="component_id must belong to this project",
+            )
+    if body.parent_task_id is not None:
+        parent = await db.get(Task, body.parent_task_id)
+        if parent is None or parent.project_id != project_id:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                detail="parent_task_id must belong to this project",
+            )
+    status_val = body.status.strip()
+    if status_val not in TASK_STATUSES:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid status: {status_val}. Use one of {sorted(TASK_STATUSES)}",
+        )
+    ref = await allocate_ref(db, project_id, "task")
+    closed_at = datetime.now(timezone.utc) if status_val in _TERMINAL_TASK_STATUSES else None
+    row = Task(
+        project_id=project_id,
+        component_id=body.component_id,
+        ref=ref,
+        title=body.title.strip(),
+        description=body.description.strip() if body.description else None,
+        status=status_val,
+        priority=body.priority.strip(),
+        assignee_id=body.assignee_id,
+        reporter_id=user.id,
+        due_at=body.due_at,
+        parent_task_id=body.parent_task_id,
+        is_todo=body.is_todo,
+        closed_at=closed_at,
+    )
+    db.add(row)
+    await db.commit()
+    await db.refresh(row)
+    return TaskOut.model_validate(row)
+
+
+@detail_router.get("/{task_id}", response_model=TaskOut)
+async def get_task(
+    task_id: uuid.UUID,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    row = await db.get(Task, task_id)
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Task not found")
+    await _require_task_project(row, user, db)
+    return TaskOut.model_validate(row)
+
+
+@detail_router.patch("/{task_id}", response_model=TaskOut)
+async def patch_task(
+    task_id: uuid.UUID,
+    body: TaskPatch,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    row = await db.get(Task, task_id)
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Task not found")
+    acc = await _require_task_project(row, user, db)
+    if not can_mutate_tasks(acc.role):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            detail="Viewers cannot edit tasks",
+        )
+    if body.component_id is not None:
+        comp = await db.get(Component, body.component_id)
+        if comp is None or comp.project_id != row.project_id:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                detail="component_id must belong to this project",
+            )
+    if body.parent_task_id is not None:
+        parent = await db.get(Task, body.parent_task_id)
+        if parent is None or parent.project_id != row.project_id:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                detail="parent_task_id must belong to this project",
+            )
+    if body.title is not None:
+        row.title = body.title.strip()
+    if body.description is not None:
+        v = body.description.strip()
+        row.description = v if v else None
+    if body.status is not None:
+        status_val = body.status.strip()
+        if status_val not in TASK_STATUSES:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid status: {status_val}. Use one of {sorted(TASK_STATUSES)}",
+            )
+        row.status = status_val
+        if status_val in _TERMINAL_TASK_STATUSES:
+            row.closed_at = datetime.now(timezone.utc)
+        else:
+            row.closed_at = None
+    if body.priority is not None:
+        row.priority = body.priority.strip()
+    if body.component_id is not None:
+        row.component_id = body.component_id
+    if body.assignee_id is not None:
+        row.assignee_id = body.assignee_id
+    if body.due_at is not None:
+        row.due_at = body.due_at
+    if body.parent_task_id is not None:
+        row.parent_task_id = body.parent_task_id
+    if body.is_todo is not None:
+        row.is_todo = body.is_todo
+    await db.commit()
+    await db.refresh(row)
+    return TaskOut.model_validate(row)
+
+
+@detail_router.post("/{task_id}/transition", response_model=TaskOut)
+async def transition_task(
+    task_id: uuid.UUID,
+    body: TaskTransition,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    row = await db.get(Task, task_id)
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Task not found")
+    acc = await _require_task_project(row, user, db)
+    if not can_mutate_tasks(acc.role):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            detail="Viewers cannot change task status",
+        )
+    status_val = body.status.strip()
+    if status_val not in TASK_STATUSES:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid status: {status_val}. Use one of {sorted(TASK_STATUSES)}",
+        )
+    row.status = status_val
+    if status_val in _TERMINAL_TASK_STATUSES:
+        row.closed_at = datetime.now(timezone.utc)
+    else:
+        row.closed_at = None
+    await db.commit()
+    await db.refresh(row)
+    return TaskOut.model_validate(row)
+
+
+@detail_router.delete("/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_task(
+    task_id: uuid.UUID,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    row = await db.get(Task, task_id)
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Task not found")
+    acc = await _require_task_project(row, user, db)
+    if not can_mutate_tasks(acc.role):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            detail="Viewers cannot delete tasks",
+        )
+    await db.delete(row)
+    await db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

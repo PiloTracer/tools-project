@@ -5,7 +5,7 @@
 ## Start here (new session)
 
 1. Read **`.ai/context/CONTEXT.md`** — ports, auth modes, repo map.  
-2. Read **`.ai/context/NEXT.md`** — **prioritized next batches** (schema SQL discipline → **`ProjectMember` / RBAC** → components → tasks → admin).  
+2. Read **`.ai/context/NEXT.md`** — batches **A–F** (schema discipline through activity / tickets / **`/today`**).  
 3. Full product / MVP scope: **`.ai/plans/proposal/20260515-full-project.md`**.  
 4. **Docker-only** tooling for Node/Python (see **`.cursorrules`**).  
 5. **No Alembic** — DDL lives under **`sql/`** and applies on API startup (`app/schema_sql.py`).
@@ -17,11 +17,11 @@
 | Area | Status |
 |------|--------|
 | **Auth** | **Dual mode:** `AUTH_LOCAL_ENABLED` + `AUTH_OAUTH_ENABLED`. **`GET /v1/auth/config`** drives **`/login`**. |
-| **Local** | bcrypt + JWT (`token_typ: local`), **`POST /v1/auth/local/login`**, **`/v1/admin/users`** (API CRUD; **web table only**, no forms yet). |
+| **Local** | bcrypt + JWT; **`POST /v1/auth/local/login`**; **`/v1/admin/users`** API + **`/admin/users`** forms (**local JWT only** — SSO documented below). |
 | **OAuth** | **`/sign-in`** → PKCE → **`/oauth/complete`** → **`prj_auth`** cookie. |
-| **`/v1/auth/me`** | **`get_current_user`**: local JWT **or** (if OAuth on) **Bearer → `OAUTH_USER_INFO_ENDPOINT` → upsert `users` row** — not JWKS yet. |
-| **Web** | **`AppShell`** (nav + user chip + sign out); **home** dashboard; **`/projects`**, **`/projects/new`**, **`/projects/[id]`**; **`POST /api/projects`** proxy; login redirects to **`/projects`**. |
-| **Domain** | **`projects`** table + **`GET/POST /v1/projects`**, **`GET /v1/projects/{id}`** — scoped to **`owner_id`** (no **`ProjectMember`** yet). |
+| **`/v1/auth/me`** | **`get_current_user`**: local JWT **or** (OAuth on) **userinfo upsert** — route OpenAPI text describes path (**JWKS** optional future hardening). |
+| **Web** | **`AppShell`** (**`/today`**); **`/projects/*`** (members, components, tasks, **activity**, **tickets**); **`/api/*`** BFF + **activity SSE** proxy. |
+| **Domain** | **`projects`**, **`project_members`**, **`components`**, **`tasks`**, **`activities`**, **`mentions`**, **`tickets`** — RBAC; **`/v1/me/today`** & **`/v1/me/mentions`**. |
 | **DB** | PostgreSQL; **`sql/schema_*.sql`** on startup (after bootstrap: backfill + inserts). **`bootstrap`** fills first superuser when DB empty + local auth + **`BOOTSTRAP_ADMIN_*`**. **`schema_inserts.sql`** adds a demo project for the oldest superuser. |
 | **`./bin/start.sh`** | **10** drop public schema (**warning**); **11** `apply-ddl` (DDL → bootstrap → seeds). |
 
@@ -38,7 +38,7 @@
 
 **Detailed tasks and acceptance criteria:** **`.ai/context/NEXT.md`**.
 
-Summary: **`sql/` parity with models + backfills** → **`ProjectMember` + RBAC** → **components** → **tasks (table UI)** → **admin user forms**; then Phase 2 (**activity**, **tickets**, **`/today`**).
+Summary: **NEXT batches A–F shipped** (Batch **A** = ongoing SQL discipline). Optional next: Kanban, human task refs, richer SSE payloads, notification delivery.
 
 Legacy note: older items “unified Bearer via JWKS” and “first `/v1/projects`” are **superseded** by current **userinfo upsert** + existing **projects** router; JWKS remains optional hardening.
 

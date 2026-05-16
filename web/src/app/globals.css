@@ -549,6 +549,7 @@ label.field span.label {
 }
 
 input.input,
+select.input,
 textarea.input {
   width: 100%;
   padding: 0.55rem 0.65rem;
@@ -560,6 +561,7 @@ textarea.input {
   font-family: inherit;
 }
 input.input:focus,
+select.input:focus,
 textarea.input:focus {
   outline: none;
   border-color: var(--accent);

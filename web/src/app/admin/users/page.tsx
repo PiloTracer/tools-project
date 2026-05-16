@@ -1,10 +1,13 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
 
+import { AdminUsersPanel } from "./AdminUsersPanel";
+
 type UserRow = {
   id: string;
   email: string;
   display_name: string | null;
+  auth_source: string;
   is_active: boolean;
   is_superuser: boolean;
 };
@@ -18,8 +21,17 @@ export default async function AdminUsersPage() {
 
   let rows: UserRow[] | null = null;
   let forbidden = false;
+  let meId = "";
 
   if (token) {
+    const meR = await fetch(`${base}/v1/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    });
+    if (meR.ok) {
+      const me = (await meR.json()) as { id: string };
+      meId = me.id;
+    }
     const r = await fetch(`${base}/v1/admin/users`, {
       headers: { Authorization: `Bearer ${token}` },
       cache: "no-store",
@@ -38,55 +50,38 @@ export default async function AdminUsersPage() {
     return (
       <div className="page-inner">
         <main className="card stack wide">
-        <h1>User management</h1>
-        <p>
-          This screen requires a <strong>local superuser</strong> session (JWT issued
-          by this app). SSO-only tokens are not accepted here yet — use the API with a
-          local admin account, or call <code>/v1/admin/users</code> from OpenAPI when
-          authenticated.
-        </p>
-        <p>
-          <Link className="btn btn-primary" href="/login">
-            Sign in
-          </Link>{" "}
-          <Link href="/">← Home</Link>
-        </p>
-      </main>
+          <h1>User management</h1>
+          <p>
+            This screen requires a <strong>local superuser</strong> session (JWT issued by this app).
+            SSO access tokens are intentionally <strong>not</strong> accepted on{" "}
+            <code>/v1/admin/users</code> — operate via a local bootstrap/admin account, or adjust this
+            policy when IdP admin claims are wired (see repo <code>.ai/context/HANDOFF.md</code>).
+          </p>
+          <p>
+            <Link className="btn btn-primary" href="/login">
+              Sign in
+            </Link>{" "}
+            <Link href="/">← Home</Link>
+          </p>
+        </main>
       </div>
     );
   }
 
   return (
     <div className="page-inner">
-      <main className="card stack wide">
-      <h1>Local users</h1>
-      <p className="muted">
-        Admin CRUD via <code>/v1/admin/users</code>. Add UI forms in a follow-up.
-      </p>
-      <table style={{ width: "100%", borderCollapse: "collapse" }}>
-        <thead>
-          <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border)" }}>
-            <th style={{ padding: "0.5rem 0" }}>Email</th>
-            <th>Name</th>
-            <th>Active</th>
-            <th>Superuser</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((u) => (
-            <tr key={u.id} style={{ borderBottom: "1px solid var(--border)" }}>
-              <td style={{ padding: "0.35rem 0" }}>{u.email}</td>
-              <td>{u.display_name ?? "—"}</td>
-              <td>{u.is_active ? "yes" : "no"}</td>
-              <td>{u.is_superuser ? "yes" : "no"}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <p>
-        <Link href="/">← Home</Link>
-      </p>
-    </main>
+      <main className="stack-lg wide" style={{ maxWidth: "920px", margin: "0 auto" }}>
+        <div>
+          <h1>Local users</h1>
+          <p className="muted text-sm">
+            Create and patch users via OpenAPI-backed forms (local JWT only).
+          </p>
+        </div>
+        <AdminUsersPanel initialUsers={rows} currentUserId={meId} />
+        <p>
+          <Link href="/">← Home</Link>
+        </p>
+      </main>
     </div>
   );
 }

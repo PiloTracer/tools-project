@@ -15,8 +15,14 @@ FastAPI service for the internal project hub. Run in Docker (see repo root).
 | `GET /healthz` | Liveness |
 | `GET /v1/auth/config` | Which auth methods are enabled (`local_enabled`, `oauth_enabled`) |
 | `POST /v1/auth/local/login` | Email + password → JWT (`token_typ: local`) |
-| `GET /v1/auth/me` | Current user (Bearer **local** JWT) |
+| `GET /v1/auth/me` | Current user (Bearer **local** JWT or OAuth access token — see OpenAPI description) |
 | `GET/POST/PATCH /v1/admin/users` | User CRUD (**local superuser** only) |
+| `GET/POST /v1/projects`, `GET/PATCH /v1/projects/{id}` | Projects (**membership**-scoped list/read; **`membership_role`** on responses) |
+| `GET/POST/PATCH/DELETE /v1/projects/{id}/members/*` | Member roster + invites |
+| `GET/POST /v1/projects/{id}/components`, `PATCH/DELETE /v1/components/{id}` | Components |
+| `GET/POST /v1/projects/{id}/activities`, `GET …/activities/stream` | Project activity feed + light SSE (poll latest id) |
+| `GET /v1/me/today`, `GET /v1/me/mentions` | Assigned tasks due window + @mention inbox |
+| `GET/POST /v1/projects/{id}/tickets`, `PATCH/DELETE /v1/tickets/{id}` | Support tickets (per queue_slug) |
 | `GET /docs` | OpenAPI |
 
 ## Auth modes (env)
@@ -31,4 +37,4 @@ FastAPI service for the internal project hub. Run in Docker (see repo root).
 **Standalone** deploy: `AUTH_LOCAL_ENABLED=true`, `AUTH_OAUTH_ENABLED=false`.  
 **Integrated** (tools-dashboard): OAuth on; usually `AUTH_LOCAL_ENABLED=false` unless you want **hybrid** (both).
 
-Projects / tickets APIs should accept **local** JWTs first; validating **dashboard** OAuth tokens against JWKS is a follow-up for unified `Authorization` handling.
+Project/task APIs resolve **`get_current_user`** (local JWT first when enabled, else OAuth userinfo upsert). JWKS validation remains optional hardening.

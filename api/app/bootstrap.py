@@ -31,6 +31,7 @@ async def run_bootstrap(session: AsyncSession) -> None:
         email=email,
         password_hash=hash_password(settings.bootstrap_admin_password),
         display_name=settings.bootstrap_admin_display_name,
+        auth_source="local",
         is_active=True,
         is_superuser=True,
     )

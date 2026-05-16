@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.bootstrap import run_bootstrap
 from app.db import get_engine, init_db, session_factory
 from app.schema_sql import run_post_bootstrap
-from app.routers import admin_users, auth, projects
+from app.routers import activities, admin_users, auth, components, me_focus, projects, tasks, tickets
 
 
 @asynccontextmanager
@@ -45,6 +45,14 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(admin_users.router)
 app.include_router(projects.router)
+app.include_router(components.router)
+app.include_router(components.detail_router)
+app.include_router(tasks.project_router)
+app.include_router(tasks.detail_router)
+app.include_router(activities.router)
+app.include_router(tickets.router)
+app.include_router(tickets.detail_router)
+app.include_router(me_focus.router)
 
 
 @app.get("/healthz")

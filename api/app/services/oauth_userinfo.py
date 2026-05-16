@@ -72,6 +72,7 @@ async def upsert_user_from_oauth_access_token(
         email=email,
         password_hash=None,
         display_name=display_name,
+        auth_source="oauth",
         is_active=True,
         is_superuser=False,
     )

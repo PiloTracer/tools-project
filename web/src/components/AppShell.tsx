@@ -19,6 +19,7 @@ export async function AppShell({ children }: { children: ReactNode }) {
             <Link href="/">Home</Link>
             {me ? (
               <>
+                <Link href="/today">Today</Link>
                 <Link href="/projects">Projects</Link>
                 {me.is_superuser ? (
                   <Link href="/admin/users">Admin</Link>

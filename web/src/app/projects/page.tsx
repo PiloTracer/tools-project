@@ -9,6 +9,7 @@ type ProjectRow = {
   slug: string;
   description: string | null;
   created_at: string;
+  status?: string;
 };
 
 export default async function ProjectsPage() {
@@ -56,6 +57,11 @@ export default async function ProjectsPage() {
               <Link href={`/projects/${p.id}`} className="project-row">
                 <h3>{p.name}</h3>
                 <span className="slug">{p.slug}</span>
+                {p.status ? (
+                  <span className="pill" style={{ marginLeft: "0.5rem", fontSize: "0.72rem" }}>
+                    {p.status}
+                  </span>
+                ) : null}
                 {p.description ? (
                   <p className="muted text-sm" style={{ margin: "0.35rem 0 0" }}>
                     {p.description.length > 160

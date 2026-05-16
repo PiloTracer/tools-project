@@ -23,6 +23,8 @@ class Project(Base):
     owner_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
+    status: Mapped[str] = mapped_column(String(20), default="active")
+    project_key: Mapped[str | None] = mapped_column(String(32), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
@@ -31,3 +33,10 @@ class Project(Base):
     )
 
     owner: Mapped[User] = relationship(lazy="joined")
+    memberships = relationship(
+        "ProjectMember", back_populates="project", cascade="all, delete-orphan"
+    )
+    components = relationship(
+        "Component", back_populates="project", cascade="all, delete-orphan"
+    )
+    tasks = relationship("Task", back_populates="project", cascade="all, delete-orphan")

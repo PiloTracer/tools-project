@@ -54,7 +54,17 @@ async def local_login(
     return TokenResponse(access_token=token, expires_in=expires_in)
 
 
-@router.get("/me", response_model=MeResponse)
+@router.get(
+    "/me",
+    response_model=MeResponse,
+    summary="Current session",
+    description=(
+        "Requires `Authorization: Bearer`. Local JWTs are decoded with `JWT_SECRET` when "
+        "`AUTH_LOCAL_ENABLED` is true; otherwise the bearer token is treated as an OAuth access "
+        "token and the user record is resolved via `OAUTH_USER_INFO_ENDPOINT` (userinfo upsert), "
+        "not JWKS signature verification."
+    ),
+)
 async def auth_me(
     request: Request,
     user: Annotated[User, Depends(get_current_user)],
@@ -71,6 +81,7 @@ async def auth_me(
         id=user.id,
         email=user.email,
         display_name=user.display_name,
+        avatar_url=user.avatar_url,
         is_superuser=user.is_superuser,
         auth=auth_kind,
     )

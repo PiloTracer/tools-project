@@ -58,7 +58,9 @@ Compose does **not** require a root `.env` file; defaults are in **`docker-compo
 | `src/app/oauth/complete/route.ts` | OAuth callback → **`prj_auth`** / **`prj_refresh`** cookies |
 | `src/app/api/auth/local/login` | Proxy → API local login; sets **`SESSION_COOKIE_NAME`** (default `prj_auth`) |
 | `src/app/api/auth/logout` | Clears session cookies |
-| `src/app/admin/users` | Read-only user table (Bearer must be **local** superuser JWT) |
+| `src/app/projects` | Projects list + **`[id]`** hub (settings, **members**, **components**, **tasks**, **activity**, **tickets**) |
+| `src/app/today` | **`/today`** — assigned tasks due window + @mentions |
+| `src/app/admin/users` | Local superuser user admin (forms + **`/api/admin/users`**) |
 | `src/shared/server/oauth-*.ts` | OAuth config, PKCE **signed `state`** (no Redis) |
 | `src/shared/server/auth-flags.ts` | `AUTH_OAUTH_ENABLED` / `AUTH_LOCAL_ENABLED` for SSR |
 
@@ -110,7 +112,8 @@ docker compose run --rm --no-deps web sh -lc "npm ci --no-audit --no-fund && npm
 
 ## Domain model (north star — persistence is partial)
 
-- **`users`** + **`projects`** (owner-scoped; no **`ProjectMember`** yet) are persisted (DDL **`sql/schema_*.sql`**, aligned with **`api/app/models`**). **Component**, **Task / TODO**, **Support ticket**, **Activity**, **GitHub** — still to build (see **`NEXT.md`**).
+- Persisted: **`users`**, **`projects`**, **`project_members`**, **`components`**, **`tasks`**, **`activities`**, **`mentions`**, **`tickets`**. Schema in **`sql/schema_*.sql`** aligned with **`api/app/models`**.
+- Optional polish: GitHub linkage, richer notifications, Kanban — see **`NEXT.md`** follow-ups.
 
 ## Security
 
