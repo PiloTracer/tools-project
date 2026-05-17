@@ -174,3 +174,35 @@ CREATE TABLE IF NOT EXISTS watchers (
     subject_id UUID NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Batch I: GitHub repo links + cached commits (html_url required for deep-link verification).
+CREATE TABLE IF NOT EXISTS github_links (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    project_id UUID NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
+    component_id UUID REFERENCES components (id) ON DELETE CASCADE,
+    owner VARCHAR(200) NOT NULL,
+    repo VARCHAR(200) NOT NULL,
+    token_cipher TEXT NOT NULL,
+    poll_interval_seconds INT NOT NULL DEFAULT 300,
+    last_synced_at TIMESTAMPTZ,
+    last_seen_sha VARCHAR(40),
+    created_by UUID NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT ck_github_links_poll_interval CHECK (poll_interval_seconds >= 60 AND poll_interval_seconds <= 86400)
+);
+
+CREATE TABLE IF NOT EXISTS github_commits (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    github_link_id UUID NOT NULL REFERENCES github_links (id) ON DELETE CASCADE,
+    sha VARCHAR(40) NOT NULL,
+    message TEXT NOT NULL,
+    author_name VARCHAR(400),
+    author_email VARCHAR(320),
+    committed_at TIMESTAMPTZ NOT NULL,
+    html_url TEXT NOT NULL,
+    raw_json JSONB,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT ck_github_commits_sha_len CHECK (char_length(sha) >= 7 AND char_length(sha) <= 40),
+    CONSTRAINT ck_github_commits_html_url_nonempty CHECK (char_length(trim(html_url)) > 0)
+);

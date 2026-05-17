@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import json
+import re
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
 
 # --- Status constants (align with plan §4.1) ---
@@ -426,3 +427,98 @@ class RefSearchResult(BaseModel):
     project_id: str
     project_name: str
     kind: str  # "task" or "ticket"
+
+
+_GITHUB_REPO_URL = re.compile(
+    r"^https?://github\.com/([^/]+)/([^/.]+?)(?:\.git)?/?$",
+    re.IGNORECASE,
+)
+
+
+class GithubLinkCreate(BaseModel):
+    """Create a repo link. Supply owner+repo or a github.com URL plus a PAT."""
+
+    owner: str | None = Field(default=None, max_length=200)
+    repo: str | None = Field(default=None, max_length=200)
+    github_repo_url: str | None = Field(default=None, max_length=500)
+    github_token: str = Field(min_length=8, max_length=4000)
+    component_id: uuid.UUID | None = None
+    poll_interval_seconds: int = Field(default=300, ge=60, le=86400)
+
+    @model_validator(mode="after")
+    def _normalize_owner_repo(self) -> GithubLinkCreate:
+        owner = self.owner
+        repo = self.repo
+        if self.github_repo_url:
+            m = _GITHUB_REPO_URL.match(self.github_repo_url.strip())
+            if not m:
+                raise ValueError(
+                    "github_repo_url must look like https://github.com/org/repo (GitHub.com only for MVP)"
+                )
+            owner, repo = m.group(1), m.group(2)
+        if not owner or not repo:
+            raise ValueError("owner and repo are required unless github_repo_url is set")
+        return self.model_copy(
+            update={
+                "owner": owner.strip().lower(),
+                "repo": repo.strip().lower(),
+            }
+        )
+
+
+class GithubLinkOut(BaseModel):
+    id: uuid.UUID
+    project_id: uuid.UUID
+    component_id: uuid.UUID | None = None
+    owner: str
+    repo: str
+    poll_interval_seconds: int
+    last_synced_at: datetime | None = None
+    last_seen_sha: str | None = None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class GithubSyncResult(BaseModel):
+    upserted: int
+    owner: str
+    repo: str
+
+
+class CommitSummary(BaseModel):
+    """Read model for any UI widget — html_url is always present (see Batch I §I4.1)."""
+
+    id: uuid.UUID
+    project_id: uuid.UUID
+    project_name: str
+    github_link_id: uuid.UUID
+    owner: str
+    repo: str
+    sha: str = Field(..., min_length=7, max_length=40)
+    short_sha: str = Field(..., min_length=7, max_length=7)
+    message: str
+    message_preview: str = Field(..., min_length=1, max_length=400)
+    html_url: str = Field(
+        ...,
+        min_length=8,
+        description="Browser URL for this commit (GitHub REST html_url or derived https://github.com/{owner}/{repo}/commit/{sha}).",
+    )
+    committed_at: datetime
+    author_name: str | None = None
+    author_email: str | None = None
+
+
+class GithubCommitListResponse(BaseModel):
+    items: list[CommitSummary]
+
+
+class GithubRefMeta(BaseModel):
+    """Use inside activity / task `meta_json` under key `github_ref` (optional future validation)."""
+
+    commit_id: uuid.UUID
+    sha: str = Field(min_length=7, max_length=40)
+    owner: str = Field(min_length=1, max_length=200)
+    repo: str = Field(min_length=1, max_length=200)
+    html_url: str = Field(min_length=8, max_length=2000)

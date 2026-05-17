@@ -1,6 +1,8 @@
 from app.models.activity import Activity
 from app.models.attachment import Attachment
 from app.models.component import Component
+from app.models.github_commit import GithubCommit
+from app.models.github_link import GithubLink
 from app.models.inbox_item import InboxItem
 from app.models.mention import Mention
 from app.models.project import Project
@@ -15,6 +17,8 @@ __all__ = [
     "Activity",
     "Attachment",
     "Component",
+    "GithubCommit",
+    "GithubLink",
     "InboxItem",
     "Mention",
     "Project",

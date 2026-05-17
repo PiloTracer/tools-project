@@ -46,6 +46,12 @@ class Settings(BaseSettings):
     # `app/services/attachment_storage.py:retention_cutoff()`.
     attachment_retention_days: int = 0
 
+    # GitHub (Batch I): background poll + REST page size for commit sync.
+    github_sync_enabled: bool = True
+    github_poll_interval_seconds: int = 300
+    github_poll_initial_delay_seconds: int = 8
+    github_commits_per_sync: int = 100
+
 
 @lru_cache
 def get_settings() -> Settings:

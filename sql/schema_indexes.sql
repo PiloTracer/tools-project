@@ -55,3 +55,11 @@ CREATE INDEX IF NOT EXISTS ix_inbox_items_created_at ON inbox_items (created_at)
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_watchers_user_subject ON watchers (user_id, subject_type, subject_id);
 CREATE INDEX IF NOT EXISTS ix_watchers_user_id ON watchers (user_id);
+
+CREATE INDEX IF NOT EXISTS ix_github_links_project_id ON github_links (project_id);
+CREATE INDEX IF NOT EXISTS ix_github_links_component_id ON github_links (component_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_github_links_project_owner_repo
+    ON github_links (project_id, lower(owner), lower(repo));
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_github_commits_link_sha ON github_commits (github_link_id, sha);
+CREATE INDEX IF NOT EXISTS ix_github_commits_link_committed ON github_commits (github_link_id, committed_at DESC);
