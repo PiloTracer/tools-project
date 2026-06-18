@@ -1,6 +1,7 @@
 # Foundation doc 01 — Product scope
 
 **Brownfield synthesis 2026-06-18:** Synthesized from `README.md`, `preliminary.md`, `CONTEXT.md`, and `20260515-full-project.md`. Labeled **Inference** where not directly cited.
+**See also:** [`20260618-04-architecture.md`](20260618-04-architecture.md) — architecture foundation, bounded contexts, ADR register.
 
 ## Product intent (one sentence)
 

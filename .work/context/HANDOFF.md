@@ -2,12 +2,12 @@
 
 **Date:** 2026-06-18 (session close — repo restructured: `.ai/` → Agent OS framework, content migrated to `.work/`)
 
-**Open:** 2026-06-18 - goal: implement clients-participants (Batch J) — schema + prospects pipeline first
+**Open:** 2026-06-18 - goal: M1 (CRM schema + prospects API) — plan Approved, J1 iteration ready to start
 **Updated:** 2026-06-18
 
 Treat prior closed sessions as historical only; see "What this cycle produced" below.
 
-**Repository state:** Framework aligned — brownfield repair complete: foundation doc 01 (scope), doc 04 (architecture), standards (CONVENTIONS, FEATURE_STANDARD, DIRECTORY_MAP), registries (ASSUMPTIONS, RISK_REGISTRY, UNKNOWNS), ADR-0001 Decided. `.cursorrules` REPLACE tokens resolved. **Ready to implement Batch J (CRM / clients-participants):** SPEC Approved, ADR-0001 Decided, unknowns updated, `.work/plans/NEXT.md` § Batch J drafted. GitHub Batch I web (I10d) remains open pending a priority call.
+**Repository state:** Framework aligned — brownfield repair complete: foundation doc 01 (scope), doc 04 (architecture), standards (CONVENTIONS, FEATURE_STANDARD, DIRECTORY_MAP), registries (ASSUMPTIONS, RISK_REGISTRY, UNKNOWNS), ADR-0001–0004 Decided. **Plan-master-ready: 2026-06-18.** `.cursorrules` REPLACE tokens resolved. **Ready to implement Batch J (CRM / clients-participants):** SPEC Approved, ADR-0001 Decided, unknowns updated, `.work/plans/NEXT.md` § Batch J drafted. GitHub Batch I web (I10d) remains open pending a priority call.
 
 ## Start here (new session)
 
@@ -43,10 +43,10 @@ Treat prior closed sessions as historical only; see "What this cycle produced" b
 
 ## Recommended next work
 
-1. **Batch J — clients-participants CRM (`NEXT.md` § Batch J):** Start with schema + models (`prospects`, `clients`, `client_contacts`, `project_clients`, `project_client_access`), then prospects CRUD + pipeline stage transitions.  
-2. **Batch I web (plan §7 / `NEXT.md` I10d):** Next.js **`/projects/[id]/github`** + project **settings** subsection — only if GitHub is prioritized over CRM.  
+1. **M1 — CRM schema + prospects API (`@code-implementation start`):** Begin implementing M1 tasks starting with M1-T1 (prospects DDL + model).  
+2. **M4 — GitHub web UI (I10d):** Next.js `/projects/[id]/github` + project settings subsection — can parallelize with CRM work.  
 3. **`github_commit` activity rows** on sync (**I10c** remainder) + optional SSE hint updates.  
-4. **`github_ref`** attach flow (**I10e**) for tasks / comments.  
+4. **`github_ref`** attach flow (**I10e**) for tasks / comments — deferred.  
 
 **Small polish:** retention purge cron; global **`c`** Inbox shortcut; **`next/image`** or ESLint override for ticket discussion thumbnails.
 
@@ -71,13 +71,23 @@ Treat prior closed sessions as historical only; see "What this cycle produced" b
 | `.work/decisions/README.md` | ADR index |
 | `.work/features/clients-participants/20260618-SPEC.md` | Feature SPEC: client companies, contacts, project access, sales pipeline — **Approved** |
 | `.work/decisions/0001-client-contact-model.md` | ADR: client contact identity, access model, pipeline, roles |
+| `.work/decisions/0002-backend-stack.md` | ADR: Python 3.11, FastAPI, SQLAlchemy async, PostgreSQL 16 |
+| `.work/decisions/0003-frontend-stack.md` | ADR: Next.js 16, React 19, TypeScript |
+| `.work/decisions/0004-hosting-deployment.md` | ADR: Docker Compose, dual auth, Fernet PAT encryption |
+| `.work/plans/full/20260618-full-plan.md` | Full implementation plan — 4 milestones, 22 tasks, **Approved** |
+| `.work/decisions/0002-backend-stack.md` | ADR: backend stack formalized (Python 3.11, FastAPI, SQLAlchemy async, PostgreSQL 16) |
+| `.work/decisions/0003-frontend-stack.md` | ADR: frontend stack formalized (Next.js 16, React 19, TypeScript) |
+| `.work/decisions/0004-hosting-deployment.md` | ADR: hosting and deployment formalized (Docker Compose, local filesystem V1) |
+| `.work/plans/full/20260618-full-plan.md` | Full implementation plan — milestones M1–M4 with execution roadmap |
 
 ## Where to read more
 
 | Doc | Role |
 |-----|------|
-| **`.work/plans/NEXT.md`** | Status matrix + **Batch I** spec + **§ I12** (configure GitHub **now** via API) |
+| **`.work/plans/NEXT.md`** | Status matrix + **Batch I** spec + **§ Batch J** (clients-participants CRM) |
+| **`.work/plans/full/20260618-full-plan.md`** | Full implementation plan — milestones M1–M4 |
 | **`.work/context/CONTEXT.md`** | Stable technical context |
+| **`.work/decisions/README.md`** | ADR index (0001–0004) |
 | **`.cursorrules`** | Agent OS framework rules; **No Alembic**; **`sql/`** workflow |
 | **`.work/plans/legacy-plans/proposal/20260515-full-project.md`** | Full MVP / north-star plan |
 

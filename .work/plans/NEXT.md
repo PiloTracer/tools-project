@@ -19,7 +19,7 @@ Phase 3 (I)     ██████░░░░░░░░░░░░░░  ~3
 Matrix (G+H+P)  ████████████████████  14/14 Done
 
 Open: Batch I web + github_commit activity + github_ref · retention cron · optional Inbox "c"
-Starting: Batch J — clients-participants (CRM) — schema + prospects → clients pipeline
+Active: Batch J — CRM (M1: schema + prospects) — next task: M1-T1 (prospects DDL + model)
 ```
 
 ---

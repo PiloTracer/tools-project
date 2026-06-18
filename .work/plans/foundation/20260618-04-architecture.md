@@ -1,6 +1,7 @@
 # Foundation doc 04 — Architecture foundation
 
 **Brownfield synthesis 2026-06-18:** Synthesized from code tree, `CONTEXT.md`, `docker-compose.yml`, and model files. Labeled **Inference** where inferred from code patterns.
+**See also:** [`20260618-01-initial-scope.md`](20260618-01-initial-scope.md) — product scope, in/out scope, founding assumptions.
 
 ## Bounded contexts
 
