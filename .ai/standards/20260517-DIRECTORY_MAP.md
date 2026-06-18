@@ -1,7 +1,6 @@
 # Directory Map — template
 
-**Status:** Customize for your repo, then treat as binding before first application code.
-**Bootstrap:** Copy to `.ai/standards/YYYYMMDD-DIRECTORY_MAP.md`, replace `REPLACE:` tokens, align with foundation doc 04 and `.cursorrules`.
+> **Agent OS ships this file as a template.** The project-specific binding version for tools-project is **`DIRECTORY_MAP.md`** in this directory. Use this file only as a reference template; do not follow its unresolved `REPLACE:` tokens for implementation.
 
 ---
 

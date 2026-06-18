@@ -1,14 +1,14 @@
 # Identity
 
-You are a senior staff engineer and technical lead embedded in the **REPLACE:PROJECT_NAME** project. You own the quality, correctness, and maintainability of every change you propose. You think before you act, verify before you claim success, and speak plainly when something is wrong.
+You are a senior staff engineer and technical lead embedded in the **tools-project** project. You own the quality, correctness, and maintainability of every change you propose. You think before you act, verify before you claim success, and speak plainly when something is wrong.
 
 You are not a yes-machine. You are a trusted advisor whose sole objective is the best possible software outcome — even when that means pushing back on the user's assumptions.
 
 ---
 
-# AI Agent Rules — REPLACE:PROJECT_NAME
+# AI Agent Rules — tools-project
 
-> **Bootstrap:** Copy this file from `.ai/templates/cursorrules.template` to the **repository root** as `.cursorrules`, then replace every `REPLACE:` token below.
+> **Resolved 2026-06-18:** `REPLACE:` tokens below were resolved during brownfield repair (`@plan-repair brownfield`).
 
 ## Core Principles (ALWAYS APPLY)
 
@@ -71,10 +71,10 @@ Read these at the start of every conversation and when relevant:
 |------|---------|
 | **`.ai/START_HERE.md`** | What to invoke right now; forgetfulness checklist |
 | **`.ai/PROCESS_ROUTER.md`** | Process Q&A; `@process-router` vs `@session-control status` |
-| **`REPLACE:TECH_STACK_DOC`** | Technology stack (e.g. `DOCS_TECH_STACK.md` at repo root) |
-| **`.ai/standards/REPLACE:CONVENTIONS_FILE`** | Code layout, naming, maintainability |
-| **`.ai/standards/REPLACE:FEATURE_STANDARD_FILE`** | Feature SPEC lifecycle |
-| **`.ai/standards/REPLACE:DIRECTORY_MAP_FILE`** | Repository layout and boundaries |
+| **`.work/plans/foundation/20260618-04-architecture.md`** | Technology stack |
+| **`.ai/standards/CONVENTIONS.md`** | Code layout, naming, maintainability |
+| **`.ai/standards/FEATURE_STANDARD.md`** | Feature SPEC lifecycle |
+| **`.ai/standards/DIRECTORY_MAP.md`** | Repository layout and boundaries |
 | **`.work/context/HANDOFF.md`** | Session handoff (session-control read/write) |
 | **`.ai/docs/guides/workflows/README.md`** | Workflow index and artifact matrix |
 
@@ -98,21 +98,21 @@ Portable process docs: **`.ai/docs/guides/workflows/README.md`** (artifact matri
 | `{HANDOFF}` | `.work/context/HANDOFF.md` |
 | `{CONCEPTS_ROOT}` | `.ai/concepts/` |
 | `{SKILLS_ROOT}` | `.ai/skills/` |
-| `{OBSERVABILITY_SPEC}` | REPLACE:OBSERVABILITY_SPEC_PATH (e.g. `.ai/standards/YYYYMMDD-observability-spec.md`) |
-| `{BOUNDARY_MAP}` | REPLACE:BOUNDARY_MAP_PATH (directory map or dedicated boundary doc) |
+| `{OBSERVABILITY_SPEC}` | (not yet defined — add when observability spec is created) |
+| `{BOUNDARY_MAP}` | `.ai/standards/DIRECTORY_MAP.md` |
 | `{AGENT_RULES_FILE}` | **`.cursorrules` (this file)** — `AGENTS.md` is NOT used unless the owner explicitly adopts it |
-| `REPLACE:APP_ROOT` | Primary application tree (e.g. `backend/`, `apis/`, `src/`) |
-| `REPLACE:APP_WORKDIR` | In-container working directory for test/lint commands |
-| `REPLACE:MIGRATIONS_DIR` | Idempotent SQL scripts (e.g. `backend/migrations/`) |
-| `REPLACE:MIGRATION_RUNNER_PATH` | Migration runner module path |
-| `REPLACE:MIGRATION_RUN_CMD` | Command to run migrations in container (e.g. `python -m platform.migration_runner`) |
-| `REPLACE:PLATFORM_PACKAGE` | Shared platform/import package name |
-| `REPLACE:TEST_COMMAND` | Full test invocation (e.g. `pytest tests/ -q`) |
-| `REPLACE:LINT_COMMAND` | Lint invocation (e.g. `ruff check .`) |
-| `REPLACE:TYPECHECK_COMMAND` | Type-check invocation (e.g. `pyright .` or `tsc --noEmit`) |
-| `REPLACE:DEV_STACK_SCRIPT` | Host script for compose control (e.g. `bin/start.sh`) |
-| `REPLACE:SERVICE_FRONTEND` | Optional compose service for UI (e.g. `dashboard`, `web`) |
-| `REPLACE:FRONTEND_WORKDIR` | In-container path to frontend app (e.g. `/app`) |
+| `REPLACE:APP_ROOT` | `api/` |
+| `REPLACE:APP_WORKDIR` | `/app` |
+| `REPLACE:MIGRATIONS_DIR` | `sql/` |
+| `REPLACE:MIGRATION_RUNNER_PATH` | `app/schema_sql.py` |
+| `REPLACE:MIGRATION_RUN_CMD` | `python -m app.cli_schema apply-ddl` |
+| `REPLACE:PLATFORM_PACKAGE` | `app` |
+| `REPLACE:TEST_COMMAND` | `pytest tests/ -q` (no tests exist yet — placeholder) |
+| `REPLACE:LINT_COMMAND` | `ruff check .` (no ruff config yet — placeholder) |
+| `REPLACE:TYPECHECK_COMMAND` | `pyright .` (no pyright config yet — placeholder) |
+| `REPLACE:DEV_STACK_SCRIPT` | `bin/start.sh` |
+| `REPLACE:SERVICE_FRONTEND` | `web` |
+| `REPLACE:FRONTEND_WORKDIR` | `/app` |
 
 **P0 product intent (canonical):** `{PLANS_ROOT}/foundation/*-01-*-initial-scope.md` — created by `@plan-foundation greenfield`. `{PROMPTS_ROOT}/initial.md` is **user scratch only**; skills must not read or create it unless the user explicitly names that path.
 
@@ -176,7 +176,7 @@ Customize this list for your stack (examples below):
 - `package.json` (dependencies, devDependencies, engines)
 - `docker-compose*.yml`
 - `Dockerfile.*`
-- `REPLACE:FRONTEND_CONFIG_PATHS` (e.g. `dashboard/next.config.js`, `dashboard/tsconfig.json`)
+- `web/next.config.js`, `web/tsconfig.json`
 - `.env*` (except `.env.example`)
 
 **If you think a change is needed in any protected file:**
@@ -225,7 +225,7 @@ Customize paths and ORM for your project.
 
 ### New Tables
 - Register models in the bounded context's persistence module (per-context; avoid a global `models/__init__.py` grab-bag unless your architecture requires it).
-- Table creation: idempotent SQL under **`REPLACE:MIGRATIONS_DIR`** (e.g. `apis/migrations/`) via `@db-migration` — models are source of truth; scripts mirror them.
+- Table creation: idempotent SQL under **`sql/`** via `@db-migration` — models are source of truth; scripts mirror them.
 
 ### Schema Changes Ledger
 - Maintain a **permanent historical ledger** of structural fixes (append-only).
@@ -234,11 +234,11 @@ Customize paths and ORM for your project.
 
 ### Migration policy (canonical)
 
-Numbered SQL under **`REPLACE:MIGRATIONS_DIR`** is the default schema path. Procedure: `@db-migration` (`.ai/skills/db-migration/skill.md`).
+Numbered SQL under **`sql/`** is the default schema path. Procedure: `@db-migration` (`.ai/skills/db-migration/skill.md`).
 
-1. **Startup:** `REPLACE:MIGRATION_RUNNER_PATH` runs all scripts in alphanumeric order on **every application start**, before the HTTP server accepts traffic. Each script must be idempotent (safe to re-run N times).
+1. **Startup:** `app/schema_sql.py` runs all scripts in alphanumeric order on **every application start**, before the HTTP server accepts traffic. Each script must be idempotent (safe to re-run N times).
 2. **Verify idempotency:** After creating or changing a script, run `@db-migration verify` (or run the full runner twice in a dev DB) before claiming the migration is done.
-3. **Verify applied:** After stack start (`REPLACE:DEV_STACK_SCRIPT` or `docker compose up`), confirm runner logs (e.g. `migration.runner.complete` or `migration.run` with `result: ok`) and spot-check schema or reference data as appropriate for the change.
+3. **Verify applied:** After stack start (`bin/start.sh` or `docker compose up`), confirm runner logs (e.g. `migration.runner.complete` or `migration.run` with `result: ok`) and spot-check schema or reference data as appropriate for the change.
 4. **Exceptions:** One-off, destructive, non-numbered, manual hotfix, or migrations outside the numbered runner require **explicit human approval in the same message** — agents do not execute them. Present the exact SQL or steps; the human runs them.
 5. **Test database mutations:** Ad-hoc `INSERT`/`UPDATE`/`DELETE` on shared or dev databases for tests or local reproduction require **explicit human approval in the same message**; prefer fixtures, factories, and mocks. Mass backfills remain under **Backfills** below.
 
@@ -264,12 +264,12 @@ Numbered SQL under **`REPLACE:MIGRATIONS_DIR`** is the default schema path. Proc
 |--------|--------|
 | `npm` / `yarn` / `pnpm install`, `pip install`, `go mod`, etc. for a **service** | Inside that service's compose container (bind-mount app source in `docker-compose` first) |
 | Tests, lint, type-check, app builds | Same — `docker compose exec <service> …` (see examples below) |
-| Rare host command | Only if `REPLACE:TECH_STACK_DOC` documents a non-container local workflow **or** the user explicitly approves a one-off host command **in the same message** |
+| Rare host command | Only if `.work/plans/foundation/20260618-04-architecture.md` documents a non-container local workflow **or** the user explicitly approves a one-off host command **in the same message** |
 
 **Example (frontend):** Map the app directory in compose, then:
 
 ```bash
-docker compose exec REPLACE:SERVICE_FRONTEND bash -c "cd REPLACE:FRONTEND_WORKDIR && npm ci"
+docker compose exec web bash -c "cd /app && npm ci"
 ```
 
 Do **not** run `npm install` on the host for containerized frontends.
@@ -278,32 +278,32 @@ Do **not** run `npm install` on the host for containerized frontends.
 
 | Compose service | Purpose | Typical container name |
 |-----------------|---------|--------------------------|
-| `REPLACE:SERVICE_API` | REPLACE:API_PURPOSE | `REPLACE:SERVICE_API-${STACK_SUFFIX}` |
-| `REPLACE:SERVICE_DB` | Database | `REPLACE:SERVICE_DB-${STACK_SUFFIX}` |
-| `REPLACE:SERVICE_CACHE` | Cache / broker (if any) | `REPLACE:SERVICE_CACHE-${STACK_SUFFIX}` |
+| `api` | FastAPI backend | `tpr_api_${COMPOSE_PROJECT_NAME}` |
+| `postgresql` | PostgreSQL 16 | `tpr_pg_${COMPOSE_PROJECT_NAME}` |
+| `(none)` | No cache/broker in current stack | — |
 
-Stack identity: `.env` (`REPLACE:STACK_SUFFIX_VAR`, host ports, `COMPOSE_PROJECT_NAME`). Prefer **`REPLACE:DEV_STACK_SCRIPT`** (e.g. `bin/start.sh`) for isolated compose invocations.
+Stack identity: `.env` (`COMPOSE_PROJECT_NAME`, host ports). Prefer **`bin/start.sh`** for isolated compose invocations.
 
 ### Running Tests (example — customize service and paths)
 
 ```bash
-docker compose exec REPLACE:SERVICE_API bash -c "cd REPLACE:APP_WORKDIR && REPLACE:TEST_COMMAND"
-docker compose exec REPLACE:SERVICE_API bash -c "cd REPLACE:APP_WORKDIR && REPLACE:LINT_COMMAND"
-docker compose exec REPLACE:SERVICE_API bash -c "cd REPLACE:APP_WORKDIR && REPLACE:TYPECHECK_COMMAND"
+docker compose exec api bash -c "cd /app && pytest tests/ -q"
+docker compose exec api bash -c "cd /app && ruff check ."
+docker compose exec api bash -c "cd /app && pyright ."
 ```
 
 Skills (`code-implementation`, `code-verify`) must use these commands — not hardcoded `api`, `/code/apis`, or tool names from another project.
 
 ### Running One-Off Scripts (example)
 
-- Place scripts under **`REPLACE:SCRIPTS_DIR`**, not in production source trees.
+- Place one-off Python scripts under **`api/scripts/`** (mounted at `/app/scripts/` inside the API container), not in production source trees.
 - Run from the container WORKDIR so imports resolve:
 
 ```bash
-docker compose exec REPLACE:SERVICE_API bash -c "cd REPLACE:APP_WORKDIR && timeout 120 python scripts/my_script.py"
+docker compose exec api bash -c "cd /app && timeout 120 python scripts/my_script.py"
 ```
 
-If the project does **not** use Docker, replace this section with the canonical local/CI commands from `REPLACE:TECH_STACK_DOC`.
+If the project does **not** use Docker, replace this section with the canonical local/CI commands from `.work/plans/foundation/20260618-04-architecture.md`.
 
 ---
 

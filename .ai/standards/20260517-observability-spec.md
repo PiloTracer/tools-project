@@ -1,7 +1,6 @@
 # Observability Specification — template
 
-**Status:** Customize for your repo before production traffic.
-**Pairs with:** CONVENTIONS, api-style-guide, data-classification.
+> **Agent OS ships this file as a template.** tools-project has not yet created a binding observability spec. Do not follow this template's unresolved `REPLACE:` tokens for implementation.
 
 ---
 

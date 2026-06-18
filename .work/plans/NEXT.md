@@ -6,7 +6,7 @@
 
 **Schema:** declarative **`sql/`** only — no Alembic. On API startup: `schema_changes.sql` → `schema_indexes.sql` → bootstrap → `schema_backfill.sql` → `schema_inserts.sql`.
 
-**Latest (repo):** **2026-06-18** — Repo restructured: `.work/` now holds project-specific content (CONTEXT, HANDOFF, NEXT, legacy plans); `.ai/` holds Agent OS framework (skills, standards, templates); `.cursorrules` updated to generic template. **Product scope unchanged:** Phases **1–2** (**Batch G**, **Batch H**, carryovers **P2–P5**) **complete** on `main`. **Batch I (GitHub) — partial:** **`sql/`** tables **`github_links`** / **`github_commits`** (`html_url` **NOT NULL**), FastAPI **`app/routers/github.py`** (`/v1/projects/{project_id}/github/...`), **Fernet-encrypted PAT** (`token_cipher`), **commit sync** (`app/services/github_sync.py`) + **background poll** (`app/github_background.py`, env **`GITHUB_*`** in **`.env.example`**). **Not shipped yet:** Next.js **`/projects/[id]/github`** page, project **settings** form for URL/token, **`github_commit` activity** rows, **`github_ref`** attach flow — see **§ I12** for configuring links **via API today**. **Still deferred:** attachment **retention purge** cron; optional Inbox **`c`** shortcut.
+**Latest (repo):** **2026-06-18** — Repo restructured: `.work/` now holds project-specific content (CONTEXT, HANDOFF, NEXT, legacy plans); `.ai/` holds Agent OS framework (skills, standards, templates); `.cursorrules` updated to generic template. **Product scope unchanged:** Phases **1–2** (**Batch G**, **Batch H**, carryovers **P2–P5**) **complete** on `main`. **Batch I (GitHub) — partial:** API + sync done; web tab + activity feed + ref attach still open (see **§ I12**). **Batch J (CRM / clients-participants) — starting:** SPEC Approved, ADR-0001 Decided, schema + model slice is next (see **§ Batch J**). **Still deferred:** attachment **retention purge** cron; optional Inbox **`c`** shortcut.
 
 ### Status at a glance (visual)
 
@@ -19,6 +19,7 @@ Phase 3 (I)     ██████░░░░░░░░░░░░░░  ~3
 Matrix (G+H+P)  ████████████████████  14/14 Done
 
 Open: Batch I web + github_commit activity + github_ref · retention cron · optional Inbox "c"
+Starting: Batch J — clients-participants (CRM) — schema + prospects → clients pipeline
 ```
 
 ---
@@ -46,9 +47,10 @@ Open: Batch I web + github_commit activity + github_ref · retention cron · opt
 ### Open / follow-up (non–Batch I)
 
 | # | Item |
-|---|------|
+|---|---|
 | **P5** | Wire **retention** purge cron job (hook `retention_cutoff()` exists); admin surfacing for caps (optional). |
 | **H1** | Optional global **`c`** quick-capture shortcut. |
+| **J0** | **Batch J — CRM clients-participants:** schema + models; prospects CRUD + pipeline transitions; clients, contacts, project linking; client access/permission resolution; `/client/login` + limited project view. |
 
 **Batch I (GitHub) — shipped vs next:** see **§ I10** (sub-track status) and **§ I12** (how to add repo + PAT **today** without a web form). **`20260515-full-project.md`** Phase **3** / §11 item **8** remain **open** until the **GitHub** web tab and **`github_commit`** activity feed land.
 
@@ -253,6 +255,71 @@ Authorization: Bearer <access_token>
 
 ---
 
+## Batch J — clients-participants (CRM)
+
+**Source:** `.work/features/clients-participants/20260618-SPEC.md` (Approved) + ADR-0001.  
+**Goal:** Add client companies, contacts, sales pipeline, and limited client project access.
+
+### J0 — Decisions / prerequisites (done)
+
+- ADR-0001 decided: separate `client_contacts` with optional `user_id`; `project_clients` join table; dedicated `project_client_access`; separate `prospects` table; individual user accounts; `/client/login`; `is_internal` visibility boundary.
+- Unknowns registry updated; architecture foundation doc aligned.
+
+### J1 — Schema + models (first slice)
+
+Add idempotent DDL in `sql/schema_changes.sql` and SQLAlchemy models:
+
+1. `prospects`
+2. `clients` (with `slug` generation from company name)
+3. `client_contacts` (includes `role` for `contact` / `contact_admin`)
+4. `project_clients`
+5. `project_client_access`
+6. Optional V1: `client_referrals`, `client_onboarding_items`
+
+Run `apply-ddl` twice to verify idempotency.
+
+### J2 — Prospects API + UI
+
+- `api/app/routers/prospects.py`: list, create, get, update, delete, `PATCH /stage` with transition validation.
+- `web/src/app/prospects/`: list page, detail page with tabs (overview, activity, referrals), stage transition widget.
+
+### J3 — Clients + contacts API + UI
+
+- `api/app/routers/clients.py`: client CRUD + contacts sub-routes.
+- `web/src/app/clients/`: list, detail (contacts, projects, onboarding tabs).
+- Auto-create `clients` record when prospect reaches `won`.
+
+### J4 — Project-client linking
+
+- `api/app/routers/project_clients.py`: link/unlink clients to projects; include client summary on project GET.
+- Web: client badge on project list/header; client section in project settings.
+
+### J5 — Client access + permission resolution
+
+- `api/app/routers/project_client_access.py`: grant/revoke/update client contact access.
+- Modify `api/app/deps.py` to check `project_client_access` alongside `project_members`.
+- Enforce `is_internal = false` visibility for client participants.
+
+### J6 — Client portal
+
+- `web/src/app/client/login/`: separate login page.
+- Limited client dashboard + project view: only assigned tasks/tickets, public activity, no settings/GitHub/internal activity.
+
+### J7 — Pipeline flags + optional polish
+
+- `api/app/services/pipeline_flags.py`: surface follow-up / check-in / breakup / review-for-lost flags.
+- Optional V1: referrals UI, onboarding checklist UI.
+
+### J8 — Acceptance
+
+- [ ] Client CRUD + contacts end-to-end.
+- [ ] Prospect stage transitions validated.
+- [ ] Project linked to client; internal team sees client summary.
+- [ ] Client participant login sees only allowed projects and public activity.
+- [ ] Client participant cannot view internal activity, project settings, members, or GitHub.
+
+---
+
 ## Batch A — Schema discipline (maintain continually)
 
 | # | Item | Why | Hints |
@@ -288,7 +355,7 @@ Authorization: Bearer <access_token>
 docker compose --profile dev up --build
 docker compose --profile dev run --rm api python -m app.cli_schema apply-ddl   # DDL → bootstrap → backfill/inserts
 curl -s "http://localhost:8300/docs"   # GitHub routes under tag `github`
-docker compose run --rm --no-deps web sh -lc "npm ci --no-audit --no-fund && npm run check && npm run build"
+docker compose --profile dev run --rm --no-deps web sh -lc "npm ci --no-audit --no-fund && npm run check && npm run build"
 ```
 
 ---

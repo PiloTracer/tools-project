@@ -2,14 +2,17 @@
 
 **Date:** 2026-06-18 (session close — repo restructured: `.ai/` → Agent OS framework, content migrated to `.work/`)
 
-**Session status:** Closed · goal: verify `.ai.bak` content is safe to delete and confirm migration to `.work/`
+**Open:** 2026-06-18 - goal: implement clients-participants (Batch J) — schema + prospects pipeline first
+**Updated:** 2026-06-18
 
-**Repository state:** Structural repo reorganization — old `.ai/context/*` and `.ai/plans/*` migrated to `.work/`; `.ai/` now holds Agent OS framework (skills, templates, standards); `.cursorrules` is now the generic template.
+Treat prior closed sessions as historical only; see "What this cycle produced" below.
+
+**Repository state:** Framework aligned — brownfield repair complete: foundation doc 01 (scope), doc 04 (architecture), standards (CONVENTIONS, FEATURE_STANDARD, DIRECTORY_MAP), registries (ASSUMPTIONS, RISK_REGISTRY, UNKNOWNS), ADR-0001 Decided. `.cursorrules` REPLACE tokens resolved. **Ready to implement Batch J (CRM / clients-participants):** SPEC Approved, ADR-0001 Decided, unknowns updated, `.work/plans/NEXT.md` § Batch J drafted. GitHub Batch I web (I10d) remains open pending a priority call.
 
 ## Start here (new session)
 
 1. Read **`.work/context/CONTEXT.md`** — ports, auth modes, repo map (includes **`github_links` / `github_commits`**).  
-2. Read **`.work/plans/NEXT.md`** — **G/H** matrix + **§ Batch I** (**I10** sub-track truth table, **I11** vs plan §11, **§ I12** = configure repo + PAT **via `/docs` or `curl`** until web UI exists).  
+2. Read **`.work/plans/NEXT.md`** — **G/H** matrix + **§ Batch I** (GitHub) + **§ Batch J** (clients-participants CRM).  
 3. Full product / MVP scope: **`.work/plans/legacy-plans/proposal/20260515-full-project.md`**. Short brief: **`preliminary.md`**.  
 4. **Docker-only** tooling for Node/Python (see **`.cursorrules`**).  
 5. **No Alembic** — DDL under **`sql/`** (`schema_changes` → `schema_indexes` → bootstrap → `schema_backfill` → `schema_inserts`).
@@ -40,9 +43,10 @@
 
 ## Recommended next work
 
-1. **Batch I web (plan §7 / `NEXT.md` I10d):** Next.js **`/projects/[id]/github`** + project **settings** subsection to POST **`github_repo_url`** + **`github_token`** (BFF proxy pattern like other routes).  
-2. **`github_commit` activity rows** on sync (**I10c** remainder) + optional SSE hint updates.  
-3. **`github_ref`** attach flow (**I10e**) for tasks / comments.  
+1. **Batch J — clients-participants CRM (`NEXT.md` § Batch J):** Start with schema + models (`prospects`, `clients`, `client_contacts`, `project_clients`, `project_client_access`), then prospects CRUD + pipeline stage transitions.  
+2. **Batch I web (plan §7 / `NEXT.md` I10d):** Next.js **`/projects/[id]/github`** + project **settings** subsection — only if GitHub is prioritized over CRM.  
+3. **`github_commit` activity rows** on sync (**I10c** remainder) + optional SSE hint updates.  
+4. **`github_ref`** attach flow (**I10e**) for tasks / comments.  
 
 **Small polish:** retention purge cron; global **`c`** Inbox shortcut; **`next/image`** or ESLint override for ticket discussion thumbnails.
 
@@ -54,8 +58,19 @@
 |----------|-------------|
 | `.work/` | Project-specific working content (CONTEXT, HANDOFF, NEXT, legacy plans) migrated from old `.ai/` |
 | `.ai/` | Agent OS framework structure (skills, standards, templates, concepts, workflows) |
-| `.cursorrules` | Replaced with generic Agent OS cursorrules template (project-agnostic) |
+| `.cursorrules` | Agent OS cursorrules template with project-specific `REPLACE:` values resolved |
 | `.ai.bak` analysis | Verified all content already present in `.work/` — safe to delete |
+| `.work/plans/foundation/20260618-01-initial-scope.md` | Product scope doc (brownfield synthesis) — includes PM + CRM domains |
+| `.work/plans/foundation/20260618-04-architecture.md` | Architecture foundation — bounded contexts, tech stack, ADR register |
+| `.ai/standards/CONVENTIONS.md` | Python + TypeScript coding conventions (inferred from repo) |
+| `.ai/standards/FEATURE_STANDARD.md` | Feature SPEC template and lifecycle standard |
+| `.ai/standards/DIRECTORY_MAP.md` | Repository layout and bounded context → directory mapping |
+| `.work/plans/ASSUMPTIONS.md` | Assumption ledger |
+| `.work/plans/RISK_REGISTRY.md` | Risk registry |
+| `.work/plans/UNKNOWNS.md` | Unknowns registry (CRM architecture questions now decided in ADR-0001; Batch I vs CRM priority still open) |
+| `.work/decisions/README.md` | ADR index |
+| `.work/features/clients-participants/20260618-SPEC.md` | Feature SPEC: client companies, contacts, project access, sales pipeline — **Approved** |
+| `.work/decisions/0001-client-contact-model.md` | ADR: client contact identity, access model, pipeline, roles |
 
 ## Where to read more
 
