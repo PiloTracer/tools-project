@@ -318,9 +318,8 @@ If the project does **not** use Docker, replace this section with the canonical 
 - NEVER delete files without explicit user permission.
 
 ### Git
-- NEVER execute `git commit` or `git push` unless the user explicitly requests it in the same message.
-- **`@session-control close commit` / `close commit push` (mandatory):** When the user invokes session-control **close** with **`commit`** (and optional **`push`**), you **MUST** run shell `git add` + `git commit` per `.ai/skills/session-control/skill.md` § C4b **before** finishing your reply — stage all **safe** dirty paths (default scope), not HANDOFF/NEXT only. If **`push`** was requested, run `git push` after a successful commit. Show `git log -1 --oneline` and `git status -sb`; do not claim close commit succeeded without a commit SHA when the tree was dirty.
-- Otherwise provide commit commands for the user when they will commit themselves.
+- NEVER execute `git commit` or `git push` unless the user explicitly requests it in the same message (or a user rule overrides this).
+- Provide commit commands for the user when they will commit themselves.
 - Never modify git history (rebase, force-push) without explicit user request.
 
 ### No Attribution / No Signatures

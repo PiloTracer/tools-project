@@ -1,0 +1,34 @@
+# ADR REPLACE:NNN - REPLACE:SHORT_TITLE
+
+**Status:** Proposed · YYYY-MM-DD  
+**Owner:** REPLACE:OWNER  
+**Supersedes:** -
+
+## Context
+
+What forces the decision? Constraints, alternatives considered at a high level.
+
+## Decision
+
+We will REPLACE:DECISION_STATEMENT.
+
+## Consequences
+
+**Positive:**
+
+- REPLACE:POSITIVE_1
+
+**Negative / trade-offs:**
+
+- REPLACE:TRADEOFF_1
+
+## Alternatives considered
+
+| Option | Why not |
+|--------|---------|
+| REPLACE:ALT_1 | |
+
+## References
+
+- Foundation doc 04 §REPLACE:SECTION
+- `.work/features/<slug>/…-SPEC.md` (if applicable)

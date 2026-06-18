@@ -1,0 +1,116 @@
+# REPLACE:FEATURE_NAME - Feature SPEC
+
+**Status:** Draft  
+**Owner:** REPLACE:OWNER_ROLE  
+**ADRs referenced:** REPLACE:ADR_LIST or -  
+**Related plans:** REPLACE:PLAN_LINKS
+
+---
+
+## 1. Purpose
+
+One paragraph: why this feature exists.
+
+---
+
+## 2. In scope / Out of scope
+
+**In scope:**
+
+- REPLACE:IN_SCOPE_1
+
+**Out of scope:**
+
+- REPLACE:OUT_OF_SCOPE_1
+
+---
+
+## 3. Domain language
+
+| Term | Definition | Owner |
+|------|------------|-------|
+| REPLACE:TERM | | REPLACE:CONTEXT |
+
+---
+
+## 4. Behavioural spec
+
+- **R1.** REPLACE:RULE_1
+- **R2.** REPLACE:RULE_2
+
+---
+
+## 5. Data model
+
+Tables / columns / indexes. Migration refs: `REPLACE:MIGRATIONS_DIR/NNN_*.sql`.
+
+---
+
+## 6. APIs
+
+| Method | Path | Request | Response | Errors |
+|--------|------|---------|----------|--------|
+| | | | | |
+
+Events emitted/consumed:
+
+---
+
+## 7. Invariants
+
+- **I1.** REPLACE:INVARIANT_1 (upholds R1)
+
+---
+
+## 8. Error model
+
+Domain errors → HTTP problem details (api-style-guide).
+
+---
+
+## 9. Observability
+
+Metrics, traces, log events - link `{OBSERVABILITY_SPEC}`.
+
+---
+
+## 10. Security and privacy
+
+Data classification per column. Threat-model notes.
+
+---
+
+## 11. Test plan
+
+| Rule | Test |
+|------|------|
+| R1 | `test_…` |
+
+---
+
+## 12. Rollout and rollback
+
+Feature flags, migration order, rollback steps.
+
+---
+
+## 13. Open questions
+
+REPLACE:OPEN_QUESTIONS
+
+---
+
+## 14. Implementation map (optional)
+
+| Layer | Paths |
+|-------|-------|
+| frontend | REPLACE:FRONTEND_PATHS |
+| backend | REPLACE:BACKEND_PATHS |
+
+---
+
+## 15. Concept / NFR registry
+
+| Concept id | Applies | Notes |
+|------------|---------|-------|
+| MOD-06 | yes | AI-assisted implementation |

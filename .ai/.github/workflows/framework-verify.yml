@@ -1,0 +1,29 @@
+name: framework-verify
+
+on:
+  push:
+    branches: [main, master]
+    tags: ['v*']
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run framework-verify
+        run: bash scripts/framework-verify.sh
+
+      - name: Consumer smoke
+        run: bash scripts/smoke-consumer.sh
+
+      - name: Probe ledger honesty (no-op if no PROBE_LEDGER.md)
+        run: bash scripts/readiness-verify.sh
+
+      - name: Traceability (no-op if no master plan)
+        run: bash scripts/traceability-verify.sh
+
+      - name: Completion gate (no-op if no done tasks in NEXT.md)
+        run: bash scripts/gate-verify.sh

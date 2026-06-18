@@ -1,12 +1,16 @@
 # Session handoff — tools-project
 
-**Date:** 2026-05-16 (session close — GitHub **API + DB** slice; docs aligned)
+**Date:** 2026-06-18 (session close — repo restructured: `.ai/` → Agent OS framework, content migrated to `.work/`)
+
+**Session status:** Closed · goal: verify `.ai.bak` content is safe to delete and confirm migration to `.work/`
+
+**Repository state:** Structural repo reorganization — old `.ai/context/*` and `.ai/plans/*` migrated to `.work/`; `.ai/` now holds Agent OS framework (skills, templates, standards); `.cursorrules` is now the generic template.
 
 ## Start here (new session)
 
-1. Read **`.ai/context/CONTEXT.md`** — ports, auth modes, repo map (includes **`github_links` / `github_commits`**).  
-2. Read **`.ai/context/NEXT.md`** — **G/H** matrix + **§ Batch I** (**I10** sub-track truth table, **I11** vs plan §11, **§ I12** = configure repo + PAT **via `/docs` or `curl`** until web UI exists).  
-3. Full product / MVP scope: **`.ai/plans/proposal/20260515-full-project.md`**. Short brief: **`preliminary.md`**.  
+1. Read **`.work/context/CONTEXT.md`** — ports, auth modes, repo map (includes **`github_links` / `github_commits`**).  
+2. Read **`.work/plans/NEXT.md`** — **G/H** matrix + **§ Batch I** (**I10** sub-track truth table, **I11** vs plan §11, **§ I12** = configure repo + PAT **via `/docs` or `curl`** until web UI exists).  
+3. Full product / MVP scope: **`.work/plans/legacy-plans/proposal/20260515-full-project.md`**. Short brief: **`preliminary.md`**.  
 4. **Docker-only** tooling for Node/Python (see **`.cursorrules`**).  
 5. **No Alembic** — DDL under **`sql/`** (`schema_changes` → `schema_indexes` → bootstrap → `schema_backfill` → `schema_inserts`).
 
@@ -44,14 +48,23 @@
 
 ---
 
+## What this cycle produced
+
+| Artifact | Description |
+|----------|-------------|
+| `.work/` | Project-specific working content (CONTEXT, HANDOFF, NEXT, legacy plans) migrated from old `.ai/` |
+| `.ai/` | Agent OS framework structure (skills, standards, templates, concepts, workflows) |
+| `.cursorrules` | Replaced with generic Agent OS cursorrules template (project-agnostic) |
+| `.ai.bak` analysis | Verified all content already present in `.work/` — safe to delete |
+
 ## Where to read more
 
 | Doc | Role |
 |-----|------|
-| **`.ai/context/NEXT.md`** | Status matrix + **Batch I** spec + **§ I12** (configure GitHub **now** via API) |
-| **`.ai/context/CONTEXT.md`** | Stable technical context |
-| **`.cursorrules`** | **No Alembic**; **`sql/`** workflow |
-| **`.ai/plans/proposal/20260515-full-project.md`** | Full MVP / north-star plan |
+| **`.work/plans/NEXT.md`** | Status matrix + **Batch I** spec + **§ I12** (configure GitHub **now** via API) |
+| **`.work/context/CONTEXT.md`** | Stable technical context |
+| **`.cursorrules`** | Agent OS framework rules; **No Alembic**; **`sql/`** workflow |
+| **`.work/plans/legacy-plans/proposal/20260515-full-project.md`** | Full MVP / north-star plan |
 
 ---
 
@@ -60,3 +73,5 @@
 - **Do not commit** `.env` or **`credentials/`** (never paste real PATs into chat).  
 - **GitHub PAT today:** **`POST /v1/projects/{project_id}/github/links`** with JSON **`{ "github_repo_url": "https://github.com/org/repo", "github_token": "…" }`** — see **`NEXT.md` § I12** and OpenAPI **`/docs`**.  
 - `MarkdownEditor`: **`mentionSuggestions`** + **`refSuggestions`** wired for project activity + ticket discussion.
+- **Repo restructured:** old `.ai/context/*` and `.ai/plans/*` → `.work/`; `.ai/` now holds the Agent OS framework. See `.work/context/` and `.work/plans/legacy-plans/`.
+- **`.ai.bak`** is a stale backup of old `.ai/` — all content already in `.work/`; safe to delete.

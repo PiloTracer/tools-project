@@ -1,0 +1,30 @@
+# REPLACE:PROJECT_NAME - probe ledger
+
+**Scope:** foundation | master  · **Updated:** YYYY-MM-DD · **Iterations:** 0 · **Coverage:** 0% (target 85%)
+
+> Persisted state for `@plan-foundation probe` / `@plan-master probe`. Engine: `.ai/skills/probe-protocol.md`.
+> Set **confirmed/high** only with a cited source or a same-session owner answer; an inference is **partial/med** at best.
+> Coverage = ( Σ weight × confidence ) / Σ weight · confidence high=1.0 med=0.5 low=0.0 · weight gate-blocking(★)=2 else=1.
+
+## Coverage
+
+| Dim | Topic | Status | Conf | Evidence / source | Iter |
+|-----|-------|--------|------|-------------------|------|
+| D1 ★ | REPLACE:TOPIC | unknown | low | — | 0 |
+| D2 | REPLACE:TOPIC | unknown | low | — | 0 |
+
+Status: `confirmed` \| `partial` \| `unknown` · Conf: `high` \| `med` \| `low` · ★ = gate-blocking.
+
+## Open probes (carried to next iteration)
+
+- REPLACE:DIM: <specific question> → blocks <gate criterion>
+
+## Deferred (→ UNKNOWNS.md)
+
+- REPLACE:UNKNOWN_ID: <question> · owner=<who> · blocks=<ADR/gate>
+
+## Iteration log
+
+| Iter | Date | Coverage | Dimensions touched | Notes |
+|------|------|----------|--------------------|-------|
+| 1 | YYYY-MM-DD | 0% | — | initial assessment |

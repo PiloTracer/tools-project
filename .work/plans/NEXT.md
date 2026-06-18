@@ -1,12 +1,12 @@
 # Next batch — tools-project (prioritized work)
 
-**Purpose:** Backlog derived from **`.ai/plans/proposal/20260515-full-project.md`** (phases §10–§11) and repo reality.  
+**Purpose:** Backlog derived from **`.work/plans/legacy-plans/proposal/20260515-full-project.md`** (phases §10–§11) and repo reality.  
 **North star:** Phase **1** (domain core) → **2** (activity & tickets depth) → **3** (GitHub & polish) — see **§ Batch I — GitHub integration** below for the **active** specification.  
 **Run dev stack:** `.cursorrules` / `docker compose --profile dev up --build` or `./bin/start.sh`.
 
 **Schema:** declarative **`sql/`** only — no Alembic. On API startup: `schema_changes.sql` → `schema_indexes.sql` → bootstrap → `schema_backfill.sql` → `schema_inserts.sql`.
 
-**Latest (repo):** **2026-05-16** — Phases **1–2** (**Batch G**, **Batch H**, carryovers **P2–P5**) **complete** on `main`. **Batch I (GitHub) — partial:** **`sql/`** tables **`github_links`** / **`github_commits`** (`html_url` **NOT NULL**), FastAPI **`app/routers/github.py`** (`/v1/projects/{project_id}/github/...`), **Fernet-encrypted PAT** (`token_cipher`), **commit sync** (`app/services/github_sync.py`) + **background poll** (`app/github_background.py`, env **`GITHUB_*`** in **`.env.example`**). **Not shipped yet:** Next.js **`/projects/[id]/github`** page, project **settings** form for URL/token, **`github_commit` activity** rows, **`github_ref`** attach flow — see **§ I12** for configuring links **via API today**. **Still deferred:** attachment **retention purge** cron; optional Inbox **`c`** shortcut.
+**Latest (repo):** **2026-06-18** — Repo restructured: `.work/` now holds project-specific content (CONTEXT, HANDOFF, NEXT, legacy plans); `.ai/` holds Agent OS framework (skills, standards, templates); `.cursorrules` updated to generic template. **Product scope unchanged:** Phases **1–2** (**Batch G**, **Batch H**, carryovers **P2–P5**) **complete** on `main`. **Batch I (GitHub) — partial:** **`sql/`** tables **`github_links`** / **`github_commits`** (`html_url` **NOT NULL**), FastAPI **`app/routers/github.py`** (`/v1/projects/{project_id}/github/...`), **Fernet-encrypted PAT** (`token_cipher`), **commit sync** (`app/services/github_sync.py`) + **background poll** (`app/github_background.py`, env **`GITHUB_*`** in **`.env.example`**). **Not shipped yet:** Next.js **`/projects/[id]/github`** page, project **settings** form for URL/token, **`github_commit` activity** rows, **`github_ref`** attach flow — see **§ I12** for configuring links **via API today**. **Still deferred:** attachment **retention purge** cron; optional Inbox **`c`** shortcut.
 
 ### Status at a glance (visual)
 
@@ -293,4 +293,4 @@ docker compose run --rm --no-deps web sh -lc "npm ci --no-audit --no-fund && npm
 
 ---
 
-*Update this file when a batch completes; keep **HANDOFF** snapshot in sync. Batch I detail lives in **§ Batch I** above.*
+*Update this file when a batch completes; keep **HANDOFF** snapshot in sync. Batch I detail lives in **§ Batch I** above. Paths moved: old `.ai/context/*` → `.work/context/`, `.ai/plans/*` → `.work/plans/legacy-plans/`, `.ai/context/NEXT.md` → `.work/plans/NEXT.md`.*

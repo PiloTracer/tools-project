@@ -1,0 +1,72 @@
+# REPLACE:PROJECT_NAME - Initial exploration and scope
+
+**Doc:** foundation **01** (P0 product intent) · **Created:** YYYY-MM-DD
+
+## Audience and document purpose
+
+| Layer | Audience | What they need |
+|-------|----------|----------------|
+| **Development** | Engineers | Boundaries, invariants, compliance hooks, test strategy, explicit unknowns |
+| **Shipped product** | End users | UX and help - **out of scope here**; capture personas in separate doc if UI is in scope |
+
+---
+
+## Assumption ledger
+
+### Founder intent (verbatim - P0 capture)
+
+> REPLACE:FOUNDER_INTENT_VERBATIM
+
+### Confirmed facts (repository evidence)
+
+- `.cursorrules` exists at repo root (or pending bootstrap).
+- `.ai/` Agent OS tree present.
+- `.work/` planning tree present.
+
+### Inferences (plausible, not proven)
+
+- REPLACE:INFERENCE_1
+
+### Unknowns (decide with stakeholders)
+
+| # | Unknown | Impact |
+|---|---------|--------|
+| 1 | REPLACE:UNKNOWN_1 | |
+
+---
+
+## Product scope (v1)
+
+### In scope
+
+- REPLACE:IN_SCOPE_1
+
+### Out of scope (v1)
+
+- REPLACE:OUT_OF_SCOPE_1
+
+---
+
+## Non-functional expectations
+
+| Area | Requirement |
+|------|-------------|
+| Availability | REPLACE:NFR_AVAILABILITY |
+| Security / tenancy | REPLACE:NFR_SECURITY |
+| Compliance | REPLACE:NFR_COMPLIANCE or n/a |
+
+---
+
+## How `.cursorrules` applies
+
+Map global rules to this project. List any **project overrides** in HANDOFF or an ADR - do not fork Core Principles 1–7.
+
+---
+
+## Traceability
+
+| Artifact | Path |
+|----------|------|
+| Next foundation doc | `*-02-*` integration (if external APIs) |
+| Architecture proposal | `*-04-foundation-architecture.md` |
+| Registries | `ASSUMPTIONS.md`, `RISK_REGISTRY.md`, `UNKNOWNS.md` |
