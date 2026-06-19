@@ -229,7 +229,7 @@ export function ActivityComposer({
         <label className="btn btn-ghost text-sm" style={{ cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
           <input
             type="file"
-            accept="image/png,image/jpeg,image/gif,image/webp,application/pdf,text/plain"
+            accept="image/png,image/jpeg,image/gif,image/webp,application/pdf,text/plain,text/csv,.csv,.xls,.xlsx,.ppt,.pptx,.doc,.docx,.odt,.ods,.odp"
             multiple
             style={{ display: "none" }}
             onChange={(e) => {
@@ -529,7 +529,7 @@ export function ActivityFeed({
                       <label className="btn btn-ghost text-sm" style={{ cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
                         <input
                           type="file"
-                          accept="image/png,image/jpeg,image/gif,image/webp,application/pdf,text/plain"
+                          accept="image/png,image/jpeg,image/gif,image/webp,application/pdf,text/plain,text/csv,.csv,.xls,.xlsx,.ppt,.pptx,.doc,.docx,.odt,.ods,.odp"
                           multiple
                           style={{ display: "none" }}
                           onChange={(e) => {
