@@ -3,6 +3,9 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { MarkdownEditor } from "@/components/MarkdownEditor";
+import { usePendingImages } from "@/shared/client/use-pending-images";
+
 const TASK_STATUSES = ["todo", "in_progress", "blocked", "done", "cancelled"];
 const PRIORITIES = ["low", "normal", "high", "critical"];
 
@@ -28,6 +31,7 @@ export function TaskDetailEditor({
   canEdit: boolean;
 }) {
   const router = useRouter();
+  const { pending, addFiles, remove, clear } = usePendingImages();
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description ?? "");
@@ -97,40 +101,75 @@ export function TaskDetailEditor({
   async function handleSave() {
     setBusy(true);
     setMsg(null);
-    const body: Record<string, unknown> = {};
-    if (title.trim() !== task.title) body.title = title.trim();
-    const descVal = description.trim() || null;
-    if (descVal !== task.description) body.description = descVal;
-    if (status !== task.status) body.status = status;
-    if (priority !== task.priority) body.priority = priority;
-    const dueVal = dueAt ? new Date(dueAt).toISOString() : null;
-    if (dueVal !== task.due_at) body.due_at = dueVal;
-
-    if (Object.keys(body).length === 0) {
-      setEditing(false);
-      setBusy(false);
-      return;
-    }
-
-    const r = await fetch(`/api/tasks/${task.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    if (!r.ok) {
-      const text = await r.text();
-      try {
-        const j = JSON.parse(text) as { detail?: string };
-        setMsg(j.detail ?? text);
-      } catch {
-        setMsg(text || `Error ${r.status}`);
+    try {
+      let descVal = description.trim() || null;
+      if (pending.length) {
+        const uploadedIds: string[] = [];
+        for (const p of pending) {
+          const fd = new FormData();
+          fd.append("file", p.file);
+          const ur = await fetch(`/api/projects/${task.project_id}/tasks/${task.id}/attachments`, {
+            method: "POST",
+            body: fd,
+          });
+          const ut = await ur.text();
+          if (!ur.ok) {
+            try { const j = JSON.parse(ut) as { detail?: string }; throw new Error(j.detail ?? ut); }
+            catch (e) {
+              if (e instanceof Error && e.message !== ut) throw e;
+              throw new Error(ut || `Upload failed (${ur.status})`);
+            }
+          }
+          const row = JSON.parse(ut) as { id: string };
+          uploadedIds.push(row.id);
+        }
+        const mdLines = uploadedIds.map((aid, i) => {
+          const f = pending[i]?.file;
+          if (f?.type.startsWith("image/")) {
+            return `![${f.name.replace(/]/g, "")}](/api/attachments/${aid})`;
+          }
+          return `[${(f?.name ?? "attachment").replace(/]/g, "")}](/api/attachments/${aid})`;
+        });
+        const md = mdLines.join("\n");
+        descVal = descVal ? `${descVal}\n\n${md}` : md;
+        clear();
       }
-      setBusy(false);
-      return;
+      const body: Record<string, unknown> = {};
+      if (title.trim() !== task.title) body.title = title.trim();
+      if (descVal !== task.description) body.description = descVal;
+      if (status !== task.status) body.status = status;
+      if (priority !== task.priority) body.priority = priority;
+      const dueVal = dueAt ? new Date(dueAt).toISOString() : null;
+      if (dueVal !== task.due_at) body.due_at = dueVal;
+
+      if (Object.keys(body).length === 0) {
+        setEditing(false);
+        setBusy(false);
+        return;
+      }
+
+      const r = await fetch(`/api/tasks/${task.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!r.ok) {
+        const text = await r.text();
+        try {
+          const j = JSON.parse(text) as { detail?: string };
+          setMsg(j.detail ?? text);
+        } catch {
+          setMsg(text || `Error ${r.status}`);
+        }
+        setBusy(false);
+        return;
+      }
+      setEditing(false);
+      router.refresh();
+    } catch (err) {
+      setMsg(err instanceof Error ? err.message : "Upload failed");
     }
-    setEditing(false);
     setBusy(false);
-    router.refresh();
   }
 
   function handleCancel() {
@@ -188,13 +227,48 @@ export function TaskDetailEditor({
         </label>
         <label className="field">
           <span className="label">Description</span>
-          <textarea
-            className="input"
-            rows={5}
+          <MarkdownEditor
             value={description}
-            onChange={(e) => setDescription(e.target.value)}
+            onChange={setDescription}
+            rows={5}
+            placeholder="Describe the task…"
+            onPasteFiles={(files) => addFiles(files)}
+            onDropFiles={(files) => addFiles(files)}
           />
         </label>
+        <div className="stack" style={{ gap: "0.35rem" }}>
+          <span className="text-sm muted">Attachments — images, PDF, or plain text (optional)</span>
+          <label className="btn btn-ghost text-sm" style={{ cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/gif,image/webp,application/pdf,text/plain"
+              multiple
+              style={{ display: "none" }}
+              onChange={(e) => {
+                const list = e.target.files;
+                if (list?.length) addFiles(Array.from(list));
+                e.target.value = "";
+              }}
+            />
+            Browse files…
+          </label>
+          {pending.length > 0 ? (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", alignItems: "flex-start" }}>
+              {pending.map((p) => (
+                <div key={p.key} style={{ position: "relative" }}>
+                  {p.url ? (
+                    <img src={p.url} alt="" style={{ width: 72, height: 72, objectFit: "cover", borderRadius: 6, border: "1px solid var(--border)" }} />
+                  ) : (
+                    <div className="text-sm muted" style={{ width: 120, minHeight: 72, padding: "0.35rem", borderRadius: 6, border: "1px solid var(--border)", wordBreak: "break-all" }} title={p.file.name}>
+                      {p.file.name}
+                    </div>
+                  )}
+                  <button type="button" className="btn btn-ghost text-sm" style={{ position: "absolute", top: -6, right: -6, padding: "0 0.35rem", minHeight: 0 }} onClick={() => remove(p.key)} aria-label="Remove attachment">×</button>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </div>
         <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
           <button
             type="button"
