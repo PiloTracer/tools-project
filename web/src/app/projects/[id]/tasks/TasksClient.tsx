@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { KanbanBoard } from "@/components/KanbanBoard";
@@ -122,9 +123,11 @@ export function NewTaskForm({
 }
 
 export function TaskTable({
+  projectId,
   tasks,
   canEdit,
 }: {
+  projectId: string;
   tasks: TaskRow[];
   canEdit: boolean;
 }) {
@@ -217,7 +220,11 @@ export function TaskTable({
               <td className="muted text-sm" style={{ padding: "0.4rem 0", fontFamily: "var(--font-mono, monospace)", fontSize: "0.8rem" }}>
                 {t.ref || "—"}
               </td>
-              <td style={{ padding: "0.4rem 0" }}>{t.title}</td>
+              <td style={{ padding: "0.4rem 0" }}>
+                <Link href={`/projects/${projectId}/tasks/${t.id}`} style={{ fontWeight: 600 }}>
+                  {t.title}
+                </Link>
+              </td>
               <td>
                 {canEdit ? (
                   <select
@@ -265,9 +272,11 @@ export function TaskTable({
 }
 
 export function TasksView({
+  projectId,
   tasks,
   canEdit,
 }: {
+  projectId: string;
   tasks: TaskRow[];
   canEdit: boolean;
 }) {
@@ -304,12 +313,13 @@ export function TasksView({
       </div>
       {view === "board" ? (
         <KanbanBoard
+          projectId={projectId}
           tasks={tasks}
           canEdit={canEdit}
           onStatusChange={onStatusChange}
         />
       ) : (
-        <TaskTable tasks={tasks} canEdit={canEdit} />
+        <TaskTable projectId={projectId} tasks={tasks} canEdit={canEdit} />
       )}
     </div>
   );

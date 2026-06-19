@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 
 export type KanbanTask = {
@@ -22,10 +23,12 @@ const COLUMNS = [
 ];
 
 export function KanbanBoard({
+  projectId,
   tasks,
   canEdit,
   onStatusChange,
 }: {
+  projectId: string;
   tasks: KanbanTask[];
   canEdit: boolean;
   onStatusChange: (taskId: string, newStatus: string) => void;
@@ -155,7 +158,9 @@ export function KanbanBoard({
                     wordBreak: "break-word",
                   }}
                 >
-                  {t.title}
+                  <Link href={`/projects/${projectId}/tasks/${t.id}`} style={{ color: "inherit", textDecoration: "none" }}>
+                    {t.title}
+                  </Link>
                 </div>
                 <div
                   className="text-sm muted"

@@ -71,7 +71,7 @@ export default async function ProjectTasksPage({
         {tasks.length === 0 ? (
           <p className="muted">No tasks yet.</p>
         ) : (
-          <TasksView tasks={tasks} canEdit={canEdit} />
+          <TasksView projectId={id} tasks={tasks} canEdit={canEdit} />
         )}
       </div>
     </div>
