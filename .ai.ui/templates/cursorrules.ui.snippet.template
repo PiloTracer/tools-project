@@ -54,10 +54,10 @@ UI milestone work is not done until: UI lint/type/tests pass; `@ui-visual-verify
 | ui-visual-verify | Visual regression |
 | ui-accessibility-audit | WCAG |
 | ui-design-system | Catalog + Storybook |
-| ui-concept-run | UIS-01…07 |
+| ui-concept-run | UIS-01…09 |
 | ui-process-router | UI Q&A (read-only) |
 
-**Sessions:** `@session-control` (`.ai/`) · **Backend:** `@code-implementation` (`.ai/`) · **UIS-06** + **UIS-07** (tier ≥ refined) before `ui-component-build complete`.
+**Sessions:** `@session-control` (`.ai/`) · **Backend:** `@code-implementation` (`.ai/`) · **UIS-06** (agent-assisted) + **UIS-07** (craft ≥ refined) + **UIS-08** (all screens) + **UIS-09** (analytical dashboards) before `ui-component-build complete`.
 
 ### UI protected files (union with existing list)
 

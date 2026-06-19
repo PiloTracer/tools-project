@@ -14,6 +14,10 @@
 - [ ] Semantic tokens only — no ad-hoc hex in components
 - [ ] `prefers-reduced-motion` respected (UIS-03)
 - [ ] Craft tier documented in foundation 01; surfaces/controls per [`20260523-SURFACE-AND-CONTROL-CRAFT.md`](20260523-SURFACE-AND-CONTROL-CRAFT.md)
+- [ ] Empty states guide users (not blank or "no data" dead-ends) (UIS-08)
+- [ ] Destructive actions guarded (confirm, undo, or reversible) (UIS-08)
+- [ ] Error messages in plain language with recovery path (UIS-08)
+- [ ] Feedback visible within 100ms of every user action (UIS-08)
 
 ---
 
@@ -38,14 +42,58 @@
 
 ---
 
-## Data density (dashboards, admin)
+## Dashboards & data visualization (admin, analytical, reporting)
 
-- [ ] KPI row: 3–5 metrics max above fold; label + value + delta pattern
-- [ ] Tables: sticky header, sort indicator, row actions, empty state
-- [ ] Filters: collapse on mobile; show applied filter count
-- [ ] Charts: color + non-color encoding; table fallback for a11y
-- [ ] Segmented status bars: do not rely on color alone (UIS-04)
+### Layout & structure
+
+- [ ] KPI row: 3–5 metrics max above fold; label + value + delta arrow + optional sparkline
+- [ ] Dashboard grid: responsive auto-fill (`repeat(auto-fill, minmax(300px, 1fr))`) for chart cards; full-width for primary chart on desktop
+- [ ] Filter bar: date range + metric selector + group-by; collapse into expandable chip row ≤ `md`
+- [ ] Section headers or tab groups for multi-chart layouts; stick on scroll
 - [ ] Reference: `examples/dashboards/manifest.md`
+
+### Charts & graphs
+
+- [ ] Chart library chosen in foundation doc 03 + HANDOFF_UI; one library per project
+- [ ] Chart tokens used consistently across all charts (categorical palette, axis, grid, tooltip)
+- [ ] Every chart has: loading skeleton (matching chart shape), empty state, error with retry
+- [ ] Responsive: chart container scales; min readable width; legend wraps or hides at breakpoints
+- [ ] Animations: `prefers-reduced-motion` disables chart enter/update animations (UIS-03)
+- [ ] Interactivity documented in SPEC §14: tooltip, cross-filter, drill-down, zoom
+- [ ] Reference: `resources/control-platforms.md` § Chart & data-viz libraries
+
+### Accessibility
+
+- [ ] Data table fallback for every chart (visually hidden or toggleable)
+- [ ] `aria-label` on chart SVG regions; `role="img"` on chart root
+- [ ] Keyboard navigation for interactive charts (arrow keys step through data points)
+- [ ] Color + pattern encoding — not color-only (hatch, dash, shape markers)
+- [ ] Tooltip content available to screen readers (aria-live region)
+- [ ] UIS-09 check required at milestone verify
+
+### Operational dashboards (real-time, monitoring)
+
+- [ ] Auto-refresh indicator; pause/resume control; "last updated" timestamp
+- [ ] Status indicators: colored dot + text label (not color-only per UIS-04)
+- [ ] Activity feed: time-stamped, infinite scroll or paginated, category chips
+- [ ] Alert / anomaly highlighting: visual emphasis with dismiss action
+- [ ] Reference: `examples/dashboards/manifest.md` (D1, D4, D8)
+
+### Analytical dashboards (trends, reporting)
+
+- [ ] Date range selector (preset + custom) — persisted in URL for shareable views
+- [ ] Export: CSV, PDF, or PNG per chart or full dashboard; loading state during export
+- [ ] Chart + data table pair: chart for overview, table beneath for precision
+- [ ] Cross-filter: clicking a chart segment filters other charts on same dashboard
+- [ ] Drill-down: click data point → navigates to detail view or overlays detail panel
+- [ ] Reference: `examples/dashboards/manifest.md` (D2, D4, D6)
+
+### Reporting & export
+
+- [ ] Report builder: metric selection, grouping, date range, schedule
+- [ ] Saved reports: list + rename + delete; load applies filters automatically
+- [ ] Export formats: CSV (raw data), PDF (formatted report), PNG (chart snapshots)
+- [ ] Reference: `examples/dashboards/manifest.md` (D5, D6)
 
 ---
 

@@ -27,7 +27,7 @@
 | 9 | Accessibility | WCAG target level, focus trap rules, live regions |
 | 10 | Analytics & observability | Events (no PII in payloads) |
 | 11 | Acceptance criteria | Testable bullets; include **extractedRules** copied from cited examples |
-| 12 | Concept / UIS registry | UIS-01…07 applies yes/no + reason |
+| 12 | Concept / UIS registry | UIS-01…09 applies yes/no + reason |
 | 13 | Visual references | **Required shape** — see §6 below |
 
 ## 3. §12 Concept registry (required)
@@ -75,7 +75,20 @@ Mirror Agent OS FEATURE_STANDARD §15 pattern:
 
 **N/A waiver:** If no examples apply, set `exampleIds: N/A` + reason in HANDOFF_UI.
 
-## 6. Do not duplicate
+## 6. §14 Data visualization (required for analytical dashboard / report screens)
+
+If this screen contains charts or data visualization:
+
+| § | Title | Content |
+|---|-------|---------|
+| 14a | Chart types | List each chart: type (line/bar/pie/composed/heatmap), purpose, data source (link domain SPEC), interaction (tooltip, zoom, drill-down, cross-filter) |
+| 14b | Responsive behavior | Breakpoint-per-chart sizing: `full-width` vs `grid-col-N` per viewport; min readable width; overflow/scroll behavior on small screens |
+| 14c | Chart tokens | Categorical palette (N colors + overflow), semantic colors (positive/negative/neutral), axis grid, tooltip surface — all from token file |
+| 14d | States | Loading skeleton per chart, empty series, partial data, error with retry, animation on data update |
+| 14e | Accessibility | Data table fallback for each chart, `aria-label` on chart regions, keyboard navigation for interactive charts, color+pattern encoding (not color-only), `prefers-reduced-motion` for chart animations |
+
+## 7. Do not duplicate
 
 - API request/response shapes → link domain SPEC
 - Backend business rules → link domain SPEC or ADR
+- Chart library choice → foundation doc 03 + HANDOFF_UI

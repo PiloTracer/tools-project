@@ -8,14 +8,17 @@
 
 ## 1. Pick archetype (required in foundation doc 01)
 
-| Archetype | Signals | Primary surfaces |
-|-----------|---------|------------------|
-| **marketing-site** | Hero, storytelling, few forms, CMS | Landing, about, contact |
-| **saas-product** | Auth, app shell, settings, billing | Dashboard, lists, detail |
-| **admin-dashboard** | Dense tables, filters, KPIs, roles | Data-heavy back-office |
-| **mobile-app** | Bottom nav, sheets, touch, narrow width | Native-like or PWA |
-| **design-system** | Primitives, docs, Storybook first | Buttons, forms, tokens |
-| **hybrid** | Marketing + logged-in app | Split foundation; two screen maps |
+| Archetype | Subtype | Signals | Primary surfaces |
+|-----------|---------|---------|------------------|
+| **marketing-site** | — | Hero, storytelling, few forms, CMS | Landing, about, contact |
+| **saas-product** | — | Auth, app shell, settings, billing | Dashboard, lists, detail |
+| **admin-dashboard** | *operational* | Dense tables, filters, KPIs, roles, real-time activity | Data-heavy back-office, activity feeds, audit logs |
+| **admin-dashboard** | *analytical* | Charts, trends, reporting, exports, date-range analysis, drill-down | KPI rows, chart grids, report builders, exportable tables |
+| **mobile-app** | — | Bottom nav, sheets, touch, narrow width | Native-like or PWA |
+| **design-system** | — | Primitives, docs, Storybook first | Buttons, forms, tokens |
+| **hybrid** | — | Marketing + logged-in app | Split foundation; two screen maps |
+
+**If analytical dashboard →** require chart library selection in foundation doc 03, UIS-09 at milestone verify, and chart tokens in doc 02.
 
 If hybrid → document **marketing** vs **app** shells separately in screen map (foundation 04).
 
@@ -27,7 +30,9 @@ If hybrid → document **marketing** vs **app** shells separately in screen map 
 |-----------|----------------------------------|
 | marketing-site | `ui-style-stack set` → `ui-design-foundation greenfield` → `ui-screen-spec create` per route → `ui-component-build` → verify |
 | saas-product | `ui-style-stack set` → `ui-design-foundation` → `ui-screen-spec` (shell + key flows) → `ui-design-system init` → `ui-component-build` → verify + a11y |
-| admin-dashboard | Same as saas; **require** UIS-01 + pattern § data-density in SPECs |
+| admin-dashboard (operational) | Same as saas; **require** UIS-01 + pattern § data-density in SPECs |
+| admin-dashboard (analytical) | Same as saas; **require** chart library in doc 03, UIS-09 at milestone verify, chart tokens in foundation 02 |
+| reporting / export | Add `@ui-screen-spec create` for each report view; chart + table pair required per SPEC; UIS-08 + UIS-09 both required |
 | mobile-app | `ui-style-stack set` → foundation → specs per screen → build; **UIS-02 required** every screen |
 | design-system | foundation → `ui-design-system init` → primitives before screens |
 | hybrid | foundation once → separate SPEC groups per shell |

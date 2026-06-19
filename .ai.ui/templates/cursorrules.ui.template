@@ -116,7 +116,7 @@ Invoke as `@<skill-id>` + mode. **Do not** reimplement these as unprefixed skill
 | ui-visual-verify | Visual / token regression |
 | ui-accessibility-audit | WCAG audits |
 | ui-design-system | Primitives + catalog |
-| ui-concept-run | UIS-01…07 prompts |
+| ui-concept-run | UIS-01…09 prompts |
 | ui-process-router | UI process Q&A (read-only) |
 
 **Session bookends:** `@session-control` from `.ai/` when present.
@@ -209,7 +209,7 @@ If no Docker: use commands documented in `REPLACE:UI_TECH_STACK_DOC`.
 1. Read screen SPEC before editing.
 2. Run lint, typecheck, unit tests for touched packages.
 3. Scope check: only declared files in `NEXT_UI.md` task row.
-4. UIS-06 when agent-assisted; UIS-07 when craft tier ≥ refined.
+4. UIS-06 when agent-assisted; UIS-07 when craft tier ≥ refined; UIS-08 for all screens; UIS-09 for analytical dashboards.
 
 ### Before milestone complete
 - `@ui-visual-verify milestone`

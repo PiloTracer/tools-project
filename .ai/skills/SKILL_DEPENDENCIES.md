@@ -89,6 +89,11 @@ foundation-complete  →  plan-master-ready  →  implementation-ready
 | **db-migration** `init` | Repo at Agent OS root; **IB0** brownfield gate detects existing runner + `001_init.sql` | - (brownfield prompts keep / overwrite-runner / overwrite-all / abort) |
 | **db-migration** `create` / `add` / `run` / `verify` | `db-migration init` already run (runner module + `001_init.sql` baseline present); `create` / `add` auto-invokes idempotency double-run (`@db-migration verify` on the new script, see § Self-verify auto-invoke) | **Required** |
 | **db-migration** `status` | - | Read-only |
+| **deploy-files** `copy` | Target parent dir must exist (I0 gate); source is this `.ai` repo | - |
+| **deploy-files** `status` | - | Read-only |
+| **deploy-repo** `clone` | Target must not exist; source must have origin remote (I0 gate) | - |
+| **deploy-repo** `archive` | Target parent dir must exist (I0 gate) | - |
+| **deploy-repo** `status` | - | Read-only |
 | **dev-stack** `init` | User request / `docker-compose*.yml` present; brownfield gate refuses to silently overwrite existing `bin/start.sh` | - |
 | **dev-stack** `status` | - | Read-only |
 | **process-router** `route` / `help` | - | Read-only |

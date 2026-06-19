@@ -13,6 +13,7 @@
 - **Radius, shadow, border** — semantic where possible
 - **Motion:** duration + easing tokens (UIS-03)
 - **Z-index:** named layers (`dropdown`, `modal`, `toast`)
+- **Chart (required for analytical dashboards):** categorical palette, semantic palette, sequential/diverging, axis, tooltip — see §5
 
 ## 2. Format
 
@@ -49,6 +50,24 @@ Foundation doc 02 must list **light and dark values** for every inset/elevated t
 - Arbitrary `z-index: 9999`
 - `transition: all`
 
-## 5. Brand inputs
+## 5. Chart tokens (required when archetype = analytical dashboard)
+
+Define a separate chart palette in the token file. Charts must **not** consume general surface/text tokens for data encoding.
+
+| Token group | Examples | Purpose |
+|-------------|----------|---------|
+| **Categorical palette** | `--chart-cat-0` through `--chart-cat-N` | Distinguish data series (N = max series per chart; overflow uses repeating or `--chart-cat-other`) |
+| **Semantic palette** | `--chart-pos`, `--chart-neg`, `--chart-neutral`, `--chart-warning`, `--chart-info` | Up/down/flat indicators, delta badges, gauge zones |
+| **Axis & grid** | `--chart-axis-line`, `--chart-grid-line`, `--chart-label-fill` | Non-data ink — subtle, no visual competition with data |
+| **Tooltip & interaction** | `--chart-tooltip-bg`, `--chart-tooltip-border`, `--chart-crosshair-line`, `--chart-highlight-fill` | Hover/selection feedback surfaces |
+| **Sequential / diverging** | `--chart-seq-0` through `--chart-seq-5`, `--chart-div-neg-3` through `--chart-div-pos-3` | Heatmaps, choropleths, diverging bars |
+
+**Rules:**
+- Categorical palette must be colorblind-safe (check with UIS-09 / UIS-04)
+- Sequential scales: 5–9 stops from light to saturated; luminance contrast verified
+- Chart tokens are **separate** from UI surface tokens — a chart's `--chart-cat-0` is not `--color-primary`
+- Dark theme chart tokens must be defined independently (not inverted)
+
+## 6. Brand inputs
 
 Brand colors from `.ai.ui/inputs/brand/` map **into** semantic tokens — components never import brand files directly.

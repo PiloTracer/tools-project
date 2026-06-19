@@ -99,7 +99,7 @@ ui-foundation-complete  →  screen-spec-ready  →  ui-implementation-ready
 | Free-text UI idea (don't know where it goes) | `@ui-screen-spec intake - <free sentence>` (classifies + routes) |
 | New screen / flow SPEC | `@ui-screen-spec create - <slug>` |
 | Review before build | `@ui-screen-spec review - <path>` |
-| UIS prompts in SPEC | List UIS-01…07 in SPEC §12 Concept registry |
+| UIS prompts in SPEC | List UIS-01…09 in SPEC §12 Concept registry |
 | Bind example patterns | SPEC §13: `exampleIds` + `extractedRules` from `examples/*/manifest.md` |
 
 Screen SPECs live under **`.work.ui/screens/<slug>/`** — not `.work/features/`.
@@ -140,6 +140,8 @@ If no valid UI iteration block:
 | Run UI task gate (lint, type, unit/visual tests per `.cursorrules`) | UI task gate |
 | Agent-assisted UI diff → UIS-06 | `@ui-concept-run - UIS-06` |
 | Craft tier ≥ refined → UIS-07 | `@ui-concept-run - UIS-07` |
+| Any screen before ship → UIS-08 | `@ui-concept-run - UIS-08` |
+| Analytical dashboard → UIS-09 | `@ui-concept-run - UIS-09` |
 | Cross-screen token change → UIS-04 | `@ui-concept-run - UIS-04` |
 
 Full-stack tasks: also follow `@code-implementation` for non-UI files ([`COHABITATION.md`](COHABITATION.md)).
@@ -154,6 +156,8 @@ Full-stack tasks: also follow `@code-implementation` for non-UI files ([`COHABIT
 | Accessibility | `@ui-accessibility-audit milestone` |
 | Dirty UI tree | `@ui-visual-verify uncommitted` |
 | Applicable UIS rows pending | `@ui-concept-run status` |
+| Intuitive UX (all screens) | `@ui-concept-run - UIS-08` |
+| Data viz quality (analytical dashboards) | `@ui-concept-run - UIS-09` |
 | Plan/roadmap readiness (verifiers + probe coverage + orphan screens) | `@ui-plan-verify audit` |
 
 ---
@@ -178,6 +182,8 @@ Full-stack tasks: also follow `@code-implementation` for non-UI files ([`COHABIT
 - [ ] Tokens/components standards applied (no magic hex in components)?
 - [ ] UI task gate run with real exit codes?
 - [ ] UIS-06 / UIS-07 per [`ui-visual-verify`](skills/ui-visual-verify/skill.md) when applicable?
+- [ ] UIS-08 intuitive UX check before ship?
+- [ ] UIS-09 data viz quality if analytical dashboard?
 - [ ] `HANDOFF_UI.md` and `NEXT_UI.md` updated?
 - [ ] Agent OS `HANDOFF.md` has UI cross-link if milestone closed?
 
@@ -191,6 +197,8 @@ Full-stack tasks: also follow `@code-implementation` for non-UI files ([`COHABIT
 | vs `@code-implementation`? | Backend + full-stack iteration in `.work/`; UI iteration in `.work.ui/` |
 | Which router? | UI how-to → `@ui-process-router`; general → `@process-router` |
 | MOD-06 vs UIS-06? | Both when diff spans API + UI; see [`COHABITATION.md`](COHABITATION.md) |
+| Quick-reference cheat sheets? | See [`.quick/`](.quick/README.md) — copy-paste snippets for common workflows |
+| Analytical dashboard workflow? | See [`.quick/analytical-dashboard.md`](.quick/analytical-dashboard.md) — chart-aware bootstrap → verify |
 
 ---
 

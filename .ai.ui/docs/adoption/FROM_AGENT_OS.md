@@ -10,7 +10,7 @@
 |-------------------|----------------------|
 | Skills: `plan-foundation`, `plan-master`, `code-implementation`, `session-control`, `db-migration`, `feature-spec`, `concept-run` (MOD), … | Different domain; use Agent OS `@` commands |
 | `.work/` layout as UI output | UI artifacts → **`.work.ui/`** only |
-| MOD-01…06 concept folders | UIS-01…07 only under `.ai.ui/concepts/` |
+| MOD-01…06 concept folders | UIS-01…09 only under `.ai.ui/concepts/` |
 | Master plan / domain SPEC templates in `.work/features/` | Screen SPECs → `.work.ui/screens/` |
 | Duplicate `REPLACE:` tokens for backend (migrations, API service names) | Keep in Agent OS `.cursorrules`; UI uses `REPLACE:UI_*` |
 

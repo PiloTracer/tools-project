@@ -1,10 +1,16 @@
 #!/usr/bin/env bash
 # setup-target.sh — Bootstrap .ai.ui into a target project
 #
+# Alternative to templates/bootstrap.sh for multi-project workspaces.
+# While bootstrap.sh creates .work.ui/ scaffolding in the current repo,
+# setup-target.sh copies the full .ai.ui/ framework into an external target
+# project and scaffolds .work.ui/ there — useful for monorepos or when
+# developing multiple UIs against one framework checkout.
+#
 # Usage: bash scripts/setup-target.sh <target-dir> <profile>
 #   profile: ecards | dashboard
 #
-# Idempotent: skips existing .work.ui/ files; re-symlinks .ai.ui.
+# Idempotent: skips existing .work.ui/ files; re-copies .ai.ui on re-run.
 set -euo pipefail
 
 TARGET="$(cd "$1" && pwd)"

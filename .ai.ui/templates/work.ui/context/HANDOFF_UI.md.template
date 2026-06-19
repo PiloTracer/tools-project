@@ -50,6 +50,7 @@
 | Building UI | Approved `.work.ui/screens/<slug>/*-SCREEN-SPEC.md` |
 | API behaviour | `.work/features/<slug>/*-SPEC.md` (link only) |
 | Stack / commands | `REPLACE:UI_TECH_STACK_DOC` or `DOCS_UI_STACK.md` |
+| Charts / data viz | Foundation doc 03, `resources/control-platforms.md`, SPEC §14 |
 
 ---
 
@@ -72,6 +73,7 @@
 ## Repository UI state
 
 - **Token file:** REPLACE:UI_TOKENS_FILE
+- **Chart library:** REPLACE:UI_CHART_LIBRARY (if analytical dashboard; recorded in foundation doc 03 + CATALOG.md)
 - **Catalog:** `.work.ui/design-system/CATALOG.md`
 - **Last visual verify:** -
 - **Last a11y audit:** -

@@ -8,7 +8,7 @@
 |--------|-------|-----------|------------------|-------|
 | [websites](websites/manifest.md) | 9 | marketing-site | **High** (W1–W3) | W4–W9: open PNG before cite |
 | [websites-tecnology](websites-tecnology/manifest.md) | 8 | saas-product | **High** (T1–T3) | T4–T8: open PNG before cite |
-| [dashboards](dashboards/manifest.md) | 9 | admin-dashboard | **High** (D1–D8) | Full row schema |
+| [dashboards](dashboards/manifest.md) | 13 | admin-dashboard | **High** (D1–D12) | Full row schema; D9–D12 are analytical/reporting (text-only, no PNG) |
 | [mobile](mobile/manifest.md) | 9 | mobile-app | **Partial** (M1 + rules) | M2–M9: open PNG before cite |
 | [mobile-controls](mobile-controls/manifest.md) | 6 | mobile-app | **High** (C1–C6) | Controls / surfaces / primitives |
 
@@ -41,7 +41,7 @@ Phase C — SPECs as contracts
 
 Phase D — Build & verify
   9. @ui-component-build plan - S0 (primitives) then S1 (screens)
- 10. @ui-concept-run - UIS-07 (tier ≥ refined) + UIS-06 (agent diffs)
+ 10. @ui-concept-run - UIS-07 (tier ≥ refined) + UIS-06 (agent diffs) + UIS-09 (analytical dashboards)
  11. @ui-visual-verify milestone — §13 craft checklist
 ```
 

@@ -1,6 +1,6 @@
 # Code Conventions — template
 
-> **Agent OS ships this file as a template.** The project-specific binding version for tools-project is **`CONVENTIONS.md`** in this directory. Use this file only as a reference template; do not follow its unresolved `REPLACE:` tokens for implementation.
+> **Agent OS ships this file as a template.** Copy/rename per `.cursorrules` `REPLACE:CONVENTIONS_FILE`, replace all `REPLACE:` tokens, then treat as binding.
 
 **Status:** Customize for your repo, then binding once code lands.
 **Bootstrap:** Copy to `.ai/standards/YYYYMMDD-CONVENTIONS.md`, replace `REPLACE:` tokens, link from `.cursorrules`.

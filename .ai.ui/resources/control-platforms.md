@@ -25,6 +25,25 @@
 
 ---
 
+## Chart & data-viz libraries
+
+Pick **one** chart library per project. Libraries below are MIT/Apache-2.0.
+
+| Library | Stack | Chart types | Best for |
+|---------|-------|-------------|----------|
+| [Recharts](https://recharts.org) | React + SVG | Line, bar, area, pie, scatter, radar, composed | React dashboards, composable chart API, responsive containers |
+| [Nivo](https://nivo.rocks) | React + SVG/Canvas/HTML | Same + heatmap, treemap, chord, stream, calendar, parallel | Complex multi-chart dashboards, rich interactivity, uniform theming |
+| [Vega-Lite](https://vega.github.io/vega-lite/) | Any (JSON spec) | Any declarative grammar | Cross-stack dashboards, server-side spec generation, multi-view composition |
+| [Chart.js](https://www.chartjs.org) | Canvas | Line, bar, radar, polar, doughnut, bubble, scatter | Lightweight, no-framework or vanilla, simple charts |
+| [Tremor](https://tremor.so) | React + Tailwind | Line, bar, area, donut, sparkline, table, KPI blocks | Tailwind-first dashboards, opinionated dashboard primitives, rapid build |
+| [MUI X Charts](https://mui.com/x/react-charts/) | React + MUI | Line, bar, pie, scatter, sparkline | MUI-based apps, built-in responsive container, theme integration |
+
+**Selection rule:** Match library to stack — Recharts or Nivo for component-driven React; Vega-Lite for spec-driven or multi-stack; Tremor for Tailwind-first teams; Chart.js for lightweight no-framework or canvas-heavy dashboards.
+
+**Record choice in:** foundation doc 03 row, `CATALOG.md` **Chart library** column, HANDOFF_UI.
+
+---
+
 ## Optional accelerators (copy into your repo)
 
 | Platform | License | Notes |
@@ -34,6 +53,14 @@
 | [Jolly UI](https://jollyui.dev) | MIT | Styled recipes on React Aria |
 
 Use for **starting code**, not as npm theme. Strip foreign styling; keep behavior wiring.
+
+---
+
+## Dashboard & chart accelerators
+
+| Platform | License | Notes |
+|----------|---------|-------|
+| [shadcn/charts](https://ui.shadcn.com/charts) | MIT | Recharts-based chart blocks — copy-paste, re-skin to your tokens |
 
 ---
 

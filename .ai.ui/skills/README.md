@@ -27,13 +27,15 @@ Portable, tool-agnostic UI workflows. Each skill is a folder with `skill.md` (+ 
 | Skill id | Folder | Role |
 |----------|--------|------|
 | ui-bootstrap | `ui-bootstrap/` | Scaffold `.work.ui/`; create/merge `.cursorrules`; `DOCS_UI_STACK.md` |
+| deploy-files | `deploy-files/` | Deploy `.ai.ui` files into target project (clean file copy, respects .gitignore) |
+| deploy-repo | `deploy-repo/` | Full git-based deploy (clone or archive) |
 | ui-design-foundation | `ui-design-foundation/` | Tokens, patterns, screen map; certifies **screen-spec-ready** |
 | ui-screen-spec | `ui-screen-spec/` | Author/review screen SPECs |
 | ui-component-build | `ui-component-build/` | UI iteration from `NEXT_UI.md` |
 | ui-visual-verify | `ui-visual-verify/` | Visual/token regression audits |
 | ui-accessibility-audit | `ui-accessibility-audit/` | WCAG-oriented checks |
 | ui-design-system | `ui-design-system/` | Primitives catalog and Storybook discipline |
-| ui-concept-run | `ui-concept-run/` | Run UIS-01…07 prompts |
+| ui-concept-run | `ui-concept-run/` | Run UIS-01…09 prompts |
 | ui-plan-verify | `ui-plan-verify/` | Read-only audit: verifiers, probe coverage, screen→milestone traceability |
 | ui-process-router | `ui-process-router/` | Read-only UI process Q&A |
 | ui-project-approach | `ui-project-approach/` | Archetype + skill chain + pattern pointers (read [`APPROACH.md`](../APPROACH.md)) |

@@ -34,7 +34,7 @@ Full playbook: [`examples/INDEX.md`](examples/INDEX.md)
 | Screen SPECs, tokens, visual/a11y quality | Master plan, API SPECs, backend implementation |
 | `.work.ui/` | `.work/` |
 | `ui-*` skills | `plan-*`, `code-*`, `session-control` |
-| UIS-01…07 concepts | MOD-01…06 |
+| UIS-01…09 concepts | MOD-01…06 |
 
 **One session owner:** `@session-control` (Agent OS). Details: [`COHABITATION.md`](COHABITATION.md).
 
@@ -51,11 +51,11 @@ Full playbook: [`examples/INDEX.md`](examples/INDEX.md)
 | [`examples/INDEX.md`](examples/INDEX.md) | Annotated screenshots + value matrix |
 | [`resources/control-platforms.md`](resources/control-platforms.md) | OSS behavior platforms (MIT/Apache) |
 | [`resources/README.md`](resources/README.md) | External gallery URLs |
-| **12 `ui-*` skills** | Bootstrap → foundation → spec → build → verify (+ plan audit) |
+| **14 `ui-*` skills** | Bootstrap → foundation → spec → build → verify (+ plan audit + deploy) |
 
 See [`APPROACH.md` §6](APPROACH.md#6-skills-we-explicitly-did-not-add) for skills we did not add (coverage via UI-PATTERNS).
 
-**Skills (12):** [`skills/README.md`](skills/README.md) · **Operator:** [`START_HERE.md`](START_HERE.md) · **Playbook:** [`examples/INDEX.md`](examples/INDEX.md)
+**Skills (14):** [`skills/README.md`](skills/README.md) · **Operator:** [`START_HERE.md`](START_HERE.md) · **Playbook:** [`examples/INDEX.md`](examples/INDEX.md)
 
 ---
 

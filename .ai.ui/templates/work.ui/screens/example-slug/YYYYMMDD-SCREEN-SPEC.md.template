@@ -73,6 +73,8 @@ Event names (no PII).
 | UIS-01 | yes | new layout | pending |
 | UIS-06 | yes | agent build | pending |
 | UIS-07 | yes | craft tier refined | pending |
+| UIS-08 | yes | all screens before ship | pending |
+| UIS-09 | REPLACE:UIS09_APPLIES | REPLACE:UIS09_REASON | pending |
 
 ## 13. Visual references
 
@@ -97,3 +99,41 @@ Event names (no PII).
 ### Figma / external (optional)
 
 - REPLACE:URL (no secrets)
+
+## 14. Data visualization (required for analytical dashboard / report screens)
+
+If this screen contains charts or data visualization:
+
+### 14a. Chart types
+
+| Chart | Type | Purpose | Data source | Interaction |
+|-------|------|---------|-------------|-------------|
+| REPLACE:CHART_NAME | REPLACE:CHART_TYPE | REPLACE:PURPOSE | REPLACE:DOMAIN_SPEC_LINK | REPLACE:INTERACTION |
+
+### 14b. Responsive behaviour
+
+| Breakpoint | Chart sizing | Notes |
+|------------|-------------|-------|
+| desktop | REPLACE:SIZING | |
+| tablet | REPLACE:SIZING | |
+| mobile | REPLACE:SIZING | |
+
+### 14c. Chart tokens
+
+Categorical palette + semantic + axis + tooltip from token file §5.
+
+### 14d. States
+
+- [ ] Loading skeleton per chart (matching chart shape)
+- [ ] Empty series — guidance, not blank canvas
+- [ ] Partial data — graceful degradation
+- [ ] Error with retry action
+- [ ] Animation on data update (`prefers-reduced-motion` disables)
+
+### 14e. Accessibility
+
+- [ ] Data table fallback for every chart (visually hidden or toggleable)
+- [ ] `aria-label` on chart regions; `role="img"` on chart root
+- [ ] Keyboard navigation for interactive charts
+- [ ] Color + pattern encoding — not color-only
+- [ ] `prefers-reduced-motion` respected for chart animations

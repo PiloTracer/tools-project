@@ -1,6 +1,7 @@
 # Feature Standard — template
 
-> **Agent OS ships this file as a template.** The project-specific binding version for tools-project is **`FEATURE_STANDARD.md`** in this directory. Use this file only as a reference template; do not follow its unresolved `REPLACE:` tokens for implementation.
+**Status:** Customize for your repo, then binding once code lands.
+**Scope:** every code-shaped change large enough to be called a "feature". Bug fixes follow `.cursorrules` § Verification; they do not need this full lifecycle unless they change invariants.
 
 ---
 

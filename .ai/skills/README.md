@@ -29,6 +29,8 @@ Use for **new** skills and for any **rename** (update `.cursorrules`, this READM
 
 | Skill id | Folder | Role |
 |----------|--------|------|
+| deploy-files | `deploy-files/` | **Files-only deploy:** rsync `.ai/` to target project; excludes VCS artifacts |
+| deploy-repo | `deploy-repo/` | **Full repo deploy:** git clone (mirror) or archive (snapshot with `.github`) |
 | plan-foundation | `plan-foundation/` | **Orchestrator:** P0–P6 foundation gates, ADRs, SPECs, registries; **probe** (adaptive understanding loop); certifies **plan-master-ready** |
 | plan-master | `plan-master/` | Master implementation plan, **probe** (plan-completeness loop), integrity, traceability; certifies **implementation-ready** |
 | plan-verify | `plan-verify/` | Plan audits: foundation, master, alignment, **coverage** (code→SPEC), **brownfield** (framework slots) |
@@ -48,7 +50,7 @@ Use for **new** skills and for any **rename** (update `.cursorrules`, this READM
 
 **Canonical verb vocabulary:** see [SKILL_DEPENDENCIES.md § Canonical command vocabulary](SKILL_DEPENDENCIES.md#canonical-command-vocabulary). Every skill uses `status` for read-only state, `init` for one-time setup, and so on - no skill invents bespoke verbs.
 
-**Shared engine docs (not skills):** [`SKILL_DEPENDENCIES.md`](SKILL_DEPENDENCIES.md) (gate graph) and [`probe-protocol.md`](probe-protocol.md) (the adaptive `probe` loop reused by `plan-foundation` and `plan-master`) are single-source-of-truth fragments that skills **link** rather than restate. They are files, not skill folders, so they are not counted in the 14-skill registry.
+**Shared engine docs (not skills):** [`SKILL_DEPENDENCIES.md`](SKILL_DEPENDENCIES.md) (gate graph) and [`probe-protocol.md`](probe-protocol.md) (the adaptive `probe` loop reused by `plan-foundation` and `plan-master`) are single-source-of-truth fragments that skills **link** rather than restate. They are files, not skill folders, so they are not counted in the 16-skill registry.
 
 **Skill prerequisites (gates):** [SKILL_DEPENDENCIES.md](SKILL_DEPENDENCIES.md) - which modes **stop** if an upstream step was skipped (e.g. `@plan-master greenfield` before `@plan-foundation certify plan-master-ready`).
 
