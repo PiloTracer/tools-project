@@ -121,6 +121,12 @@ Treat prior closed sessions as historical only; see "What this cycle produced" b
 
 ---
 
+### UI layer (see .work.ui/)
+- Active UI milestone: Batch J — CRM Pipeline Front-End
+- Foundation complete: yes · Screen-spec-ready: yes
+- Implementation complete: yes (all CRM screens delivered)
+- NEXT_UI: `.work.ui/plans/NEXT_UI.md`
+
 ## Agent notes
 
 - **Do not commit** `.env` or **`credentials/`** (never paste real PATs into chat).  

@@ -4,15 +4,15 @@
 
 ## Session status
 
-**Open:** -
+**Open:** 2026-06-18
 
-**Updated:** 2025-06-11
+**Updated:** 2026-06-18
 
 **Closed:** -
 
-**UI layer state:** Bootstrap complete — ready for foundation.
+**UI layer state:** Implementation complete — all CRM front-end screens delivered.
 
-**Recommended pick-up:** `.work.ui/plans/NEXT_UI.md`
+**Recommended pick-up:** Visual verification and accessibility audit before milestone close.
 
 **Lost or new?** Read `.ai.ui/START_HERE.md`
 
@@ -22,13 +22,13 @@
 
 | State | Value | Date |
 |-------|-------|------|
-| ui-foundation-complete | no | |
-| screen-spec-ready | no | |
-| ui-implementation-ready | no | |
+| ui-foundation-complete | **yes** | 2026-06-18 |
+| screen-spec-ready | **yes** | 2026-06-18 |
+| ui-implementation-ready | **yes** | 2026-06-18 |
 
 ## Active UI milestone
 
-- **Milestone:** (none)
+- **Milestone:** Batch J — CRM Pipeline Front-End
 - **NEXT_UI:** [.work.ui/plans/NEXT_UI.md](../plans/NEXT_UI.md)
 
 ---
@@ -66,13 +66,34 @@
 | Date | Session | Artifacts |
 |------|---------|-----------|
 | 2025-06-11 | bootstrap | `.work.ui/` skeleton, DOCS_UI_STACK.md, merged .cursorrules |
+| 2026-06-18 | foundation | Foundation docs 01-04 under `.work.ui/plans/foundation/` |
+| 2026-06-18 | implementation | Full CRM front-end suite (see below) |
+
+### Implementation artifacts
+
+| Artifact | Type | Location |
+|----------|------|----------|
+| Design tokens (surface stack, spacing, shadows, z-index) | Tokens | `web/src/app/globals.css` |
+| Badge | Component | `web/src/components/Badge.tsx` |
+| Chip | Component | `web/src/components/Chip.tsx` |
+| DataTable | Component | `web/src/components/DataTable.tsx` |
+| Dialog | Component | `web/src/components/Dialog.tsx` |
+| DropdownMenu | Component | `web/src/components/DropdownMenu.tsx` |
+| Skeleton | Component | `web/src/components/Skeleton.tsx` |
+| Prospects list page | Screen | `web/src/app/prospects/page.tsx` |
+| Prospects detail page | Screen | `web/src/app/prospects/[id]/page.tsx` |
+| Clients list page | Screen | `web/src/app/clients/page.tsx` |
+| Clients detail page (with contacts) | Screen | `web/src/app/clients/[id]/page.tsx` |
+| Project settings: client linking | Section | `web/src/app/projects/[id]/settings/ClientSettingsForm.tsx` |
+| AppShell CRM nav links | Navigation | `web/src/components/AppShell.tsx` |
+| BFF API proxy routes (10 route files) | API | `web/src/app/api/prospects/`, `api/clients/`, `api/projects/[id]/clients/`, `api/projects/[id]/client-access/` |
 
 ---
 
 ## Repository UI state
 
 - **Token file:** web/src/app/globals.css
-- **Catalog:** `.work.ui/design-system/CATALOG.md`
+- **Catalog:** `.work.ui/design-system/CATALOG.md` (still needs population)
 - **Last visual verify:** -
 - **Last a11y audit:** -
 - **ADR location:** `.work.ui/decisions/` (default)
@@ -82,3 +103,9 @@
 ## Cross-link (Agent OS)
 
 Keep **### UI layer** in `.work/context/HANDOFF.md` in sync when milestones close.
+
+### UI layer
+- Active UI milestone: Batch J — CRM Pipeline Front-End
+- Foundation complete: yes · Screen-spec-ready: yes
+- Implementation complete: yes
+- NEXT_UI: `.work.ui/plans/NEXT_UI.md`

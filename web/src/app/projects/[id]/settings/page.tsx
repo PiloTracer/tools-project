@@ -6,6 +6,7 @@ import { apiServerFetch, fetchMe } from "@/shared/server/session";
 import { ProjectSettingsForm } from "../ProjectSettingsForm";
 import { ProjectSubNav } from "../ProjectSubNav";
 import { GitHubSettingsForm } from "./GitHubSettingsForm";
+import { ClientSettingsForm } from "./ClientSettingsForm";
 
 type ProjectRow = {
   id: string;
@@ -85,6 +86,13 @@ export default async function ProjectSettingsPage({
         <GitHubSettingsForm
           projectId={id}
           links={links}
+          canEdit={canEditSettings}
+        />
+      </div>
+
+      <div className="card wide stack">
+        <ClientSettingsForm
+          projectId={id}
           canEdit={canEditSettings}
         />
       </div>
