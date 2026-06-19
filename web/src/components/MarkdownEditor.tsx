@@ -106,21 +106,7 @@ export function MarkdownEditor({
   }
 
   return (
-    <div
-      className="md-editor"
-      style={{ position: "relative" }}
-      onDragOver={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-      }}
-      onDrop={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        if (!onDropFiles) return;
-        const files = Array.from(e.dataTransfer.files);
-        if (files.length) onDropFiles(files);
-      }}
-    >
+    <div className="md-editor" style={{ position: "relative" }}>
       <textarea
         ref={textareaRef}
         className="input"
@@ -141,6 +127,17 @@ export function MarkdownEditor({
             e.preventDefault();
             onPasteFiles(files);
           }
+        }}
+        onDragOver={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (!onDropFiles) return;
+          const files = Array.from(e.dataTransfer.files);
+          if (files.length) onDropFiles(files);
         }}
         placeholder={placeholder}
         style={{ width: "100%" }}

@@ -251,15 +251,6 @@ export function NewTicketForm({
       onSubmit={onSubmit}
       className="stack"
       style={{ gap: "0.65rem", maxWidth: "48rem" }}
-      onDragOver={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-      }}
-      onDrop={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        addFiles(Array.from(e.dataTransfer.files));
-      }}
     >
       <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", alignItems: "flex-end" }}>
         <label className="stack" style={{ flex: "2 1 220px", gap: "0.25rem" }}>
@@ -295,22 +286,35 @@ export function NewTicketForm({
               addFiles(files);
             }
           }}
+          onDragOver={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const files = Array.from(e.dataTransfer.files);
+            if (files.length) addFiles(files);
+          }}
           placeholder="What is broken or requested? Steps, expected vs actual, links…"
         />
       </label>
       <div className="stack" style={{ gap: "0.35rem" }}>
         <span className="text-sm muted">Attachments (images, PDF, plain text — paste, drag-and-drop, or pick)</span>
-        <input
-          type="file"
-          accept="image/png,image/jpeg,image/gif,image/webp,application/pdf,text/plain"
-          multiple
-          className="text-sm"
-          onChange={(e) => {
-            const list = e.target.files;
-            if (list?.length) addFiles(Array.from(list));
-            e.target.value = "";
-          }}
-        />
+        <label className="btn btn-ghost text-sm" style={{ cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
+          <input
+            type="file"
+            accept="image/png,image/jpeg,image/gif,image/webp,application/pdf,text/plain"
+            multiple
+            style={{ display: "none" }}
+            onChange={(e) => {
+              const list = e.target.files;
+              if (list?.length) addFiles(Array.from(list));
+              e.target.value = "";
+            }}
+          />
+          Browse files…
+        </label>
         <PendingThumbnails pending={pending} onRemove={remove} />
       </div>
       <div>
