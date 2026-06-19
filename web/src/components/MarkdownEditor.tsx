@@ -105,6 +105,27 @@ export function MarkdownEditor({
     }
   }
 
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    function onDragOver(e: DragEvent) {
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
+    }
+    function onDrop(e: DragEvent) {
+      e.preventDefault();
+      if (!onDropFiles) return;
+      const files = Array.from(e.dataTransfer?.files ?? []);
+      if (files.length) onDropFiles(files);
+    }
+    el.addEventListener("dragover", onDragOver);
+    el.addEventListener("drop", onDrop);
+    return () => {
+      el.removeEventListener("dragover", onDragOver);
+      el.removeEventListener("drop", onDrop);
+    };
+  }, [textareaRef, onDropFiles]);
+
   return (
     <div className="md-editor" style={{ position: "relative" }}>
       <textarea
@@ -127,17 +148,6 @@ export function MarkdownEditor({
             e.preventDefault();
             onPasteFiles(files);
           }
-        }}
-        onDragOver={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-        }}
-        onDrop={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          if (!onDropFiles) return;
-          const files = Array.from(e.dataTransfer.files);
-          if (files.length) onDropFiles(files);
         }}
         placeholder={placeholder}
         style={{ width: "100%" }}
