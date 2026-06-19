@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { MarkdownEditor } from "@/components/MarkdownEditor";
-import { usePendingImages } from "@/app/projects/[id]/tickets/[ticketId]/use-pending-images";
+import { usePendingImages } from "@/shared/client/use-pending-images";
 
 async function _searchUsers(prefix: string): Promise<{ label: string; insert: string }[]> {
   const r = await fetch(`/api/me/users/search?q=${encodeURIComponent(prefix)}&limit=8`);
