@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { apiServerFetch, fetchMe } from "@/shared/server/session";
 
 import { TaskDetailEditor } from "@/components/TaskDetailEditor";
+import { TaskDiscussion } from "@/components/TaskDiscussion";
 import { ProjectSubNav } from "../../ProjectSubNav";
 
 type ProjectRow = {
@@ -112,25 +113,7 @@ export default async function TaskDetailPage({
 
       <TaskDetailEditor task={task} canEdit={canEdit} />
 
-      <div className="card wide stack">
-        <h2 style={{ marginTop: 0 }}>Activity</h2>
-        {activityItems.length === 0 ? (
-          <p className="muted text-sm">No activity yet.</p>
-        ) : (
-          <ul className="stack" style={{ listStyle: "none", margin: 0, padding: 0, gap: "0.75rem" }}>
-            {activityItems.map((a) => (
-              <li key={a.id} className="card" style={{ padding: "0.65rem 0.85rem" }}>
-                <div className="muted text-sm" style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", marginBottom: "0.3rem" }}>
-                  <span>{a.actor_email ?? "user"}</span>
-                  <span className="pill" style={{ fontSize: "0.65rem" }}>{a.kind}</span>
-                  <span>· {new Date(a.created_at).toLocaleString()}</span>
-                </div>
-                <div style={{ whiteSpace: "pre-wrap" }}>{a.body}</div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+      <TaskDiscussion projectId={projectId} taskId={taskId} initialItems={activityItems} canEdit={canEdit} />
     </div>
   );
 }
