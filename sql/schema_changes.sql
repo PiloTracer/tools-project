@@ -83,7 +83,7 @@ CREATE TABLE IF NOT EXISTS activities (
     subject_type VARCHAR(40) NOT NULL,
     subject_id UUID NOT NULL,
     kind VARCHAR(40) NOT NULL DEFAULT 'comment',
-    actor_id UUID NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    actor_id UUID REFERENCES users (id) ON DELETE CASCADE,
     parent_activity_id UUID REFERENCES activities (id) ON DELETE SET NULL,
     body TEXT NOT NULL,
     meta_json JSONB,
@@ -96,6 +96,8 @@ ALTER TABLE activities ADD COLUMN IF NOT EXISTS parent_activity_id UUID REFERENC
 ALTER TABLE activities ADD COLUMN IF NOT EXISTS meta_json JSONB;
 -- Plan §5.1 / §11.4: internal vs external (customer-visible) note distinction on ticket / task threads.
 ALTER TABLE activities ADD COLUMN IF NOT EXISTS is_internal BOOLEAN NOT NULL DEFAULT FALSE;
+-- System-generated activities (e.g. github_commit) have no human actor.
+ALTER TABLE activities ALTER COLUMN actor_id DROP NOT NULL;
 
 CREATE TABLE IF NOT EXISTS mentions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -205,4 +207,70 @@ CREATE TABLE IF NOT EXISTS github_commits (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     CONSTRAINT ck_github_commits_sha_len CHECK (char_length(sha) >= 7 AND char_length(sha) <= 40),
     CONSTRAINT ck_github_commits_html_url_nonempty CHECK (char_length(trim(html_url)) > 0)
+);
+
+-- Batch J: CRM / clients-participants
+
+CREATE TABLE IF NOT EXISTS prospects (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    company_name VARCHAR(200) NOT NULL,
+    pipeline_stage VARCHAR(20) NOT NULL DEFAULT 'target',
+    pipeline_value NUMERIC(12, 2),
+    source VARCHAR(30),
+    first_contact_date DATE,
+    last_interaction TIMESTAMPTZ,
+    next_action TEXT,
+    next_action_date DATE,
+    notes TEXT,
+    created_by UUID NOT NULL REFERENCES users (id),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS clients (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    prospect_id UUID REFERENCES prospects (id) ON DELETE SET NULL,
+    name VARCHAR(200) NOT NULL,
+    slug VARCHAR(80) NOT NULL,
+    industry VARCHAR(100),
+    notes TEXT,
+    created_by UUID NOT NULL REFERENCES users (id),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS client_contacts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    client_id UUID NOT NULL REFERENCES clients (id) ON DELETE CASCADE,
+    prospect_id UUID REFERENCES prospects (id) ON DELETE SET NULL,
+    user_id UUID REFERENCES users (id) ON DELETE SET NULL UNIQUE,
+    name VARCHAR(200) NOT NULL,
+    email VARCHAR(320) NOT NULL,
+    phone VARCHAR(50),
+    title VARCHAR(200),
+    role VARCHAR(30) NOT NULL DEFAULT 'contact',
+    is_primary BOOLEAN NOT NULL DEFAULT false,
+    notes TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS project_clients (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    project_id UUID NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
+    client_id UUID NOT NULL REFERENCES clients (id) ON DELETE CASCADE,
+    created_by UUID NOT NULL REFERENCES users (id),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS project_client_access (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    project_id UUID NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
+    client_contact_id UUID NOT NULL REFERENCES client_contacts (id) ON DELETE CASCADE,
+    role VARCHAR(30) NOT NULL DEFAULT 'view',
+    can_view_tasks BOOLEAN NOT NULL DEFAULT true,
+    can_view_tickets BOOLEAN NOT NULL DEFAULT false,
+    can_create_tasks BOOLEAN NOT NULL DEFAULT false,
+    created_by UUID NOT NULL REFERENCES users (id),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );

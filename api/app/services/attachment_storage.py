@@ -4,6 +4,8 @@ import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 
 def attachments_dir() -> Path:
     raw = os.environ.get("ATTACHMENTS_DIR", "/data/attachments").strip()
@@ -38,3 +40,28 @@ def retention_cutoff(days: int | None = None) -> datetime | None:
     if days <= 0:
         return None
     return datetime.now(timezone.utc) - timedelta(days=days)
+
+
+async def purge_expired_attachments(db: AsyncSession) -> int:
+    """Delete attachments older than the retention cutoff from disk and DB."""
+    from sqlalchemy import select
+
+    from app.models.attachment import Attachment
+
+    cutoff = retention_cutoff()
+    if cutoff is None:
+        return 0
+    stmt = select(Attachment).where(Attachment.created_at < cutoff)
+    rows = list((await db.scalars(stmt)).all())
+    purged = 0
+    for att in rows:
+        try:
+            p = path_for_key(att.storage_key)
+            if p.exists():
+                p.unlink()
+        except Exception:
+            pass
+        await db.delete(att)
+        purged += 1
+    await db.flush()
+    return purged

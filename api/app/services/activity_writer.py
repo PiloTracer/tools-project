@@ -19,7 +19,7 @@ async def write_activity(
     subject_type: str,
     subject_id: uuid.UUID,
     kind: str,
-    actor_id: uuid.UUID,
+    actor_id: uuid.UUID | None = None,
     body: str,
     parent_activity_id: uuid.UUID | None = None,
     meta_json: dict | None = None,
@@ -38,19 +38,20 @@ async def write_activity(
     )
     db.add(row)
     await db.flush()
-    for email in mention_emails_from_text(body):
-        user = await db.scalar(select(User).where(User.email == email))
-        if user is None or user.id == actor_id:
-            continue
-        stmt = (
-            pg_insert(Mention)
-            .values(
-                id=uuid.uuid4(),
-                project_id=project_id,
-                activity_id=row.id,
-                mentioned_user_id=user.id,
+    if actor_id is not None:
+        for email in mention_emails_from_text(body):
+            user = await db.scalar(select(User).where(User.email == email))
+            if user is None or user.id == actor_id:
+                continue
+            stmt = (
+                pg_insert(Mention)
+                .values(
+                    id=uuid.uuid4(),
+                    project_id=project_id,
+                    activity_id=row.id,
+                    mentioned_user_id=user.id,
+                )
+                .on_conflict_do_nothing(index_elements=["activity_id", "mentioned_user_id"])
             )
-            .on_conflict_do_nothing(index_elements=["activity_id", "mentioned_user_id"])
-        )
-        await db.execute(stmt)
+            await db.execute(stmt)
     return row

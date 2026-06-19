@@ -1,3 +1,6 @@
+// TODO M3-T7: Client-side project detail view (filtered tasks/activities for client
+// participants) is deferred — needs the dual auth system working first.
+
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 

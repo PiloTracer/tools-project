@@ -76,6 +76,7 @@ async def sync_github_link(db: AsyncSession, link_id: uuid.UUID) -> dict[str, in
         raise ValueError("Unexpected GitHub API response")
 
     upserted = 0
+    commits_info: list[dict[str, str]] = []
     for item in items:
         if not isinstance(item, dict):
             continue
@@ -129,6 +130,11 @@ async def sync_github_link(db: AsyncSession, link_id: uuid.UUID) -> dict[str, in
         )
         await db.execute(stmt)
         upserted += 1
+        commits_info.append({
+            "sha": sha_full,
+            "html_url": html_url,
+            "message": message,
+        })
 
     link.last_synced_at = datetime.now(timezone.utc)
     if items and isinstance(items[0], dict):
@@ -137,4 +143,4 @@ async def sync_github_link(db: AsyncSession, link_id: uuid.UUID) -> dict[str, in
             link.last_seen_sha = s0.split()[0][:40]
     await db.flush()
 
-    return {"upserted": upserted, "owner": owner, "repo": repo}
+    return {"upserted": upserted, "owner": owner, "repo": repo, "commits": commits_info}

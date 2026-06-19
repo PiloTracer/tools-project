@@ -11,7 +11,9 @@ export function ProjectSubNav({
     | "components"
     | "tasks"
     | "activity"
-    | "tickets";
+    | "tickets"
+    | "github"
+    | "settings";
 }) {
   const base = `/projects/${projectId}`;
   const cls = (key: typeof current) =>
@@ -39,6 +41,12 @@ export function ProjectSubNav({
       </Link>
       <Link href={`${base}/tickets`} className={cls("tickets")}>
         Tickets
+      </Link>
+      <Link href={`${base}/github`} className={cls("github")}>
+        GitHub
+      </Link>
+      <Link href={`${base}/settings`} className={cls("settings")}>
+        Settings
       </Link>
     </nav>
   );

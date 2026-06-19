@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import re
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
@@ -105,6 +105,7 @@ class ProjectOut(BaseModel):
     updated_at: datetime
     membership_role: str | None = None
     health: "ProjectHealth | None" = None
+    clients_summary: list[ClientSummary] | None = None
 
     model_config = {"from_attributes": True}
 
@@ -253,7 +254,7 @@ class ActivityOut(BaseModel):
     subject_type: str
     subject_id: uuid.UUID
     kind: str = "comment"
-    actor_id: uuid.UUID
+    actor_id: uuid.UUID | None = None
     actor_email: str | None = None
     parent_activity_id: uuid.UUID | None = None
     body: str
@@ -522,3 +523,223 @@ class GithubRefMeta(BaseModel):
     owner: str = Field(min_length=1, max_length=200)
     repo: str = Field(min_length=1, max_length=200)
     html_url: str = Field(min_length=8, max_length=2000)
+
+
+# --- CRM: Prospects ---
+
+VALID_PIPELINE_STAGES = frozenset({
+    "target", "connected", "engaged", "call_scheduled", "call_done",
+    "proposal_sent", "negotiating", "won", "lost",
+})
+TERMINAL_PIPELINE_STAGES = frozenset({"won", "lost"})
+
+
+class ProspectCreate(BaseModel):
+    company_name: str = Field(min_length=1, max_length=200)
+    pipeline_stage: str = Field(default="target", max_length=20)
+    pipeline_value: float | None = Field(default=None, ge=0)
+    source: str | None = Field(default=None, max_length=30)
+    first_contact_date: date | None = None
+    notes: str | None = Field(default=None, max_length=16000)
+
+    @field_validator("pipeline_stage")
+    @classmethod
+    def validate_stage(cls, v: str) -> str:
+        if v not in VALID_PIPELINE_STAGES:
+            raise ValueError(f"Invalid stage: {v}. Must be one of {sorted(VALID_PIPELINE_STAGES)}")
+        return v
+
+
+class ProspectUpdate(BaseModel):
+    company_name: str | None = Field(default=None, min_length=1, max_length=200)
+    pipeline_stage: str | None = Field(default=None, max_length=20)
+    pipeline_value: float | None = Field(default=None, ge=0)
+    source: str | None = Field(default=None, max_length=30)
+    first_contact_date: date | None = None
+    notes: str | None = Field(default=None, max_length=16000)
+
+    @field_validator("pipeline_stage")
+    @classmethod
+    def validate_stage(cls, v: str | None) -> str | None:
+        if v is not None and v not in VALID_PIPELINE_STAGES:
+            raise ValueError(f"Invalid stage: {v}. Must be one of {sorted(VALID_PIPELINE_STAGES)}")
+        return v
+
+
+class ProspectStageChange(BaseModel):
+    stage: str = Field(..., max_length=20)
+
+    @field_validator("stage")
+    @classmethod
+    def validate_stage(cls, v: str) -> str:
+        if v not in VALID_PIPELINE_STAGES:
+            raise ValueError(f"Invalid stage: {v}. Must be one of {sorted(VALID_PIPELINE_STAGES)}")
+        return v
+
+
+class ProspectOut(BaseModel):
+    id: uuid.UUID
+    company_name: str
+    pipeline_stage: str
+    pipeline_value: float | None = None
+    source: str | None = None
+    first_contact_date: date | None = None
+    last_interaction: datetime | None = None
+    next_action: str | None = None
+    next_action_date: date | None = None
+    notes: str | None = None
+    created_by: uuid.UUID
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class ProspectListResponse(BaseModel):
+    items: list[ProspectOut]
+
+
+# --- M2: Clients + Contacts ---
+
+def slugify(name: str) -> str:
+    s = name.lower().strip()
+    s = re.sub(r"[^a-z0-9]+", "-", s)
+    s = s.strip("-")[:80]
+    return s or "client"
+
+
+class ClientCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    industry: str | None = Field(default=None, max_length=100)
+    notes: str | None = Field(default=None, max_length=16000)
+
+
+class ClientUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    industry: str | None = Field(default=None, max_length=100)
+    notes: str | None = Field(default=None, max_length=16000)
+
+
+class ClientOut(BaseModel):
+    id: uuid.UUID
+    prospect_id: uuid.UUID | None = None
+    name: str
+    slug: str
+    industry: str | None = None
+    notes: str | None = None
+    created_by: uuid.UUID
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class ClientListResponse(BaseModel):
+    items: list[ClientOut]
+
+
+class ClientContactCreate(BaseModel):
+    prospect_id: uuid.UUID | None = None
+    user_id: uuid.UUID | None = None
+    name: str = Field(min_length=1, max_length=200)
+    email: str = Field(max_length=320)
+    phone: str | None = Field(default=None, max_length=50)
+    title: str | None = Field(default=None, max_length=200)
+    role: str = Field(default="contact", max_length=30)
+    is_primary: bool = False
+    notes: str | None = Field(default=None, max_length=16000)
+
+
+class ClientContactUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    email: str | None = Field(default=None, max_length=320)
+    phone: str | None = Field(default=None, max_length=50)
+    title: str | None = Field(default=None, max_length=200)
+    role: str | None = Field(default=None, max_length=30)
+    is_primary: bool | None = None
+    notes: str | None = Field(default=None, max_length=16000)
+
+
+class ClientContactOut(BaseModel):
+    id: uuid.UUID
+    client_id: uuid.UUID
+    prospect_id: uuid.UUID | None = None
+    user_id: uuid.UUID | None = None
+    name: str
+    email: str
+    phone: str | None = None
+    title: str | None = None
+    role: str
+    is_primary: bool
+    notes: str | None = None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class ClientContactListResponse(BaseModel):
+    items: list[ClientContactOut]
+
+
+# --- M3: Project-client linking & access ---
+
+
+class ProjectClientLinkRequest(BaseModel):
+    client_id: uuid.UUID
+
+
+class ProjectClientOut(BaseModel):
+    id: uuid.UUID
+    project_id: uuid.UUID
+    client_id: uuid.UUID
+    client_name: str
+    client_slug: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class ProjectClientListResponse(BaseModel):
+    items: list[ProjectClientOut]
+
+
+class ClientSummary(BaseModel):
+    id: uuid.UUID
+    name: str
+    slug: str
+
+
+class ClientAccessCreate(BaseModel):
+    client_contact_id: uuid.UUID
+    role: str = "view"
+    can_create_tasks: bool = False
+
+
+class ClientAccessUpdate(BaseModel):
+    role: str | None = None
+    can_view_tasks: bool | None = None
+    can_view_tickets: bool | None = None
+    can_create_tasks: bool | None = None
+
+
+class ClientAccessOut(BaseModel):
+    id: uuid.UUID
+    project_id: uuid.UUID
+    client_contact_id: uuid.UUID
+    contact_name: str | None = None
+    contact_email: str | None = None
+    client_id: uuid.UUID | None = None
+    client_name: str | None = None
+    role: str
+    can_view_tasks: bool
+    can_view_tickets: bool
+    can_create_tasks: bool
+    created_by: uuid.UUID
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class ClientAccessListResponse(BaseModel):
+    items: list[ClientAccessOut]

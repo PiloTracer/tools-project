@@ -22,7 +22,13 @@ from app.schemas import (
     TaskTransition,
 )
 from app.services.activity_writer import write_activity
-from app.services.project_access import can_mutate_tasks, require_project_access
+from app.services.project_access import (
+    can_create_tasks,
+    can_edit_tasks,
+    can_view_tasks,
+    is_client_participant,
+    require_project_access,
+)
 from app.services.ref_alloc import allocate_ref
 
 project_router = APIRouter(
@@ -49,7 +55,12 @@ async def list_tasks(
     component_id: uuid.UUID | None = None,
     is_todo: bool | None = Query(default=None),
 ):
-    await require_project_access(db, user, project_id)
+    acc = await require_project_access(db, user, project_id)
+    if not can_view_tasks(acc):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to view tasks in this project",
+        )
     stmt = select(Task).where(Task.project_id == project_id)
     if task_status:
         stmt = stmt.where(Task.status == task_status.strip())
@@ -59,6 +70,9 @@ async def list_tasks(
         stmt = stmt.where(Task.component_id == component_id)
     if is_todo is not None:
         stmt = stmt.where(Task.is_todo == is_todo)
+    if is_client_participant(acc):
+        # Client participants only see tasks assigned to them.
+        stmt = stmt.where(Task.assignee_id == user.id)
     stmt = stmt.order_by(Task.updated_at.desc())
     result = await db.scalars(stmt)
     rows = list(result.all())
@@ -73,10 +87,10 @@ async def create_task(
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     acc = await require_project_access(db, user, project_id)
-    if not can_mutate_tasks(acc.role):
+    if not can_create_tasks(acc):
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,
-            detail="Viewers cannot create tasks",
+            detail="You do not have permission to create tasks in this project",
         )
     if body.component_id is not None:
         comp = await db.get(Component, body.component_id)
@@ -155,10 +169,10 @@ async def patch_task(
     if row is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Task not found")
     acc = await _require_task_project(row, user, db)
-    if not can_mutate_tasks(acc.role):
+    if not can_edit_tasks(acc):
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,
-            detail="Viewers cannot edit tasks",
+            detail="You do not have permission to edit tasks in this project",
         )
     if body.component_id is not None:
         comp = await db.get(Component, body.component_id)
@@ -242,10 +256,10 @@ async def transition_task(
     if row is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Task not found")
     acc = await _require_task_project(row, user, db)
-    if not can_mutate_tasks(acc.role):
+    if not can_edit_tasks(acc):
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,
-            detail="Viewers cannot change task status",
+            detail="You do not have permission to change task status",
         )
     status_val = body.status.strip()
     if status_val not in TASK_STATUSES:
@@ -285,10 +299,10 @@ async def delete_task(
     if row is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Task not found")
     acc = await _require_task_project(row, user, db)
-    if not can_mutate_tasks(acc.role):
+    if not can_edit_tasks(acc):
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,
-            detail="Viewers cannot delete tasks",
+            detail="You do not have permission to delete tasks",
         )
     await db.delete(row)
     await db.commit()

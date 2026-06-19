@@ -24,9 +24,10 @@ class Activity(Base):
     subject_type: Mapped[str] = mapped_column(String(40))
     subject_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True))
     kind: Mapped[str] = mapped_column(String(40), default="comment")
-    actor_id: Mapped[uuid.UUID] = mapped_column(
+    actor_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=True,
     )
     parent_activity_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),

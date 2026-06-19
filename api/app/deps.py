@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.db import get_db
+from app.models.client_contact import ClientContact
 from app.models.user import User
 from app.services.auth_local import decode_local_token
 from app.services.oauth_userinfo import upsert_user_from_oauth_access_token
@@ -104,3 +105,19 @@ async def require_superuser(
             status.HTTP_403_FORBIDDEN, detail="Admin privileges required"
         )
     return user
+
+
+async def get_current_client_participant(
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> tuple[User, ClientContact]:
+    """Returns (user, client_contact) if the current user has a linked contact."""
+    contact = await db.scalar(
+        select(ClientContact).where(ClientContact.user_id == user.id)
+    )
+    if contact is None:
+        raise HTTPException(
+            status.HTTP_401_UNAUTHORIZED,
+            detail="User is not linked to any client contact",
+        )
+    return user, contact

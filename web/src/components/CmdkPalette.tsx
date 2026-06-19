@@ -1,5 +1,8 @@
 "use client";
 
+// TODO M4-T4: github_ref picker deferred — add a branch/tag/ref selector
+// that integrates with the command palette or a dedicated modal.
+
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -33,10 +36,21 @@ export function CmdkPalette({
       if (e.key === "Escape") {
         setOpen(false);
       }
+      if (
+        e.key === "c" &&
+        !e.metaKey &&
+        !e.ctrlKey &&
+        !e.altKey &&
+        document.activeElement?.tagName !== "INPUT" &&
+        document.activeElement?.tagName !== "TEXTAREA"
+      ) {
+        e.preventDefault();
+        router.push("/inbox");
+      }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     if (!open) return;

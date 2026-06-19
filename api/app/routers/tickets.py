@@ -20,7 +20,14 @@ from app.schemas import (
     TicketPatch,
     TicketTransition,
 )
-from app.services.project_access import MemberRole, can_mutate_tasks, require_project_access, require_role
+from app.services.project_access import (
+    MemberRole,
+    can_mutate_tasks,
+    can_view_tickets,
+    is_client_participant,
+    require_project_access,
+    require_role,
+)
 from app.services.ref_alloc import allocate_ref
 
 router = APIRouter(
@@ -40,12 +47,20 @@ async def list_tickets(
     queue_slug: str | None = None,
     ticket_status: str | None = None,
 ):
-    await require_project_access(db, user, project_id)
+    acc = await require_project_access(db, user, project_id)
+    if not can_view_tickets(acc):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to view tickets in this project",
+        )
     stmt = select(Ticket).where(Ticket.project_id == project_id)
     if queue_slug:
         stmt = stmt.where(Ticket.queue_slug == queue_slug.strip())
     if ticket_status:
         stmt = stmt.where(Ticket.status == ticket_status.strip())
+    if is_client_participant(acc):
+        # Client participants only see tickets assigned to them.
+        stmt = stmt.where(Ticket.assignee_id == user.id)
     # Support queue: open work first, oldest first (age / triage); terminal tickets sink.
     stmt = stmt.order_by(
         case(
@@ -107,7 +122,12 @@ async def get_ticket(
     row = await db.get(Ticket, ticket_id)
     if row is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Ticket not found")
-    await require_project_access(db, user, row.project_id)
+    acc = await require_project_access(db, user, row.project_id)
+    if not can_view_tickets(acc):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to view this ticket",
+        )
     return TicketOut.model_validate(row)
 
 

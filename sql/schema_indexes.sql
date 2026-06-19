@@ -63,3 +63,15 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_github_links_project_owner_repo
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_github_commits_link_sha ON github_commits (github_link_id, sha);
 CREATE INDEX IF NOT EXISTS ix_github_commits_link_committed ON github_commits (github_link_id, committed_at DESC);
+
+-- Batch J: CRM
+CREATE UNIQUE INDEX IF NOT EXISTS uq_clients_slug ON clients (slug);
+CREATE INDEX IF NOT EXISTS ix_clients_created_by ON clients (created_by);
+CREATE INDEX IF NOT EXISTS ix_prospects_pipeline_stage ON prospects (pipeline_stage);
+CREATE INDEX IF NOT EXISTS ix_prospects_created_by ON prospects (created_by);
+CREATE INDEX IF NOT EXISTS ix_client_contacts_client_id ON client_contacts (client_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_client_contacts_user_id ON client_contacts (user_id) WHERE user_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_project_clients_project_client ON project_clients (project_id, client_id);
+CREATE INDEX IF NOT EXISTS ix_project_clients_client_id ON project_clients (client_id);
+CREATE INDEX IF NOT EXISTS ix_project_client_access_project_id ON project_client_access (project_id);
+CREATE INDEX IF NOT EXISTS ix_project_client_access_contact_id ON project_client_access (client_contact_id);

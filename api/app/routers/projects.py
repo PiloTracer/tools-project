@@ -12,12 +12,15 @@ from sqlalchemy.orm import selectinload
 
 from app.db import get_db
 from app.deps import get_current_user
+from app.models.client import Client
 from app.models.project import Project
+from app.models.project_client import ProjectClient
 from app.models.project_member import ProjectMember
 from app.models.task import Task
 from app.models.ticket import Ticket
 from app.models.user import User
 from app.schemas import (
+    ClientSummary,
     ProjectCreate,
     ProjectHealth,
     ProjectListResponse,
@@ -172,8 +175,20 @@ async def get_project(
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     acc = await require_project_access(db, user, project_id)
+    client_rows = await db.scalars(
+        select(ProjectClient)
+        .options(selectinload(ProjectClient.client))
+        .where(ProjectClient.project_id == project_id)
+    )
+    clients_summary = [
+        ClientSummary(id=pc.client.id, name=pc.client.name, slug=pc.client.slug)
+        for pc in client_rows.all()
+    ]
     return ProjectOut.model_validate(acc.project).model_copy(
-        update={"membership_role": acc.role.value}
+        update={
+            "membership_role": acc.role.value,
+            "clients_summary": clients_summary,
+        }
     )
 
 

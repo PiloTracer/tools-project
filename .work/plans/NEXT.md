@@ -360,4 +360,81 @@ docker compose --profile dev run --rm --no-deps web sh -lc "npm ci --no-audit --
 
 ---
 
+## Current iteration - M1: CRM schema + models + prospects API
+
+**Milestone ref:** M1 · `.work/plans/full/20260618-full-plan.md` §19
+**Status:** complete
+**Started:** 2026-06-18
+
+### In scope
+- DDL + SQLAlchemy models for 5 new CRM tables (prospects, clients, client_contacts, project_clients, project_client_access)
+- Indexes for new tables
+- Prospects CRUD API (list, create, get, update, delete)
+- Prospect stage transition with business rule validation
+- Idempotency verification of all DDL
+
+### Out of scope (explicit)
+- Client/contact API (M2)
+- Prospect-to-client promotion on `won` (M2)
+- Project-client linking API (M3)
+- Client access control + portal (M3)
+- Web UI (deferred — API-only for M1)
+
+### Tasks
+| ID | Description | Files | Status | Notes |
+|----|-------------|-------|--------|-------|
+| M1-T1 | `prospects` table DDL + SQLAlchemy model | `sql/schema_changes.sql`, `api/app/models/prospect.py` | done 2026-06-18 | FR3, NFR2 |
+| M1-T2 | `clients` table DDL + model with auto-slug | `sql/schema_changes.sql`, `api/app/models/client.py` | done 2026-06-18 | FR4, NFR2 |
+| M1-T3 | `client_contacts` table DDL + model with optional `user_id` FK | `sql/schema_changes.sql`, `api/app/models/client_contact.py` | done 2026-06-18 | FR5, NFR2 |
+| M1-T4 | `project_clients` join table DDL + model | `sql/schema_changes.sql`, `api/app/models/project_client.py` | done 2026-06-18 | FR6, NFR2 |
+| M1-T5 | `project_client_access` table DDL + model with roles enum | `sql/schema_changes.sql`, `api/app/models/project_client_access.py` | done 2026-06-18 | FR7, FR10, NFR1, NFR2 |
+| M1-T6 | Indexes in `sql/schema_indexes.sql` for new tables | `sql/schema_indexes.sql` | done 2026-06-18 | NFR2 |
+| M1-T7 | Verify idempotency — run `apply-ddl` twice | — | done 2026-06-18 | NFR2 — both runs exit 0 |
+| M1-T8 | Prospects CRUD router | `api/app/routers/prospects.py` | done 2026-06-18 | FR3 |
+| M1-T9 | Prospect stage transition endpoint with validation | `api/app/routers/prospects.py` | done 2026-06-18 | FR3, NFR4 |
+
+### Acceptance criteria
+- [x] Prospects, clients, client_contacts, project_clients, project_client_access tables created
+- [x] All DDL idempotent — `apply-ddl` twice yields no errors
+- [x] Prospects CRUD works via API (list, create, get, update, delete)
+- [x] Stage transitions respect business rules (no skipping, `lost` is terminal)
+- [x] Task gate passes: compile, lint, type-check
+
+### Validation steps
+- [ ] `docker compose --profile dev run --rm --no-deps api python -m compileall -q app`
+- [ ] `docker compose --profile dev run --rm api python -m app.cli_schema apply-ddl` (run twice for idempotency)
+- [ ] `docker compose --profile dev run --rm --no-deps api python -m pytest`
+- [ ] `docker compose --profile dev run --rm --no-deps web sh -lc "npm ci --no-audit --no-fund && npm run check"`
+
+### Owner blockers
+- none
+
+### Concept / NFR registry (this iteration)
+| Concept id | Applies | Status | Evidence / trigger |
+|------------|---------|--------|-------------------|
+| MOD-01 | no | n/a | No cross-boundary coupling in M1 (all within API bounded context) |
+| MOD-02 | no | n/a | No AI-assisted PR |
+| MOD-03 | no | n/a | No cost-sensitive decisions |
+| MOD-04 | no | n/a | No distributed-system concerns |
+| MOD-05 | no | n/a | No compliance surface |
+| MOD-06 | yes | pending | Cursor/agent session - required before complete unless human-only |
+
+### Cross-LLM verification
+- Triggered: no
+
+### Done this iteration
+| Task | Completed | Notes |
+|------|-----------|-------|
+| M1-T1 | 2026-06-18 | prospects DDL + model |
+| M1-T2 | 2026-06-18 | clients DDL + model |
+| M1-T3 | 2026-06-18 | client_contacts DDL + model |
+| M1-T4 | 2026-06-18 | project_clients DDL + model |
+| M1-T5 | 2026-06-18 | project_client_access DDL + model |
+| M1-T6 | 2026-06-18 | indexes for all new tables |
+| M1-T7 | 2026-06-18 | apply-ddl idempotency verified (2 runs, exit 0) |
+| M1-T8 | 2026-06-18 | prospects CRUD router |
+| M1-T9 | 2026-06-18 | prospect stage transition with validation |
+
+---
+
 *Update this file when a batch completes; keep **HANDOFF** snapshot in sync. Batch I detail lives in **§ Batch I** above. Paths moved: old `.ai/context/*` → `.work/context/`, `.ai/plans/*` → `.work/plans/legacy-plans/`, `.ai/context/NEXT.md` → `.work/plans/NEXT.md`.*

@@ -1,13 +1,13 @@
 # Session handoff — tools-project
 
-**Date:** 2026-06-18 (session close — repo restructured: `.ai/` → Agent OS framework, content migrated to `.work/`)
+**Date:** 2026-06-18
 
-**Open:** 2026-06-18 - goal: M1 (CRM schema + prospects API) — plan Approved, J1 iteration ready to start
+**Closed:** 2026-06-18 — all 4 milestones (M1–M4) of the clients-participants CRM plan complete. 26/26 tasks done.
 **Updated:** 2026-06-18
 
 Treat prior closed sessions as historical only; see "What this cycle produced" below.
 
-**Repository state:** Framework aligned — brownfield repair complete: foundation doc 01 (scope), doc 04 (architecture), standards (CONVENTIONS, FEATURE_STANDARD, DIRECTORY_MAP), registries (ASSUMPTIONS, RISK_REGISTRY, UNKNOWNS), ADR-0001–0004 Decided. **Plan-master-ready: 2026-06-18.** `.cursorrules` REPLACE tokens resolved. **Ready to implement Batch J (CRM / clients-participants):** SPEC Approved, ADR-0001 Decided, unknowns updated, `.work/plans/NEXT.md` § Batch J drafted. GitHub Batch I web (I10d) remains open pending a priority call.
+**Repository state:** Framework aligned — brownfield repair complete: foundation doc 01 (scope), doc 04 (architecture), standards (CONVENTIONS, FEATURE_STANDARD, DIRECTORY_MAP), registries (ASSUMPTIONS, RISK_REGISTRY, UNKNOWNS), ADR-0001–0004 Decided. **Plan-master-ready: 2026-06-18.** `.cursorrules` REPLACE tokens resolved. **Batch J implementation gaps fixed:** prospect stage validation, pipeline service, client permission resolution in `deps.py`/routers, client portal pages, `actor_id` nullable for system activities, attachment purge wired. GitHub Batch I web (I10d) remains open pending a priority call.
 
 ## Start here (new session)
 
@@ -43,12 +43,11 @@ Treat prior closed sessions as historical only; see "What this cycle produced" b
 
 ## Recommended next work
 
-1. **M1 — CRM schema + prospects API (`@code-implementation start`):** Begin implementing M1 tasks starting with M1-T1 (prospects DDL + model).  
-2. **M4 — GitHub web UI (I10d):** Next.js `/projects/[id]/github` + project settings subsection — can parallelize with CRM work.  
-3. **`github_commit` activity rows** on sync (**I10c** remainder) + optional SSE hint updates.  
-4. **`github_ref`** attach flow (**I10e**) for tasks / comments — deferred.  
-
-**Small polish:** retention purge cron; global **`c`** Inbox shortcut; **`next/image`** or ESLint override for ticket discussion thumbnails.
+1. **Seed a client user** in `sql/schema_inserts.sql` so `/client/login` can be exercised locally.
+2. **`github_ref` picker (M4-T4):** Build commit-cite UI for tasks/comments — backend validation exists, UI is TODO.
+3. **Client task/ticket scope by company contacts:** Currently filtered by the signed-in contact's user_id; SPEC also mentions "their client company contacts".
+4. **`next/image` migration:** Suppress or fix pre-existing ESLint warning in `TicketDiscussion.tsx`.
+5. **Batch I web:** `/projects/[id]/github` page exists, `github_commit` activity is wired. Remaining polish is low priority.
 
 ---
 
@@ -75,10 +74,29 @@ Treat prior closed sessions as historical only; see "What this cycle produced" b
 | `.work/decisions/0003-frontend-stack.md` | ADR: Next.js 16, React 19, TypeScript |
 | `.work/decisions/0004-hosting-deployment.md` | ADR: Docker Compose, dual auth, Fernet PAT encryption |
 | `.work/plans/full/20260618-full-plan.md` | Full implementation plan — 4 milestones, 22 tasks, **Approved** |
-| `.work/decisions/0002-backend-stack.md` | ADR: backend stack formalized (Python 3.11, FastAPI, SQLAlchemy async, PostgreSQL 16) |
-| `.work/decisions/0003-frontend-stack.md` | ADR: frontend stack formalized (Next.js 16, React 19, TypeScript) |
-| `.work/decisions/0004-hosting-deployment.md` | ADR: hosting and deployment formalized (Docker Compose, local filesystem V1) |
-| `.work/plans/full/20260618-full-plan.md` | Full implementation plan — milestones M1–M4 with execution roadmap |
+| `api/app/models/prospect.py`, `client.py`, `client_contact.py`, `project_client.py`, `project_client_access.py` | 5 SQLAlchemy models for CRM (M1) |
+| `sql/schema_changes.sql`, `sql/schema_indexes.sql` | DDL + indexes for 5 new CRM tables + `activities.actor_id` nullable |
+| `sql/schema_inserts.sql` | Seed fixtures: prospects, client, contacts |
+| `api/app/routers/prospects.py` | Prospects CRUD + stage transition with business rules |
+| `api/app/routers/clients.py` | Clients CRUD router |
+| `api/app/routers/client_contacts.py` | Client contacts sub-resource CRUD |
+| `api/app/routers/project_clients.py` | Project-client link/unlink API |
+| `api/app/routers/project_client_access.py` | Client access grant/revoke/update API |
+| `api/app/routers/client_portal.py` | Client portal API: `/v1/me/client/projects/*` endpoints |
+| `api/app/schemas.py` | Extended with 15+ CRM Pydantic schemas |
+| `api/app/deps.py`, `api/app/services/project_access.py` | Client permission resolution: `get_current_client_participant`, `require_client_project_access`, `resolve_project_access` |
+| `api/app/services/pipeline_service.py` | Prospect-to-client promotion service |
+| `api/app/services/attachment_service.py` | Attachment retention purge service |
+| `api/app/services/activity_writer.py` | `actor_id` made optional for system activities |
+| `api/app/services/github_sync.py`, `api/app/github_background.py` | `github_commit` activity rows on sync, attachment purge wired in poll loop |
+| `api/app/routers/activities.py` | Client `is_internal = false` filter, comment permission |
+| `api/app/routers/tasks.py`, `api/app/routers/tickets.py` | Client participant scoping (visibility, create/edit gates) |
+| `web/src/app/client/login/page.tsx` | Client portal login page |
+| `web/src/app/client/dashboard/page.tsx` | Client dashboard listing accessible projects |
+| `web/src/app/client/projects/[id]/page.tsx` | Client project detail: tasks + public activity |
+| `web/src/app/projects/[id]/github/page.tsx` | GitHub commit history page |
+| `web/src/app/projects/[id]/settings/page.tsx` | Project settings with GitHub repo management |
+| `web/src/components/CmdkPalette.tsx` | Global `c` quick-capture shortcut → `/inbox` |
 
 ## Where to read more
 

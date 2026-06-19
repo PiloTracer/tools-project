@@ -21,13 +21,20 @@ from app.models.ticket import Ticket
 from app.models.user import User
 from app.schemas import ACTIVITY_KINDS, ActivityCreate, ActivityListResponse, ActivityOut
 from app.services.mention_parse import mention_emails_from_text
-from app.services.project_access import can_mutate_tasks, require_project_access
+from app.services.project_access import (
+    can_comment_on_project,
+    is_client_participant,
+    require_project_access,
+)
 
 router = APIRouter(
     prefix="/v1/projects/{project_id}/activities",
     tags=["activities"],
 )
 
+
+# TODO M4-T4: Add an endpoint (or extend _validate_subject) for commit reference
+# validation — "github_commit" subject_type to allow linking activities to commits.
 
 async def _validate_subject(
     db: AsyncSession,
@@ -172,7 +179,13 @@ async def list_activities(
     ),
     limit: int = Query(default=50, ge=1, le=200),
 ):
-    await require_project_access(db, user, project_id)
+    acc = await require_project_access(db, user, project_id)
+    client_participant = is_client_participant(acc)
+    if client_participant and visibility == "internal":
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            detail="Client participants cannot view internal activities",
+        )
     stmt = (
         select(Activity)
         .where(Activity.project_id == project_id)
@@ -185,7 +198,10 @@ async def list_activities(
         stmt = stmt.where(Activity.subject_id == subject_id)
     if kind is not None:
         stmt = stmt.where(Activity.kind == kind.strip().lower())
-    if visibility == "internal":
+    if client_participant:
+        # Client participants only ever see non-internal activities.
+        stmt = stmt.where(Activity.is_internal.is_(False))
+    elif visibility == "internal":
         stmt = stmt.where(Activity.is_internal.is_(True))
     elif visibility == "external":
         stmt = stmt.where(Activity.is_internal.is_(False))
@@ -207,10 +223,10 @@ async def create_activity(
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     acc = await require_project_access(db, user, project_id)
-    if not can_mutate_tasks(acc.role):
+    if not can_comment_on_project(acc):
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,
-            detail="Viewers cannot post activity",
+            detail="You do not have permission to post activity in this project",
         )
     st = body.subject_type.strip().lower()
     await _validate_subject(db, project_id, st, body.subject_id)
@@ -242,6 +258,11 @@ async def create_activity(
     if not body_text and ids:
         body_text = "(image)"
     is_internal = bool(body.is_internal)
+    if is_internal and is_client_participant(acc):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            detail="Client participants cannot post internal activities",
+        )
     if is_internal and st not in ("task", "ticket"):
         # Project-wide notes are visible to all members by design; internal toggle
         # only makes sense on a specific work item (task / ticket case thread).

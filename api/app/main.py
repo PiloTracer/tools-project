@@ -15,11 +15,15 @@ from app.routers import (
     admin_users,
     attachments,
     auth,
+    client_contacts,
+    client_portal,
+    clients,
     components,
     github,
     inbox,
     me_focus,
     projects,
+    prospects,
     tasks,
     tickets,
 )
@@ -73,6 +77,8 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(admin_users.router)
 app.include_router(projects.router)
+app.include_router(project_clients.router)
+app.include_router(project_client_access.router)
 app.include_router(components.router)
 app.include_router(components.detail_router)
 app.include_router(tasks.project_router)
@@ -86,6 +92,10 @@ app.include_router(attachments.task_router)
 app.include_router(attachments.file_router)
 app.include_router(me_focus.router)
 app.include_router(inbox.router)
+app.include_router(prospects.router)
+app.include_router(clients.router)
+app.include_router(client_contacts.router)
+app.include_router(client_portal.router)
 app.include_router(github.router)
 
 

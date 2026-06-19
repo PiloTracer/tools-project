@@ -10,7 +10,9 @@ from fastapi import HTTPException, status
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.client_contact import ClientContact
 from app.models.project import Project
+from app.models.project_client_access import ProjectClientAccess
 from app.models.project_member import ProjectMember
 from app.models.user import User
 
@@ -44,6 +46,7 @@ def parse_member_role(value: str) -> MemberRole:
 class ProjectAccess:
     project: Project
     role: MemberRole
+    client_access: ProjectClientAccess | None = None
 
 
 async def resolve_project_access(
@@ -56,19 +59,38 @@ async def resolve_project_access(
         return None
     if user.is_superuser:
         return ProjectAccess(proj, MemberRole.owner)
-    row = await db.scalar(
+
+    # Internal team membership takes precedence.
+    member_row = await db.scalar(
         select(ProjectMember).where(
             ProjectMember.project_id == project_id,
             ProjectMember.user_id == user.id,
         )
     )
-    if row is None:
-        return None
-    try:
-        role = MemberRole(row.role)
-    except ValueError:
-        role = MemberRole.viewer
-    return ProjectAccess(proj, role)
+    if member_row is not None:
+        try:
+            role = MemberRole(member_row.role)
+        except ValueError:
+            role = MemberRole.viewer
+        return ProjectAccess(proj, role)
+
+    # Fall back to client participant access.
+    contact = await db.scalar(
+        select(ClientContact).where(ClientContact.user_id == user.id)
+    )
+    if contact is not None:
+        client_acc = await db.scalar(
+            select(ProjectClientAccess).where(
+                ProjectClientAccess.project_id == project_id,
+                ProjectClientAccess.client_contact_id == contact.id,
+            )
+        )
+        if client_acc is not None:
+            # Client participants are treated as viewers for internal RBAC checks;
+            # actual permissions are in client_access.
+            return ProjectAccess(proj, MemberRole.viewer, client_access=client_acc)
+
+    return None
 
 
 async def require_project_access(
@@ -105,6 +127,42 @@ def can_mutate_tasks(role: MemberRole) -> bool:
     )
 
 
+def is_client_participant(acc: ProjectAccess) -> bool:
+    return acc.client_access is not None
+
+
+def can_view_tasks(acc: ProjectAccess) -> bool:
+    if acc.client_access is not None:
+        return acc.client_access.can_view_tasks
+    return True
+
+
+def can_view_tickets(acc: ProjectAccess) -> bool:
+    if acc.client_access is not None:
+        return acc.client_access.can_view_tickets
+    return True
+
+
+def can_create_tasks(acc: ProjectAccess) -> bool:
+    if acc.client_access is not None:
+        return acc.client_access.can_create_tasks
+    return can_mutate_tasks(acc.role)
+
+
+def can_comment_on_project(acc: ProjectAccess) -> bool:
+    """Who can post activity / comments in a project."""
+    if acc.client_access is not None:
+        return acc.client_access.role in {"contribute", "decision_maker"}
+    return can_mutate_tasks(acc.role)
+
+
+def can_edit_tasks(acc: ProjectAccess) -> bool:
+    """Client participants can create tasks (if granted) but not edit existing ones."""
+    if acc.client_access is not None:
+        return False
+    return can_mutate_tasks(acc.role)
+
+
 def assert_can_assign_role(inviter: MemberRole, target: MemberRole) -> None:
     if target == MemberRole.owner and inviter != MemberRole.owner:
         raise HTTPException(
@@ -132,3 +190,32 @@ async def count_role_members(
         )
         or 0
     )
+
+
+async def require_client_project_access(
+    db: AsyncSession,
+    user: User,
+    project_id: uuid.UUID,
+) -> ProjectClientAccess:
+    """Check if the user (via their linked client contact) has access to the project.
+    Returns the access record or raises 403."""
+    contact = await db.scalar(
+        select(ClientContact).where(ClientContact.user_id == user.id)
+    )
+    if contact is None:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            detail="User is not linked to a client contact",
+        )
+    acc = await db.scalar(
+        select(ProjectClientAccess).where(
+            ProjectClientAccess.project_id == project_id,
+            ProjectClientAccess.client_contact_id == contact.id,
+        )
+    )
+    if acc is None:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            detail="Client contact does not have access to this project",
+        )
+    return acc
