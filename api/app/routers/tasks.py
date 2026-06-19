@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
@@ -54,6 +54,7 @@ async def list_tasks(
     assignee_id: uuid.UUID | None = None,
     component_id: uuid.UUID | None = None,
     is_todo: bool | None = Query(default=None),
+    q: str | None = None,
 ):
     acc = await require_project_access(db, user, project_id)
     if not can_view_tasks(acc):
@@ -62,6 +63,9 @@ async def list_tasks(
             detail="You do not have permission to view tasks in this project",
         )
     stmt = select(Task).where(Task.project_id == project_id)
+    if q:
+        like = f"%{q.strip()}%"
+        stmt = stmt.where(or_(Task.title.ilike(like), Task.ref.ilike(like)))
     if task_status:
         stmt = stmt.where(Task.status == task_status.strip())
     if assignee_id is not None:

@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { CommitPicker } from "@/components/CommitPicker";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
+import { SubjectPicker } from "@/components/SubjectPicker";
 
 async function _searchUsers(prefix: string): Promise<{ label: string; insert: string }[]> {
   const r = await fetch(`/api/me/users/search?q=${encodeURIComponent(prefix)}&limit=8`);
@@ -48,32 +49,45 @@ export function ActivityComposer({
 }) {
   const router = useRouter();
   const [subjectType, setSubjectType] = useState("project");
+  const [subjectId, setSubjectId] = useState<string | null>(null);
+  const [subjectLabel, setSubjectLabel] = useState<string | null>(null);
   const [body, setBody] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
   const [showCommitPicker, setShowCommitPicker] = useState(false);
+  const [showSubjectPicker, setShowSubjectPicker] = useState(false);
 
   if (!canPost) {
     return <p className="muted text-sm">Viewers cannot post activity.</p>;
   }
 
+  function chooseSubject(kind: "project" | "task" | "ticket") {
+    setSubjectType(kind);
+    setSubjectId(null);
+    setSubjectLabel(null);
+    if (kind !== "project") {
+      setShowSubjectPicker(true);
+    }
+  }
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setMsg(null);
-    let subject_id = projectId;
+    let resolvedSubjectId = projectId;
+    let resolvedSubjectType = "project";
     if (subjectType !== "project") {
-      const entered = window.prompt("Paste task or ticket UUID")?.trim();
-      if (!entered) {
-        setMsg("subject_id required");
+      if (!subjectId) {
+        setMsg("Select a task or ticket to link this post to.");
         return;
       }
-      subject_id = entered;
+      resolvedSubjectId = subjectId;
+      resolvedSubjectType = subjectType;
     }
     const r = await fetch(`/api/projects/${projectId}/activities`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        subject_type: subjectType,
-        subject_id: subject_id,
+        subject_type: resolvedSubjectType,
+        subject_id: resolvedSubjectId,
         body: body.trim(),
       }),
     });
@@ -88,23 +102,63 @@ export function ActivityComposer({
       return;
     }
     setBody("");
+    setSubjectType("project");
+    setSubjectId(null);
+    setSubjectLabel(null);
     router.refresh();
   }
 
   return (
     <form onSubmit={onSubmit} className="stack" style={{ gap: "0.65rem", maxWidth: "40rem" }}>
-      <label className="stack" style={{ gap: "0.25rem" }}>
+      <div className="stack" style={{ gap: "0.35rem" }}>
         <span className="text-sm muted">Subject</span>
-        <select
-          className="input"
-          value={subjectType}
-          onChange={(e) => setSubjectType(e.target.value)}
-        >
-          <option value="project">This project</option>
-          <option value="task">Task (paste UUID)</option>
-          <option value="ticket">Ticket (paste UUID)</option>
-        </select>
-      </label>
+        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+          <button
+            type="button"
+            className={subjectType === "project" ? "btn btn-secondary text-sm" : "btn btn-ghost text-sm"}
+            onClick={() => chooseSubject("project")}
+            style={{ padding: "0.35rem 0.65rem" }}
+          >
+            This project
+          </button>
+          <button
+            type="button"
+            className={subjectType === "task" ? "btn btn-secondary text-sm" : "btn btn-ghost text-sm"}
+            onClick={() => chooseSubject("task")}
+            style={{ padding: "0.35rem 0.65rem" }}
+          >
+            Link to task
+          </button>
+          <button
+            type="button"
+            className={subjectType === "ticket" ? "btn btn-secondary text-sm" : "btn btn-ghost text-sm"}
+            onClick={() => chooseSubject("ticket")}
+            style={{ padding: "0.35rem 0.65rem" }}
+          >
+            Link to ticket
+          </button>
+        </div>
+      </div>
+      {subjectType !== "project" && showSubjectPicker ? (
+        <SubjectPicker
+          projectId={projectId}
+          onSelect={(kind, id, label) => {
+            setSubjectType(kind);
+            setSubjectId(id);
+            setSubjectLabel(label);
+            setShowSubjectPicker(false);
+          }}
+          onClose={() => {
+            setShowSubjectPicker(false);
+            setSubjectType("project");
+          }}
+        />
+      ) : null}
+      {subjectLabel ? (
+        <p className="text-sm" style={{ color: "var(--accent)", margin: 0 }}>
+          → Linked to {subjectLabel}
+        </p>
+      ) : null}
       <label className="stack" style={{ gap: "0.25rem" }}>
         <span className="text-sm muted">Message (use @you@example.com to mention)</span>
         <MarkdownEditor
@@ -265,7 +319,7 @@ export function ActivityFeed({
                       <span className="pill" style={{ fontSize: "0.65rem" }}>{a.kind}</span>
                     )}
                     <span>· {a.subject_type} ·</span>
-                    <span>{new Date(a.created_at).toLocaleString()}</span>
+                    <span suppressHydrationWarning>{new Date(a.created_at).toLocaleString()}</span>
                     {internal ? (
                       <span
                         className="pill"
@@ -388,7 +442,7 @@ export function ActivityFeed({
                             <div className="text-sm muted" style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", marginBottom: "0.25rem" }}>
                               <span>{cr.actor_email ?? "user"}</span>
                               <span className="pill" style={{ fontSize: "0.6rem" }}>{cr.kind}</span>
-                              <span>· {new Date(cr.created_at).toLocaleString()}</span>
+                              <span suppressHydrationWarning>· {new Date(cr.created_at).toLocaleString()}</span>
                               {cinternal ? (
                                 <span className="pill" style={{ fontSize: "0.6rem", background: "var(--accent-warn, #c98300)", color: "#fff" }}>
                                   Internal

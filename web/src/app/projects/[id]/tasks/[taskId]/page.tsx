@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 
 import { apiServerFetch, fetchMe } from "@/shared/server/session";
 
+import { TaskDetailEditor } from "@/components/TaskDetailEditor";
 import { ProjectSubNav } from "../../ProjectSubNav";
 
 type ProjectRow = {
@@ -86,6 +87,9 @@ export default async function TaskDetailPage({
     (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
   );
 
+  const role = project.membership_role ?? "";
+  const canEdit = ["owner", "maintainer", "contributor"].includes(role) || me.is_superuser;
+
   return (
     <div className="page-inner stack-lg">
       <div>
@@ -106,50 +110,7 @@ export default async function TaskDetailPage({
         <ProjectSubNav projectId={projectId} current="tasks" />
       </div>
 
-      <div className="card wide stack">
-        <h2 style={{ marginTop: 0 }}>Details</h2>
-        <dl
-          className="stack text-sm"
-          style={{
-            margin: 0,
-            display: "grid",
-            gridTemplateColumns: "auto 1fr",
-            gap: "0.35rem 1rem",
-            alignItems: "baseline",
-          }}
-        >
-          <dt className="muted">Status</dt>
-          <dd style={{ margin: 0 }}>
-            <span className="pill">{task.status}</span>
-          </dd>
-          <dt className="muted">Priority</dt>
-          <dd style={{ margin: 0 }}>{task.priority}</dd>
-          {task.due_at ? (
-            <>
-              <dt className="muted">Due</dt>
-              <dd style={{ margin: 0 }}>{new Date(task.due_at).toLocaleString()}</dd>
-            </>
-          ) : null}
-          <dt className="muted">Created</dt>
-          <dd style={{ margin: 0 }}>{new Date(task.created_at).toLocaleString()}</dd>
-          {task.updated_at ? (
-            <>
-              <dt className="muted">Updated</dt>
-              <dd style={{ margin: 0 }}>{new Date(task.updated_at).toLocaleString()}</dd>
-            </>
-          ) : null}
-        </dl>
-        <div>
-          <h3 className="text-sm muted" style={{ margin: "0.75rem 0 0.35rem" }}>
-            Description
-          </h3>
-          {task.description ? (
-            <p style={{ whiteSpace: "pre-wrap", margin: 0 }}>{task.description}</p>
-          ) : (
-            <p className="muted text-sm">No description.</p>
-          )}
-        </div>
-      </div>
+      <TaskDetailEditor task={task} canEdit={canEdit} />
 
       <div className="card wide stack">
         <h2 style={{ marginTop: 0 }}>Activity</h2>

@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
-from sqlalchemy import case, select
+from sqlalchemy import case, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
@@ -46,6 +46,7 @@ async def list_tickets(
     db: Annotated[AsyncSession, Depends(get_db)],
     queue_slug: str | None = None,
     ticket_status: str | None = None,
+    q: str | None = None,
 ):
     acc = await require_project_access(db, user, project_id)
     if not can_view_tickets(acc):
@@ -54,6 +55,9 @@ async def list_tickets(
             detail="You do not have permission to view tickets in this project",
         )
     stmt = select(Ticket).where(Ticket.project_id == project_id)
+    if q:
+        like = f"%{q.strip()}%"
+        stmt = stmt.where(or_(Ticket.title.ilike(like), Ticket.ref.ilike(like)))
     if queue_slug:
         stmt = stmt.where(Ticket.queue_slug == queue_slug.strip())
     if ticket_status:
