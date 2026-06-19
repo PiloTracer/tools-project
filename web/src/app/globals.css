@@ -48,6 +48,11 @@
   --z-dropdown: 30;
   --z-modal: 50;
   --z-toast: 60;
+
+  --surface-warn: #2a2515;
+  --border-warn: #6b5a20;
+  --accent-warn: #f59e0b;
+  --on-accent: #fff;
 }
 
 body {
