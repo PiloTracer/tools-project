@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { apiServerFetch, fetchMe } from "@/shared/server/session";
 
 import { ProjectSubNav } from "../../ProjectSubNav";
+import { TicketDetailEditor } from "@/components/TicketDetailEditor";
 import { TicketDiscussion, type ActivityItem } from "./TicketDiscussion";
 
 type ProjectRow = {
@@ -134,54 +135,7 @@ export default async function TicketDetailPage({
         <ProjectSubNav projectId={projectId} current="tickets" />
       </div>
 
-      <div className="card wide stack">
-        <h2 style={{ marginTop: 0 }}>Case</h2>
-        <dl
-          className="stack text-sm"
-          style={{ margin: 0, display: "grid", gridTemplateColumns: "auto 1fr", gap: "0.35rem 1rem", alignItems: "baseline" }}
-        >
-          <dt className="muted">Status</dt>
-          <dd style={{ margin: 0 }}>
-            <span className="pill">{ticket.status}</span>
-          </dd>
-          <dt className="muted">Priority</dt>
-          <dd style={{ margin: 0 }}>{ticket.priority}</dd>
-          <dt className="muted">Queue</dt>
-          <dd style={{ margin: 0 }}>
-            <span className="pill">{ticket.queue_slug}</span>
-          </dd>
-          {ticket.requester_email ? (
-            <>
-              <dt className="muted">Requester</dt>
-              <dd style={{ margin: 0 }}>{ticket.requester_email}</dd>
-            </>
-          ) : null}
-          <dt className="muted">Opened</dt>
-          <dd style={{ margin: 0 }}>{new Date(ticket.created_at).toLocaleString()}</dd>
-          {ticket.first_response_at ? (
-            <>
-              <dt className="muted">First response</dt>
-              <dd style={{ margin: 0 }}>{new Date(ticket.first_response_at).toLocaleString()}</dd>
-            </>
-          ) : null}
-          {ticket.resolved_at ? (
-            <>
-              <dt className="muted">Resolved</dt>
-              <dd style={{ margin: 0 }}>{new Date(ticket.resolved_at).toLocaleString()}</dd>
-            </>
-          ) : null}
-        </dl>
-        <div>
-          <h3 className="text-sm muted" style={{ margin: "0.75rem 0 0.35rem" }}>
-            Description
-          </h3>
-          {ticket.description ? (
-            <TicketDescriptionBody text={ticket.description} />
-          ) : (
-            <p className="muted text-sm">No description.</p>
-          )}
-        </div>
-      </div>
+      <TicketDetailEditor ticket={ticket} canEdit={canEdit} />
 
       <div className="card wide stack">
         <h2 style={{ marginTop: 0 }}>Discussion</h2>
