@@ -7,6 +7,7 @@ import Link from "next/link";
 import { Badge, stageBadgeVariant } from "@/components/Badge";
 import { Dialog } from "@/components/Dialog";
 import { DropdownMenu, DropdownItem } from "@/components/DropdownMenu";
+import { toast, ToastContainer } from "@/components/Toast";
 
 const PIPELINE_STAGES = [
   "target", "connected", "engaged", "call_scheduled", "call_done",
@@ -95,9 +96,10 @@ export default function ProspectDetailPage() {
     });
     if (!r.ok) {
       const err = await r.json().catch(() => ({ detail: "Transition failed" }));
-      alert(err.detail);
+      toast(err.detail, "error");
       return;
     }
+    toast(prospect ? `Moved to ${STAGE_LABELS[stage] ?? stage}` : "Stage updated");
     fetchProspect();
   };
 
@@ -124,11 +126,13 @@ export default function ProspectDetailPage() {
       return;
     }
     setEditing(false);
+    toast("Prospect updated");
     fetchProspect();
   };
 
   const handleDelete = async () => {
     await fetch(`/api/prospects/${id}`, { method: "DELETE" });
+    toast("Prospect deleted");
     router.push("/prospects");
   };
 
@@ -319,12 +323,13 @@ export default function ProspectDetailPage() {
         actions={
           <>
             <button type="button" className="btn btn-ghost" onClick={() => setShowDelete(false)}>Cancel</button>
-            <button type="button" className="btn btn-primary" style={{ background: "var(--danger)", color: "#fff", boxShadow: "none" }} onClick={handleDelete}>Delete</button>
+            <button type="button" className="btn btn-primary" style={{ background: "var(--danger)", color: "var(--text)", boxShadow: "none" }} onClick={handleDelete}>Delete</button>
           </>
         }
       >
         <p className="text-sm">Are you sure you want to delete <strong>{prospect.company_name}</strong>? This action cannot be undone.</p>
       </Dialog>
+      <ToastContainer />
     </div>
   );
 }

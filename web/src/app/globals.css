@@ -702,3 +702,22 @@ code {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
 }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .filter-bar {
+    flex-direction: column;
+  }
+  .filter-bar .input,
+  .filter-bar select.input {
+    max-width: 100% !important;
+    width: 100%;
+  }
+}

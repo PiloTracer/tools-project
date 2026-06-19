@@ -7,6 +7,7 @@ import Link from "next/link";
 import { Badge } from "@/components/Badge";
 import { DataTable, type Column } from "@/components/DataTable";
 import { Dialog } from "@/components/Dialog";
+import { toast, ToastContainer } from "@/components/Toast";
 
 type ClientDetail = {
   id: string;
@@ -104,11 +105,13 @@ export default function ClientDetailPage() {
       return;
     }
     setEditing(false);
+    toast("Client updated");
     fetchData();
   };
 
   const handleDelete = async () => {
     await fetch(`/api/clients/${id}`, { method: "DELETE" });
+    toast("Client deleted");
     router.push("/clients");
   };
 
@@ -130,11 +133,13 @@ export default function ClientDetailPage() {
     }
     setShowAddContact(false);
     setContactName(""); setContactEmail(""); setContactPhone(""); setContactTitle("");
+    toast(`Added contact ${contactName.trim()}`);
     fetchData();
   };
 
   const handleDeleteContact = async (contactId: string) => {
     await fetch(`/api/clients/${id}/contacts/${contactId}`, { method: "DELETE" });
+    toast("Contact removed");
     fetchData();
   };
 
@@ -302,7 +307,7 @@ export default function ClientDetailPage() {
         actions={
           <>
             <button type="button" className="btn btn-ghost" onClick={() => setShowDelete(false)}>Cancel</button>
-            <button type="button" className="btn btn-primary" style={{ background: "var(--danger)", color: "#fff", boxShadow: "none" }} onClick={handleDelete}>Delete</button>
+            <button type="button" className="btn btn-primary" style={{ background: "var(--danger)", color: "var(--text)", boxShadow: "none" }} onClick={handleDelete}>Delete</button>
           </>
         }
       >
@@ -340,6 +345,7 @@ export default function ClientDetailPage() {
           {contactErr ? <p className="err text-sm">{contactErr}</p> : null}
         </form>
       </Dialog>
+      <ToastContainer />
     </div>
   );
 }

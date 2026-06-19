@@ -8,6 +8,7 @@ import { DataTable, type Column } from "@/components/DataTable";
 import { Dialog } from "@/components/Dialog";
 import { DropdownMenu, DropdownItem } from "@/components/DropdownMenu";
 import { Chip } from "@/components/Chip";
+import { toast, ToastContainer } from "@/components/Toast";
 
 const PIPELINE_STAGES = [
   "target", "connected", "engaged", "call_scheduled", "call_done",
@@ -124,9 +125,10 @@ export default function ProspectsPage() {
     });
     if (!r.ok) {
       const err = await r.json().catch(() => ({ detail: "Failed to advance" }));
-      alert(err.detail);
+      toast(err.detail, "error");
       return;
     }
+    toast(`Advanced ${prospect.company_name} to next stage`);
     fetchRows({ stage: filterStage || undefined, source: filterSource || undefined });
   };
 
@@ -149,6 +151,7 @@ export default function ProspectsPage() {
     }
     setShowCreate(false);
     resetForm();
+    toast(`Created prospect ${formName.trim()}`);
     fetchRows({ stage: filterStage || undefined, source: filterSource || undefined });
   };
 
@@ -177,13 +180,16 @@ export default function ProspectsPage() {
     }
     setShowEdit(null);
     resetForm();
+    toast(`Updated prospect ${formName.trim()}`);
     fetchRows({ stage: filterStage || undefined, source: filterSource || undefined });
   };
 
   const handleDelete = async () => {
     if (!showDelete) return;
+    const name = showDelete.company_name;
     await fetch(`/api/prospects/${showDelete.id}`, { method: "DELETE" });
     setShowDelete(null);
+    toast(`Deleted prospect ${name}`);
     fetchRows({ stage: filterStage || undefined, source: filterSource || undefined });
   };
 
@@ -314,7 +320,7 @@ export default function ProspectsPage() {
           </div>
         ) : null}
 
-        <div
+        <div className="filter-bar"
           style={{
             display: "flex",
             gap: "0.75rem",
@@ -438,7 +444,7 @@ export default function ProspectsPage() {
         actions={
           <>
             <button type="button" className="btn btn-ghost" onClick={() => setShowDelete(null)}>Cancel</button>
-            <button type="button" className="btn btn-primary" style={{ background: "var(--danger)", color: "#fff", boxShadow: "none" }} onClick={handleDelete}>
+            <button type="button" className="btn btn-primary" style={{ background: "var(--danger)", color: "var(--text)", boxShadow: "none" }} onClick={handleDelete}>
               Delete
             </button>
           </>
@@ -446,6 +452,7 @@ export default function ProspectsPage() {
       >
         <p className="text-sm">Are you sure you want to delete <strong>{showDelete?.company_name}</strong>? This action cannot be undone.</p>
       </Dialog>
+      <ToastContainer />
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { DataTable, type Column } from "@/components/DataTable";
 import { Dialog } from "@/components/Dialog";
+import { toast, ToastContainer } from "@/components/Toast";
 
 type ClientRow = {
   id: string;
@@ -75,6 +76,7 @@ export default function ClientsPage() {
     }
     setShowCreate(false);
     setFormName(""); setFormIndustry(""); setFormNotes("");
+    toast(`Created client ${formName.trim()}`);
     fetchRows();
   };
 
@@ -130,7 +132,7 @@ export default function ClientsPage() {
           </div>
         ) : null}
 
-        <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", alignItems: "center", marginBottom: "1rem" }}>
+        <div className="filter-bar" style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", alignItems: "center", marginBottom: "1rem" }}>
           <input
             className="input"
             placeholder="Search by name or slug…"
@@ -177,6 +179,7 @@ export default function ClientsPage() {
           {formErr ? <p className="err text-sm">{formErr}</p> : null}
         </form>
       </Dialog>
+      <ToastContainer />
     </div>
   );
 }

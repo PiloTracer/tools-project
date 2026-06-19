@@ -94,9 +94,22 @@
 
 - **Token file:** web/src/app/globals.css
 - **Catalog:** `.work.ui/design-system/CATALOG.md` (still needs population)
-- **Last visual verify:** -
-- **Last a11y audit:** -
+- **Last visual verify:** 2026-06-18 — PASS with gaps (see audit)
+- **Last a11y audit:** 2026-06-18 — PASS with gaps (see audit)
 - **ADR location:** `.work.ui/decisions/` (default)
+
+## Recent audit
+
+| Audit | Verdict | Report |
+|-------|---------|--------|
+| ui-visual-verify milestone | **PASS with gaps** | `.work.ui/audits/20260618-full-ui-audit.md` |
+| ui-accessibility-audit milestone | **PASS with gaps** | `.work.ui/audits/20260618-full-ui-audit.md` |
+| UIS-01 visual hierarchy | ✓ Pass | `.work.ui/audits/20260618-full-ui-audit.md` |
+| UIS-02 responsive layout | ✓ Pass | `.work.ui/audits/20260618-full-ui-audit.md` |
+| UIS-04 color contrast | ✓ Pass | `.work.ui/audits/20260618-full-ui-audit.md` |
+| UIS-05 interaction patterns | ✓ Pass | `.work.ui/audits/20260618-full-ui-audit.md` |
+| UIS-06 AI visual quality | ✓ Pass | `.work.ui/audits/20260618-full-ui-audit.md` |
+| UIS-07 surface/control craft | ✓ Pass | `.work.ui/audits/20260618-full-ui-audit.md` |
 
 ---
 
