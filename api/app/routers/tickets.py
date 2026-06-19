@@ -28,6 +28,7 @@ from app.services.project_access import (
     require_project_access,
     require_role,
 )
+from app.services.activity_writer import write_activity
 from app.services.ref_alloc import allocate_ref
 
 router = APIRouter(
@@ -112,6 +113,16 @@ async def create_ticket(
         closed_at=closed_at,
     )
     db.add(row)
+    await db.flush()
+    await write_activity(
+        db=db,
+        project_id=project_id,
+        subject_type="ticket",
+        subject_id=row.id,
+        kind="system",
+        actor_id=user.id,
+        body=f"Ticket created: {row.title}",
+    )
     await db.commit()
     await db.refresh(row)
     return TicketOut.model_validate(row)
