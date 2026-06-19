@@ -1,12 +1,12 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { CommitPicker } from "@/components/CommitPicker";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { SubjectPicker } from "@/components/SubjectPicker";
+import { SubjectPreview } from "@/components/SubjectPreview";
 
 async function _searchUsers(prefix: string): Promise<{ label: string; insert: string }[]> {
   const r = await fetch(`/api/me/users/search?q=${encodeURIComponent(prefix)}&limit=8`);
@@ -258,6 +258,7 @@ export function ActivityFeed({
   const [replyBusy, setReplyBusy] = useState(false);
   const [replyMsg, setReplyMsg] = useState<string | null>(null);
   const [replyCommitPicker, setReplyCommitPicker] = useState<string | null>(null);
+  const [previewSubject, setPreviewSubject] = useState<{ subjectType: string; subjectId: string } | null>(null);
 
   const topItems = buildThreaded(initial);
 
@@ -322,16 +323,31 @@ export function ActivityFeed({
                       <span className="pill" style={{ fontSize: "0.65rem" }}>{a.kind}</span>
                     )}
                     {a.subject_type === "task" && a.subject_id ? (
-                      <Link href={`/projects/${projectId}/tasks/${a.subject_id}`} className="muted" style={{ fontSize: "inherit" }}>
+                      <button
+                        type="button"
+                        className="muted"
+                        style={{ background: "none", border: "none", cursor: "pointer", fontSize: "inherit", padding: 0, fontFamily: "inherit", textDecoration: "underline", textUnderlineOffset: "2px" }}
+                        onClick={() => setPreviewSubject({ subjectType: "task", subjectId: a.subject_id! })}
+                        title={a.subject_title ?? undefined}
+                      >
                         {a.subject_ref ?? "task"}
-                      </Link>
+                      </button>
                     ) : a.subject_type === "ticket" && a.subject_id ? (
-                      <Link href={`/projects/${projectId}/tickets/${a.subject_id}`} className="muted" style={{ fontSize: "inherit" }}>
+                      <button
+                        type="button"
+                        className="muted"
+                        style={{ background: "none", border: "none", cursor: "pointer", fontSize: "inherit", padding: 0, fontFamily: "inherit", textDecoration: "underline", textUnderlineOffset: "2px" }}
+                        onClick={() => setPreviewSubject({ subjectType: "ticket", subjectId: a.subject_id! })}
+                        title={a.subject_title ?? undefined}
+                      >
                         {a.subject_ref ?? "ticket"}
-                      </Link>
+                      </button>
                     ) : (
                       <span>{a.subject_type}</span>
                     )}
+                    {a.subject_title && a.subject_id ? (
+                      <span className="text-sm" style={{ color: "var(--text)" }}>{a.subject_title.length > 60 ? a.subject_title.slice(0, 60) + "…" : a.subject_title}</span>
+                    ) : null}
                     <span>·</span>
                     <span suppressHydrationWarning>{new Date(a.created_at).toLocaleString()}</span>
                     {internal ? (
@@ -475,6 +491,14 @@ export function ActivityFeed({
           })
         )}
       </ul>
+      {previewSubject ? (
+        <SubjectPreview
+          projectId={projectId!}
+          subjectType={previewSubject.subjectType}
+          subjectId={previewSubject.subjectId}
+          onClose={() => setPreviewSubject(null)}
+        />
+      ) : null}
     </div>
   );
 }
