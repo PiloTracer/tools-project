@@ -12,6 +12,7 @@ export function MarkdownEditor({
   mentionSuggestions,
   refSuggestions,
   onPasteFiles,
+  onDropFiles,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -20,6 +21,7 @@ export function MarkdownEditor({
   mentionSuggestions?: (prefix: string) => Promise<Suggestion[]>;
   refSuggestions?: (prefix: string) => Promise<Suggestion[]>;
   onPasteFiles?: (files: File[]) => void;
+  onDropFiles?: (files: File[]) => void;
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
@@ -104,7 +106,21 @@ export function MarkdownEditor({
   }
 
   return (
-    <div className="md-editor" style={{ position: "relative" }}>
+    <div
+      className="md-editor"
+      style={{ position: "relative" }}
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!onDropFiles) return;
+        const files = Array.from(e.dataTransfer.files);
+        if (files.length) onDropFiles(files);
+      }}
+    >
       <textarea
         ref={textareaRef}
         className="input"

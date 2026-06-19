@@ -250,15 +250,6 @@ export function TaskDiscussion({
           onSubmit={onSubmit}
           className="stack"
           style={{ gap: "0.5rem" }}
-          onDragOver={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-          }}
-          onDrop={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            addFiles(Array.from(e.dataTransfer.files));
-          }}
         >
           {replyToId ? (
             <p className="text-sm muted" style={{ margin: 0 }}>
@@ -276,23 +267,27 @@ export function TaskDiscussion({
               rows={4}
               placeholder="What happened, next steps…"
               onPasteFiles={(files) => addFiles(files)}
+              onDropFiles={(files) => addFiles(files)}
               mentionSuggestions={_searchUsers}
               refSuggestions={_searchRefs}
             />
           </label>
           <div className="stack" style={{ gap: "0.35rem" }}>
             <span className="text-sm muted">Attachments — images, PDF, or plain text (optional)</span>
-            <input
-              type="file"
-              accept="image/png,image/jpeg,image/gif,image/webp,application/pdf,text/plain"
-              multiple
-              className="text-sm"
-              onChange={(e) => {
-                const list = e.target.files;
-                if (list?.length) addFiles(Array.from(list));
-                e.target.value = "";
-              }}
-            />
+            <label className="btn btn-ghost text-sm" style={{ cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/gif,image/webp,application/pdf,text/plain"
+                multiple
+                style={{ display: "none" }}
+                onChange={(e) => {
+                  const list = e.target.files;
+                  if (list?.length) addFiles(Array.from(list));
+                  e.target.value = "";
+                }}
+              />
+              Browse files…
+            </label>
             {pending.length > 0 ? (
               <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", alignItems: "flex-start" }}>
                 {pending.map((p) => (
