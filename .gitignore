@@ -29,3 +29,6 @@ Thumbs.db
 # Tooling / coverage (if added later)
 coverage/
 .nyc_output/
+
+# TypeScript incremental build cache
+**/tsconfig.tsbuildinfo
