@@ -323,30 +323,22 @@ export function ActivityFeed({
                       <span className="pill" style={{ fontSize: "0.65rem" }}>{a.kind}</span>
                     )}
                     {a.subject_type === "task" && a.subject_id ? (
-                      <button
-                        type="button"
-                        className="muted"
-                        style={{ background: "none", border: "none", cursor: "pointer", fontSize: "inherit", padding: 0, fontFamily: "inherit", textDecoration: "underline", textUnderlineOffset: "2px" }}
-                        onClick={() => setPreviewSubject({ subjectType: "task", subjectId: a.subject_id! })}
-                        title={a.subject_title ?? undefined}
-                      >
-                        {a.subject_ref ?? "task"}
-                      </button>
+                      <span>{a.subject_ref ?? "task"}</span>
                     ) : a.subject_type === "ticket" && a.subject_id ? (
-                      <button
-                        type="button"
-                        className="muted"
-                        style={{ background: "none", border: "none", cursor: "pointer", fontSize: "inherit", padding: 0, fontFamily: "inherit", textDecoration: "underline", textUnderlineOffset: "2px" }}
-                        onClick={() => setPreviewSubject({ subjectType: "ticket", subjectId: a.subject_id! })}
-                        title={a.subject_title ?? undefined}
-                      >
-                        {a.subject_ref ?? "ticket"}
-                      </button>
+                      <span>{a.subject_ref ?? "ticket"}</span>
                     ) : (
                       <span>{a.subject_type}</span>
                     )}
                     {a.subject_title && a.subject_id ? (
-                      <span className="text-sm" style={{ color: "var(--text)" }}>{a.subject_title.length > 60 ? a.subject_title.slice(0, 60) + "…" : a.subject_title}</span>
+                      <button
+                        type="button"
+                        className="muted"
+                        style={{ background: "none", border: "none", cursor: "pointer", fontSize: "inherit", padding: 0, fontFamily: "inherit", textDecoration: "underline", textUnderlineOffset: "2px" }}
+                        onClick={() => setPreviewSubject({ subjectType: a.subject_type, subjectId: a.subject_id! })}
+                        title={a.subject_title ?? undefined}
+                      >
+                        {a.subject_title.length > 60 ? a.subject_title.slice(0, 60) + "…" : a.subject_title}
+                      </button>
                     ) : null}
                     <span>·</span>
                     <span suppressHydrationWarning>{new Date(a.created_at).toLocaleString()}</span>

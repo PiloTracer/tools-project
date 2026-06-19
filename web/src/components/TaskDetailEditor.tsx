@@ -154,6 +154,7 @@ export function TaskDetailEditor({
           <input
             className="input"
             type="text"
+            required
             value={title}
             onChange={(e) => setTitle(e.target.value)}
           />
