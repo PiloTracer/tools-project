@@ -20,6 +20,9 @@ export async function proxyToApi(
     headers.set("Content-Type", "application/json");
   }
   const r = await fetch(`${base}${path}`, { ...init, headers });
+  if (r.status === 204) {
+    return new NextResponse(null, { status: 204 });
+  }
   const text = await r.text();
   return new NextResponse(text, {
     status: r.status,
@@ -46,6 +49,9 @@ export async function proxyFormDataToApi(
     headers: { Authorization: `Bearer ${token}` },
     body: formData,
   });
+  if (r.status === 204) {
+    return new NextResponse(null, { status: 204 });
+  }
   const text = await r.text();
   return new NextResponse(text, {
     status: r.status,

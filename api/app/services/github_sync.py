@@ -75,6 +75,14 @@ async def sync_github_link(db: AsyncSession, link_id: uuid.UUID) -> dict[str, in
     if not isinstance(items, list):
         raise ValueError("Unexpected GitHub API response")
 
+    existing_shas: set[str] = set()
+    rows = await db.scalars(
+        select(GithubCommit.sha).where(GithubCommit.github_link_id == link.id)
+    )
+    for row in rows:
+        if isinstance(row, str):
+            existing_shas.add(row)
+
     upserted = 0
     commits_info: list[dict[str, str]] = []
     for item in items:
@@ -83,7 +91,6 @@ async def sync_github_link(db: AsyncSession, link_id: uuid.UUID) -> dict[str, in
         sha = item.get("sha")
         if not isinstance(sha, str) or len(sha) < 7:
             continue
-        # API returns full SHA on first line sometimes "sha\ntree ..."
         sha_full = sha.split()[0][:40]
         commit_obj = item.get("commit")
         if not isinstance(commit_obj, dict):
@@ -102,6 +109,10 @@ async def sync_github_link(db: AsyncSession, link_id: uuid.UUID) -> dict[str, in
         committed_at = _parse_committed_at(commit_obj)
         api_html = item.get("html_url")
         html_url = _derive_commit_html_url(owner, repo, sha_full, api_html if isinstance(api_html, str) else None)
+
+        is_new = sha_full not in existing_shas
+        if is_new:
+            existing_shas.add(sha_full)
 
         stmt = (
             pg_insert(GithubCommit)
@@ -134,6 +145,7 @@ async def sync_github_link(db: AsyncSession, link_id: uuid.UUID) -> dict[str, in
             "sha": sha_full,
             "html_url": html_url,
             "message": message,
+            "is_new": is_new,
         })
 
     link.last_synced_at = datetime.now(timezone.utc)

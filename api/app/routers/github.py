@@ -197,6 +197,7 @@ async def list_github_commits(
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
     link_id: uuid.UUID | None = Query(default=None),
+    q: str | None = Query(default=None),
     limit: int = Query(default=100, ge=1, le=500),
 ):
     await require_project_access(db, user, project_id)
@@ -211,6 +212,14 @@ async def list_github_commits(
     )
     if link_id is not None:
         stmt = stmt.where(GithubCommit.github_link_id == link_id)
+    if q:
+        like = f"%{q}%"
+        stmt = stmt.where(
+            GithubCommit.sha.ilike(like)
+            | GithubCommit.message.ilike(like)
+            | GithubLink.owner.ilike(like)
+            | GithubLink.repo.ilike(like)
+        )
     result = await db.execute(stmt)
     items = [_to_commit_summary(c, project_id, pname) for c, pname in result.all()]
     return GithubCommitListResponse(items=items)

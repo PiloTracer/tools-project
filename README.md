@@ -60,9 +60,9 @@ docker compose run --rm api sh
 
 | File | Contents |
 |------|----------|
-| `.ai/context/CONTEXT.md` | Ports, stack, auth modes, OAuth |
-| `.ai/context/HANDOFF.md` | What exists + next steps |
-| `.ai/plans/proposal/preliminary.md` | Product / UX brief |
+| `.work/context/CONTEXT.md` | Ports, stack, auth modes, OAuth |
+| `.work/context/HANDOFF.md` | What exists + next steps |
+| `.work/plans/legacy-plans/proposal/preliminary.md` | Product / UX brief |
 | `api/README.md` | Auth API summary |
 
 ## Secrets

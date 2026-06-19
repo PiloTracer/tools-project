@@ -36,6 +36,8 @@ async def github_poll_loop() -> None:
                             continue
                         result = await sync_github_link(s2, lid)
                         for c in result.get("commits", []):
+                            if not c.get("is_new"):
+                                continue
                             preview = (c["message"] or "").split("\n")[0][:100]
                             body_md = (
                                 f"[`{c['sha'][:7]}`]({c['html_url']}) "

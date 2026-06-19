@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
+import { CommitPicker } from "@/components/CommitPicker";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
 
 async function _searchUsers(prefix: string): Promise<{ label: string; insert: string }[]> {
@@ -35,6 +36,7 @@ type ActivityRow = {
   created_at: string;
   parent_activity_id?: string | null;
   is_internal?: boolean;
+  meta_json?: Record<string, unknown> | null;
 };
 
 export function ActivityComposer({
@@ -48,6 +50,7 @@ export function ActivityComposer({
   const [subjectType, setSubjectType] = useState("project");
   const [body, setBody] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
+  const [showCommitPicker, setShowCommitPicker] = useState(false);
 
   if (!canPost) {
     return <p className="muted text-sm">Viewers cannot post activity.</p>;
@@ -113,9 +116,28 @@ export function ActivityComposer({
           refSuggestions={_searchRefs}
         />
       </label>
-      <button type="submit" className="btn btn-primary">
-        Post
-      </button>
+      <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+        <button type="submit" className="btn btn-primary">
+          Post
+        </button>
+        <button
+          type="button"
+          className="btn btn-ghost text-sm"
+          onClick={() => setShowCommitPicker(!showCommitPicker)}
+        >
+          {showCommitPicker ? "Cancel" : "Cite commit"}
+        </button>
+      </div>
+      {showCommitPicker ? (
+        <CommitPicker
+          projectId={projectId}
+          onSelect={(md) => {
+            setBody((prev) => (prev ? prev + "\n" + md : md));
+            setShowCommitPicker(false);
+          }}
+          onClose={() => setShowCommitPicker(false)}
+        />
+      ) : null}
       {msg ? <p className="err text-sm">{msg}</p> : null}
     </form>
   );
@@ -178,6 +200,7 @@ export function ActivityFeed({
   const [replyBody, setReplyBody] = useState("");
   const [replyBusy, setReplyBusy] = useState(false);
   const [replyMsg, setReplyMsg] = useState<string | null>(null);
+  const [replyCommitPicker, setReplyCommitPicker] = useState<string | null>(null);
 
   const topItems = buildThreaded(initial);
 
@@ -236,7 +259,11 @@ export function ActivityFeed({
                 >
                   <div className="text-sm muted" style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", alignItems: "center" }}>
                     <span>{a.actor_email ?? "user"}</span>
-                    <span className="pill" style={{ fontSize: "0.65rem" }}>{a.kind}</span>
+                    {a.kind === "github_commit" ? (
+                      <span className="pill" style={{ fontSize: "0.65rem", background: "var(--accent, #0366d6)", color: "var(--on-accent, #fff)" }}>commit</span>
+                    ) : (
+                      <span className="pill" style={{ fontSize: "0.65rem" }}>{a.kind}</span>
+                    )}
                     <span>· {a.subject_type} ·</span>
                     <span>{new Date(a.created_at).toLocaleString()}</span>
                     {internal ? (
@@ -249,7 +276,26 @@ export function ActivityFeed({
                       </span>
                     ) : null}
                   </div>
-                  <p style={{ margin: "0.35rem 0 0", whiteSpace: "pre-wrap" }}>{a.body}</p>
+                  {a.kind === "github_commit" && a.meta_json ? (
+                    <div style={{ margin: "0.35rem 0 0" }}>
+                      <a
+                        href={a.meta_json.html_url as string}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}
+                      >
+                        <code style={{ fontSize: "0.85rem" }}>{(a.meta_json.sha as string)?.slice(0, 7)}</code>
+                      </a>
+                      <span className="muted" style={{ fontSize: "0.8rem", marginLeft: "0.5rem" }}>
+                        {a.meta_json.owner as string}/{a.meta_json.repo as string}
+                      </span>
+                      <p style={{ margin: "0.2rem 0 0", whiteSpace: "pre-wrap", fontSize: "0.9rem" }}>
+                        {a.meta_json.message_preview as string}
+                      </p>
+                    </div>
+                  ) : (
+                    <p style={{ margin: "0.35rem 0 0", whiteSpace: "pre-wrap" }}>{a.body}</p>
+                  )}
                   {canPost && projectId ? (
                     <button
                       type="button"
@@ -292,7 +338,26 @@ export function ActivityFeed({
                       <button type="submit" className="btn btn-primary text-sm" disabled={replyBusy || !replyBody.trim()}>
                         {replyBusy ? "Posting…" : "Reply"}
                       </button>
+                      <button
+                        type="button"
+                        className="btn btn-ghost text-sm"
+                        onClick={() =>
+                          setReplyCommitPicker(replyCommitPicker === a.id ? null : a.id)
+                        }
+                      >
+                        Cite commit
+                      </button>
                     </div>
+                    {replyCommitPicker === a.id && projectId ? (
+                      <CommitPicker
+                        projectId={projectId}
+                        onSelect={(md) => {
+                          setReplyBody((prev) => (prev ? prev + "\n" + md : md));
+                          setReplyCommitPicker(null);
+                        }}
+                        onClose={() => setReplyCommitPicker(null)}
+                      />
+                    ) : null}
                     {replyMsg ? <p className="err text-sm">{replyMsg}</p> : null}
                   </form>
                 ) : null}

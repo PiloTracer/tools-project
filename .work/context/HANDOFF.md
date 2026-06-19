@@ -2,12 +2,12 @@
 
 **Date:** 2026-06-18
 
-**Closed:** 2026-06-18 — dev/prd mode routing, start.sh menu fix, backup/restore, client seed + login form polish, UI screen spec for prospects list.
-**Updated:** 2026-06-18
+**Closed:** 2026-06-19 — GitHub integration (Batch I) completed end-to-end
+**Updated:** 2026-06-19
 
 Treat prior closed sessions as historical only; see "What this cycle produced" below.
 
-**Repository state:** `bin/start.sh` extended with cleanup, backup/restore, dev/prd mode routing via `load_env`. Menu input bug fixed (printf `---`). Docker Compose split into dev/prd variants. Client login form styled. Demo client user seed added. Prospects list screen spec created (Draft). UI design foundation still needed before build.
+**Repository state:** GitHub integration (Batch I) completed. Web tab at `/projects/[id]/github` with linked repos + commit table. Settings form for add/remove repos + PAT. Background poller writes `github_commit` activity rows for new commits only. Activity feed renders `github_commit` cards with rich SHA/repo/preview. `github_ref` validation on activity create. Commit picker component integrated into composer + replies. Plans updated to reflect completion.
 
 ## Start here (new session)
 
@@ -24,7 +24,7 @@ Treat prior closed sessions as historical only; see "What this cycle produced" b
 | Area | Status |
 |------|--------|
 | **Auth** | Dual **local** + **OAuth**; **`GET /v1/auth/config`** drives **`/login`**. |
-| **Web** | **`AppShell`**: Today, Projects, **Inbox**, **⌘K** + **`CmdkPalette`**; Kanban + task detail; project **health** pills; ticket **threaded** discussion + **project Activity** threaded replies; **`MarkdownEditor`** with **`@mention`** + **`#ref`**; **`WatchButtons`**. **No** project **GitHub** settings page or **`/projects/[id]/github`** route yet — use **API** (**`/docs`**) to add repo links until **I10d** web ships. |
+| **Web** | **`AppShell`**: Today, Projects, **Inbox**, **⌘K** + **`CmdkPalette`**; Kanban + task detail; project **health** pills; ticket **threaded** discussion + **project Activity** threaded replies; **`MarkdownEditor`** with **`@mention`** + **`#ref`**; **`WatchButtons`**. **GitHub tab** (`/projects/[id]/github`) with linked repos + commit table; **GitHub settings** (add/remove repos + PAT) in project settings; **`github_commit` activity cards** with rich SHA/preview rendering; **commit picker** ("Cite commit") in activity composer + reply forms. |
 | **API** | Inbox, watches, **`/me/today`**, **`/me/users/search`**, **`/me/refs/search`**; attachments + quotas; SSE-rich activity hints; **GitHub:** **`GET/POST/DELETE /v1/projects/{id}/github/links`**, **`POST …/links/{link_id}/sync`**, **`GET …/github/commits`** (`CommitSummary` always includes **`html_url`**); background poll (**`app/github_background.py`**, **`GITHUB_*`** env). |
 | **DB** | Includes **`github_links`** (encrypted **`token_cipher`**), **`github_commits`** (**`html_url` NOT NULL**). |
 | **Config** | Attachments: `attachment_max_per_project`, `attachment_max_bytes_per_project`, `attachment_retention_days`. GitHub: **`github_sync_enabled`**, **`github_poll_interval_seconds`**, **`github_poll_initial_delay_seconds`**, **`github_commits_per_sync`**; optional **`GITHUB_TOKEN_ENCRYPTION_KEY`** (see **`.env.example`**). |
@@ -44,11 +44,9 @@ Treat prior closed sessions as historical only; see "What this cycle produced" b
 
 ## Recommended next work
 
-1. **Complete UI design foundation** (`@ui-design-foundation greenfield`) — needed before prospects list can be built.
-2. **Prospects list UI** — implement from the Approved SPEC after foundation is done.
-3. **`github_ref` picker (M4-T4):** Build commit-cite UI for tasks/comments — backend validation exists, UI is TODO.
-4. **Client task/ticket scope by company contacts:** Currently filtered by the signed-in contact's user_id; SPEC also mentions "their client company contacts".
-5. **`next/image` migration:** Suppress or fix pre-existing ESLint warning in `TicketDiscussion.tsx`.
+1. **Client task/ticket scope by company contacts:** Currently filtered by the signed-in contact's user_id; SPEC also mentions "their client company contacts".
+2. **`next/image` migration:** Suppress or fix pre-existing ESLint warning in `TicketDiscussion.tsx`.
+3. **Add `tsconfig.tsbuildinfo` to `.gitignore`:** Build artifact currently untracked and showing in `git status`.
 
 ---
 
@@ -107,6 +105,14 @@ Treat prior closed sessions as historical only; see "What this cycle produced" b
 | `web/next.config.ts` | Added `turbopack: { root: "/app" }` for Next.js 16 |
 | `web/src/app/client/login/page.tsx` | Form styling: `.field`/`.input`/`.label` classes, `stack-lg` spacing |
 | `.work.ui/screens/prospects-list/20260618-SCREEN-SPEC.md` | Prospects list screen SPEC (Draft) — admin-dashboard, pipeline table view |
+| `api/app/services/github_sync.py` | Fixed duplicate activity bug — only returns `is_new` commits |
+| `api/app/github_background.py` | Only writes `github_commit` activity for genuinely new commits |
+| `api/app/routers/github.py` | Added `q` search param to `GET /github/commits` |
+| `api/app/routers/activities.py` | Added `github_ref` validation on activity create |
+| `web/src/components/CommitPicker.tsx` | New CommitPicker component — search commits, insert markdown ref |
+| `web/src/app/projects/[id]/activity/ActivityClient.tsx` | Rich `github_commit` activity card rendering; CommitPicker in composer + replies |
+| `.work/plans/full/20260618-full-plan.md` | M4 tasks updated to `done` |
+| `.work/plans/NEXT.md` | Batch I status updated to complete |
 
 ## Where to read more
 

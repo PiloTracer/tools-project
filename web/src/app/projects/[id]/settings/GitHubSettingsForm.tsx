@@ -25,6 +25,13 @@ export function GitHubSettingsForm({
   const [pat, setPat] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
 
+  function flashMsg(m: string) {
+    setMsg(m);
+    if (!m.includes("Error") && !m.includes("denied") && !m.includes("not found")) {
+      setTimeout(() => setMsg(null), 4000);
+    }
+  }
+
   if (!canEdit) {
     return (
       <div>
@@ -67,8 +74,16 @@ export function GitHubSettingsForm({
       }
       return;
     }
+    let newLink: LinkRow | null = null;
+    try {
+      newLink = JSON.parse(text) as LinkRow;
+    } catch { /* ignore */ }
     setRepoUrl("");
     setPat("");
+    if (newLink) {
+      setLinks((prev) => [newLink!, ...prev]);
+    }
+    flashMsg("Repository linked successfully.");
     router.refresh();
   }
 
@@ -89,6 +104,7 @@ export function GitHubSettingsForm({
       return;
     }
     setLinks((prev) => prev.filter((l) => l.id !== linkId));
+    flashMsg("Repository removed.");
     router.refresh();
   }
 
@@ -117,7 +133,7 @@ export function GitHubSettingsForm({
                     {l.owner}/{l.repo}
                   </a>
                 </td>
-                <td>
+                <td suppressHydrationWarning>
                   {l.last_synced_at
                     ? new Date(l.last_synced_at).toLocaleString()
                     : "—"}
@@ -170,7 +186,16 @@ export function GitHubSettingsForm({
         <button type="submit" className="btn btn-primary">
           Link repository
         </button>
-        {msg ? <p className="err text-sm">{msg}</p> : null}
+        {msg ? (
+          <p
+            className="text-sm"
+            style={{
+              color: msg.includes("successfully") ? "var(--success, #1a7f37)" : "var(--danger, #c33)",
+            }}
+          >
+            {msg}
+          </p>
+        ) : null}
       </form>
     </div>
   );

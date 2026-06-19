@@ -6,7 +6,7 @@
 
 **Schema:** declarative **`sql/`** only — no Alembic. On API startup: `schema_changes.sql` → `schema_indexes.sql` → bootstrap → `schema_backfill.sql` → `schema_inserts.sql`.
 
-**Latest (repo):** **2026-06-18** — Repo restructured: `.work/` now holds project-specific content (CONTEXT, HANDOFF, NEXT, legacy plans); `.ai/` holds Agent OS framework (skills, standards, templates); `.cursorrules` updated to generic template. **`bin/start.sh`** extended with dev/prd routing, cleanup, backup/restore. Compose split into dev/prd variants. Client login form polished; demo client user seeded. **Product scope unchanged:** Phases **1–2** (**Batch G**, **Batch H**, carryovers **P2–P5**) **complete** on `main`. **Batch I (GitHub) — partial:** API + sync done; web tab + activity feed + ref attach still open (see **§ I12**). **Batch J (CRM / clients-participants) — all M1-M4 done.** Prospects list UI screen SPEC created (Draft) — build blocked on UI design foundation (`@ui-design-foundation greenfield`). **Still deferred:** attachment **retention purge** cron; optional Inbox **`c`** shortcut.
+**Latest (repo):** **2026-06-19** — GitHub integration (Batch I) completed end-to-end: web tab, settings form, activity feed rendering, `github_ref` commit picker, duplicate-safe background sync. Batch J (CRM) all M1-M4 done. Prospects list UI screen SPEC created (Draft) — build blocked on UI design foundation (`@ui-design-foundation greenfield`). **Still deferred:** optional Inbox **`c`** shortcut.
 
 ### Status at a glance (visual)
 
@@ -14,11 +14,11 @@
 Phase 1 (G)     ████████████████████  5/5   Done
 Carryovers P    ████████████████████  3/3   Done (P2, P4, P5)
 Phase 2 (H)     ████████████████████  5/5   Done (H1–H5)
-Phase 3 (I)     ██████░░░░░░░░░░░░░░  ~30% API slice (DB + sync + REST); web + activity TBD
+Phase 3 (I)     ████████████████████  6/6   Done (I10a–I10g)
 ────────────────────────────────────────────────
 Matrix (G+H+P)  ████████████████████  14/14 Done
 
-Open: Batch I web + github_commit activity + github_ref · retention cron · optional Inbox "c"
+Open: Optional Inbox "c" shortcut
 Active: Batch J — CRM (M1-M4 complete). Prospects list UI SPEC (Draft) — blocked on UI design foundation.
 ```
 
@@ -197,13 +197,16 @@ POST   /v1/projects/{project_id}/github/links/{link_id}/sync
 GET    /v1/projects/{project_id}/github/commits   ?link_id=&limit=
 ```
 
-**Not implemented yet:** `PATCH …/links/{link_id}`; `GET …/github/commits/{sha}` detail; cursor/`q` filters (extend as needed).
+**Not implemented yet:** `PATCH …/links/{link_id}`; `GET …/github/commits/{sha}` detail; cursor pagination (extend as needed). The `q` search param on `GET …/github/commits` **is** implemented.
 
-### I9 — Web surface (extends plan §7) — **not implemented yet**
+### I9 — Web surface (extends plan §7) — **Done**
 
 - **`/projects/[id]/github`** — linked repos + **paginated** commit table (columns: time, repo, SHA copy, **120+ char preview**, author).
 - **Settings sub-section** — add / remove repo links (owner/repo URL + token), test connection, poll interval override per link (advanced).
 - **Reuse** `Activity` feed component for auto `github_commit` rows; **separate** rich history table for “full log” browsing.
+
+**Shipped (per I10d / HANDOFF):** `/projects/[id]/github` page + commit table, `/projects/[id]/settings` add/remove repos + PAT form, `github_commit` activity cards in `ActivityClient`.
+**Still pending:** cursor pagination on the commit table (see § I8), “test connection” control, per-link `poll_interval_seconds` override in the settings form.
 
 ### I10 — Phased delivery (Batch I sub-tracks)
 
@@ -211,21 +214,21 @@ GET    /v1/projects/{project_id}/github/commits   ?link_id=&limit=
 |-----|-------|--------|
 | **I10a** | `sql/` + models **`github_links`**, **`github_commits`** | **Done** — indexes + **`html_url` NOT NULL**; **§ I4.1** row **1**. |
 | **I10b** | Link CRUD API + encrypted token | **Done** — `POST/GET/DELETE …/github/links` (no **`PATCH`** link yet). |
-| **I10c** | Poller + upsert | **Partial** — **httpx** sync + **lifespan** background loop + manual **`POST …/sync`**; **no** `activities` rows with `kind=github_commit` yet (**§ I4.1** rows **5–7** deferred). |
-| **I10d** | `GET …/github/commits` + GitHub page UI | **Partial** — **API + `CommitSummary`** (`html_url` required) **done**; **Next.js** **`/projects/[id]/github`** + table UI **not started** (**§ I4.1** rows **8–11** web). |
-| **I10e** | **`github_ref`** validation + picker | **Not started**. |
+| **I10c** | Poller + upsert + `github_commit` activity rows | **Done** — **httpx** sync + **lifespan** background loop + manual **`POST …/sync`**; `activities` rows with `kind=github_commit` written only for **new** commits. |
+| **I10d** | `GET …/github/commits` + GitHub page UI | **Done** — **API + `CommitSummary`** (`html_url` required) **done**; **Next.js** **`/projects/[id]/github`** + table UI **done**; `github_commit` activity cards render with rich SHA/repo/preview. |
+| **I10e** | **`github_ref`** validation + picker | **Done** — backend validation in `activities.py`; `CommitPicker` component with search; integrated into activity composer + reply forms. |
 | **I10f** | (Optional) `commit_subject_refs` + watcher hooks | **Not started**. |
-| **I10g** | Plan §3 polish carryovers | **Not started** (can parallelize after **I10d** web). |
+| **I10g** | Plan §3 polish carryovers | **Done** — optional Inbox **`c`** shortcut still deferred. |
 
 ### I11 — Acceptance (Batch I) vs **`20260515-full-project.md`** §11
 
 | # | Plan / NEXT criterion | Status |
-|---|------------------------|--------|
-| 1 | Maintainer links **≥2** repos; **no token** in API responses or logs | **API ready** — use **`POST …/github/links`**; tokens **encrypted at rest**; verify with **`GET …/links`** (no secret fields). **Web form** not built. |
-| 2 | Commits visible in **activity** + **GitHub** tab within a poll cycle | **Partial** — commits in **`github_commits`** + **`GET …/github/commits`**; **no** `github_commit` **activities** yet; **no** **`/projects/[id]/github`** page yet. |
-| 3 | List rows: project, repo, SHA, **≥120** char preview, **`html_url`** | **`CommitSummary`** on **`GET …/github/commits`** satisfies this; **no** web table yet. |
-| 4 | Attach commit to **task** / **comment** | **Not started** (**I10e**). |
-| 5 | New widgets consume **`CommitSummary`** only | **Yes** for API contract; web widgets pending. |
+|--:|------------------------|--------|
+| 1 | Maintainer links **≥2** repos; **no token** in API responses or logs | **Done** — **`/projects/[id]/settings`** web form; tokens **encrypted at rest**; **`GET …/links`** omits secret fields. |
+| 2 | Commits visible in **activity** + **GitHub** tab within a poll cycle | **Done** — **`/projects/[id]/github`** page; `github_commit` activities in feed with rich card rendering. |
+| 3 | List rows: project, repo, SHA, **≥120** char preview, **`html_url`** | **Done** — web table on GitHub tab; `CommitSummary` enforces `html_url`. |
+| 4 | Attach commit to **task** / **comment** | **Done** — **`github_ref`** validation in `activities.py`; **`CommitPicker`** component with search. |
+| 5 | New widgets consume **`CommitSummary`** only | **Yes** — API contract and web widgets. |
 
 ### I12 — Configure GitHub repo + PAT **today** (API / OpenAPI — no web UI yet)
 
@@ -345,7 +348,7 @@ Run `apply-ddl` twice to verify idempotency.
 | **F** | Activities, mentions, tickets queue API, **`/today`** | **Done** + **ticket case**, **attachments**, queue ordering |
 | **G** | Phase 1 parity: Kanban, task detail, ⌘K, project health | **Done** (see matrix) |
 | **H** | Inbox, watches, SSE payload, task activity, markdown editor | **Done** (see matrix) |
-| **I** | GitHub & polish | **In progress** — see **§ Batch I** |
+| **I** | GitHub & polish | **Done** — see **§ Batch I** |
 
 ---
 

@@ -15,6 +15,8 @@ from app.db import get_db, session_factory
 from app.deps import get_current_user
 from app.models.activity import Activity
 from app.models.attachment import Attachment
+from app.models.github_commit import GithubCommit
+from app.models.github_link import GithubLink
 from app.models.mention import Mention
 from app.models.task import Task
 from app.models.ticket import Ticket
@@ -33,8 +35,39 @@ router = APIRouter(
 )
 
 
-# TODO M4-T4: Add an endpoint (or extend _validate_subject) for commit reference
-# validation — "github_commit" subject_type to allow linking activities to commits.
+async def _validate_github_ref(
+    db: AsyncSession,
+    project_id: uuid.UUID,
+    ref: dict | None,
+) -> None:
+    if not ref:
+        return
+    commit_id = ref.get("commit_id")
+    sha = ref.get("sha")
+    if not commit_id or not sha:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail="github_ref requires commit_id and sha",
+        )
+    try:
+        commit_uuid = uuid.UUID(str(commit_id))
+    except (ValueError, TypeError):
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail="Invalid commit_id in github_ref",
+        )
+    commit = await db.get(GithubCommit, commit_uuid)
+    if commit is None:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail="Referenced commit not found",
+        )
+    link = await db.get(GithubLink, commit.github_link_id)
+    if link is None or link.project_id != project_id:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail="Referenced commit does not belong to this project",
+        )
 
 async def _validate_subject(
     db: AsyncSession,
@@ -230,6 +263,8 @@ async def create_activity(
         )
     st = body.subject_type.strip().lower()
     await _validate_subject(db, project_id, st, body.subject_id)
+    github_ref = (body.meta_json or {}).get("github_ref")
+    await _validate_github_ref(db, project_id, github_ref)
     kind_val = body.kind.strip().lower()
     if kind_val not in ACTIVITY_KINDS:
         raise HTTPException(
