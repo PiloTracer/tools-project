@@ -181,7 +181,7 @@ export default function ClientsPage() {
             <span className="label">Notes</span>
             <textarea className="input" rows={3} value={formNotes} onChange={(e) => setFormNotes(e.target.value)} />
           </label>
-          {formErr ? <p className="err text-sm">{formErr}</p> : null}
+          {formErr ? <p id="client-form-err" className="err text-sm" role="alert">{formErr}</p> : null}
         </form>
       </Dialog>
       <ToastContainer />

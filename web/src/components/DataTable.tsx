@@ -121,6 +121,8 @@ export function DataTable<T extends { id: string }>({
                 onClick={() => {
                   if (col.sortable) handleSort(col.key);
                 }}
+                onKeyDown={col.sortable ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleSort(col.key); } } : undefined}
+                tabIndex={col.sortable ? 0 : undefined}
                 aria-sort={
                   sortKey === col.key ? (sortDir === "asc" ? "ascending" : "descending") : undefined
                 }
@@ -144,6 +146,9 @@ export function DataTable<T extends { id: string }>({
             <tr
               key={row.id}
               onClick={() => onRowClick?.(row)}
+              onKeyDown={onRowClick ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onRowClick(row); } } : undefined}
+              tabIndex={onRowClick ? 0 : undefined}
+              role={onRowClick ? "button" : undefined}
               style={{
                 borderBottom: "1px solid var(--border)",
                 cursor: onRowClick ? "pointer" : "default",

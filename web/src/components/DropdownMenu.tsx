@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, type ReactNode } from "react";
+import { useState, useRef, useEffect, useCallback, type ReactNode } from "react";
 
 export function DropdownMenu({
   trigger,
@@ -11,6 +11,21 @@ export function DropdownMenu({
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  const focusItem = useCallback((dir: "first" | "last" | "next" | "prev") => {
+    if (!menuRef.current) return;
+    const items = menuRef.current.querySelectorAll<HTMLButtonElement>('[role="menuitem"]:not([disabled])');
+    if (items.length === 0) return;
+    const current = document.activeElement;
+    let idx = Array.from(items).indexOf(current as HTMLButtonElement);
+    if (dir === "first") idx = 0;
+    else if (dir === "last") idx = items.length - 1;
+    else if (dir === "next") idx = Math.min(idx + 1, items.length - 1);
+    else if (dir === "prev") idx = Math.max(idx - 1, 0);
+    items[idx]?.focus();
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -20,21 +35,34 @@ export function DropdownMenu({
       }
     };
     const keyHandler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") {
+        setOpen(false);
+        return;
+      }
+      if (e.key === "ArrowDown") { e.preventDefault(); focusItem("next"); }
+      if (e.key === "ArrowUp") { e.preventDefault(); focusItem("prev"); }
     };
     document.addEventListener("mousedown", handler);
     document.addEventListener("keydown", keyHandler);
+    focusItem("first");
     return () => {
       document.removeEventListener("mousedown", handler);
       document.removeEventListener("keydown", keyHandler);
     };
-  }, [open]);
+  }, [open, focusItem]);
 
   return (
     <div ref={ref} style={{ position: "relative", display: "inline-flex" }}>
-      <div onClick={(e) => { e.stopPropagation(); setOpen(!open); }}>{trigger}</div>
+      <div
+        ref={triggerRef}
+        onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpen(!open); } }}
+      >
+        {trigger}
+      </div>
       {open ? (
         <div
+          ref={menuRef}
           role="menu"
           style={{
             position: "absolute",
@@ -49,7 +77,7 @@ export function DropdownMenu({
             minWidth: "160px",
             padding: "0.25rem 0",
           }}
-          onClick={(e) => { e.stopPropagation(); setOpen(false); }}
+          onClick={(e) => { e.stopPropagation(); setOpen(false); triggerRef.current?.focus(); }}
         >
           {children}
         </div>

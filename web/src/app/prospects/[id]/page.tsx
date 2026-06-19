@@ -312,7 +312,7 @@ export default function ProspectDetailPage() {
             <span className="label">Notes</span>
             <textarea className="input" rows={3} value={editNotes} onChange={(e) => setEditNotes(e.target.value)} />
           </label>
-          {editErr ? <p className="err text-sm">{editErr}</p> : null}
+          {editErr ? <p id="edit-form-err" className="err text-sm" role="alert">{editErr}</p> : null}
         </form>
       </Dialog>
 

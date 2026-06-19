@@ -221,14 +221,22 @@ export default function ClientDetailPage() {
         </div>
       </div>
 
-      <div style={{ display: "flex", gap: "0.5rem", borderBottom: "1px solid var(--border)", paddingBottom: "0.5rem" }}>
+      <div role="tablist" aria-label="Client sections" style={{ display: "flex", gap: "0.5rem", borderBottom: "1px solid var(--border)", paddingBottom: "0.5rem" }}>
         <button
+          role="tab"
+          id="tab-details"
+          aria-selected={activeTab === "details"}
+          aria-controls="panel-details"
           className={activeTab === "details" ? "btn btn-sm btn-primary" : "btn btn-sm btn-ghost"}
           onClick={() => setActiveTab("details")}
         >
           Details
         </button>
         <button
+          role="tab"
+          id="tab-contacts"
+          aria-selected={activeTab === "contacts"}
+          aria-controls="panel-contacts"
           className={activeTab === "contacts" ? "btn btn-sm btn-primary" : "btn btn-sm btn-ghost"}
           onClick={() => setActiveTab("contacts")}
         >
@@ -237,7 +245,7 @@ export default function ClientDetailPage() {
       </div>
 
       {activeTab === "details" ? (
-        <>
+        <div role="tabpanel" id="panel-details" aria-labelledby="tab-details">
           <div className="card" style={{ maxWidth: "700px" }}>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "1rem" }}>
               <div>
@@ -256,9 +264,9 @@ export default function ClientDetailPage() {
               <p className="text-sm" style={{ whiteSpace: "pre-wrap", margin: 0 }}>{client.notes}</p>
             </div>
           ) : null}
-        </>
+        </div>
       ) : (
-        <div>
+        <div role="tabpanel" id="panel-contacts" aria-labelledby="tab-contacts">
           <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "1rem" }}>
             <button className="btn btn-primary btn-sm" onClick={() => { setContactName(""); setContactEmail(""); setContactPhone(""); setContactTitle(""); setContactErr(null); setShowAddContact(true); }}>
               Add contact
@@ -296,7 +304,7 @@ export default function ClientDetailPage() {
             <span className="label">Notes</span>
             <textarea className="input" rows={3} value={editNotes} onChange={(e) => setEditNotes(e.target.value)} />
           </label>
-          {editErr ? <p className="err text-sm">{editErr}</p> : null}
+          {editErr ? <p id="edit-client-form-err" className="err text-sm" role="alert">{editErr}</p> : null}
         </form>
       </Dialog>
 
@@ -342,7 +350,7 @@ export default function ClientDetailPage() {
             <span className="label">Title / role</span>
             <input className="input" value={contactTitle} onChange={(e) => setContactTitle(e.target.value)} />
           </label>
-          {contactErr ? <p className="err text-sm">{contactErr}</p> : null}
+          {contactErr ? <p id="contact-form-err" className="err text-sm" role="alert">{contactErr}</p> : null}
         </form>
       </Dialog>
       <ToastContainer />

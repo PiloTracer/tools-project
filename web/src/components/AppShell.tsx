@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 
 import { CmdkPalette } from "@/components/CmdkPalette";
 import { SignOutButton } from "@/components/SignOutButton";
+import { SkipLink } from "@/components/SkipLink";
 import { fetchMe } from "@/shared/server/session";
 
 export async function AppShell({ children }: { children: ReactNode }) {
@@ -10,6 +11,7 @@ export async function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="app-frame">
+      <SkipLink />
       <header className="app-header">
         <div className="app-header-inner">
           <Link href="/" className="brand">
@@ -69,7 +71,7 @@ export async function AppShell({ children }: { children: ReactNode }) {
           )}
         </div>
       </header>
-      <div className="app-body">{children}</div>
+      <div id="main-content" className="app-body">{children}</div>
       <CmdkPalette />
     </div>
   );

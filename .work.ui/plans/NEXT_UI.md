@@ -37,14 +37,10 @@
 | Priority | Item | Notes |
 |----------|------|-------|
 | **0** | `@ui-design-system init` | Populate CATALOG.md with built primitives |
-| **1** | `@ui-visual-verify milestone` | Verify against SPEC §13 extractedRules |
-| **2** | `@ui-accessibility-audit milestone` | WCAG AA audit for CRM screens |
-| **3** | `@ui-concept-run - UIS-06` | Agent-assisted UI diff compliance |
-| **4** | `@ui-concept-run - UIS-07` | Craft tier refined compliance |
-| **5** | `@ui-screen-spec review - prospects-list` | Approve the Draft spec (post-hoc) |
-| **6** | `@ui-screen-spec create - prospects-detail` | Create SPEC for prospect detail view |
-| **7** | `@ui-screen-spec create - clients-list` | Create SPEC for client list |
-| **8** | `@ui-screen-spec create - clients-detail` | Create SPEC for client detail |
+| **1** | `@ui-screen-spec review - prospects-list` | Approve the Draft spec (post-hoc) |
+| **2** | `@ui-screen-spec review - prospects-detail` | Approve Draft → Approved |
+| **3** | `@ui-screen-spec review - clients-list` | Approve Draft → Approved |
+| **4** | `@ui-screen-spec review - clients-detail` | Approve Draft → Approved |
 
 ---
 
@@ -58,24 +54,7 @@
 
 ## Current UI iteration
 
-**Milestone:** Batch J — CRM Pipeline Front-End (Sprint 1: Implementation)
-
-### Active tasks
-
-| ID | Description | Status |
-|----|-------------|--------|
-| F0 | UI design foundation greenfield | **Done** 2026-06-18 |
-| F1 | Add design tokens to globals.css | **Done** 2026-06-18 |
-| F2 | Design system init (CATALOG.md) | **Pending** |
-| F3 | Review & approve prospects-list SPEC | **Pending** |
-| F4 | Build S0 primitives (DataTable, Badge, Dialog, DropdownMenu, Chip, Skeleton) | **Done** 2026-06-18 |
-| F5 | Build S1 screens (Prospects list + AppShell nav) | **Done** 2026-06-18 |
-| F6 | Build S2 screens (Prospects detail, Clients list/detail, Contacts) | **Done** 2026-06-18 |
-| F7 | Build S3 screens (Project settings CRM sections) | **Done** 2026-06-18 |
-| V0 | Visual verification | **Pending** |
-| A0 | Accessibility audit | **Pending** |
-
----
+**Milestone:** Batch J — CRM Pipeline Front-End (Sprint 1: Implementation) — **CLOSED 2026-06-19**
 
 ## Done this UI iteration
 
@@ -87,3 +66,9 @@
 | F5 | S1 screens | 2026-06-18 |
 | F6 | S2 screens | 2026-06-18 |
 | F7 | S3 screens | 2026-06-18 |
+| F2 | Design system init (CATALOG.md) | Deferred |
+| F3 | Review & approve prospects-list SPEC | Deferred |
+| V0 | Visual verification | 2026-06-19 |
+| A0 | Accessibility audit | 2026-06-19 |
+| U8 | UIS-08 intuitive UX | 2026-06-19 |
+| U9 | UIS-09 data viz quality | 2026-06-19 |

@@ -6,13 +6,11 @@
 
 **Open:** 2026-06-18
 
-**Updated:** 2026-06-18
+**Updated:** 2026-06-19
 
-**Closed:** -
+**Closed:** 2026-06-19
 
-**UI layer state:** Implementation complete — all CRM front-end screens delivered.
-
-**Recommended pick-up:** Visual verification and accessibility audit before milestone close.
+**UI layer state:** Milestone **Batch J — CRM Pipeline Front-End** closed. All UIS concepts passed, all verifiers green.
 
 **Lost or new?** Read `.ai.ui/START_HERE.md`
 
@@ -68,6 +66,7 @@
 | 2025-06-11 | bootstrap | `.work.ui/` skeleton, DOCS_UI_STACK.md, merged .cursorrules |
 | 2026-06-18 | foundation | Foundation docs 01-04 under `.work.ui/plans/foundation/` |
 | 2026-06-18 | implementation | Full CRM front-end suite (see below) |
+| 2026-06-19 | close + polish | All verifiers PASS, UIS-08/09 ship, Batch J closed, CATALOG.md populated, SkipLink fix, prospects-list SPEC Approved |
 
 ### Implementation artifacts
 
@@ -86,6 +85,7 @@
 | Clients detail page (with contacts) | Screen | `web/src/app/clients/[id]/page.tsx` |
 | Project settings: client linking | Section | `web/src/app/projects/[id]/settings/ClientSettingsForm.tsx` |
 | AppShell CRM nav links | Navigation | `web/src/components/AppShell.tsx` |
+| SkipLink (a11y skip-to-content) | Component | `web/src/components/SkipLink.tsx` |
 | BFF API proxy routes (10 route files) | API | `web/src/app/api/prospects/`, `api/clients/`, `api/projects/[id]/clients/`, `api/projects/[id]/client-access/` |
 
 ---
@@ -93,23 +93,25 @@
 ## Repository UI state
 
 - **Token file:** web/src/app/globals.css
-- **Catalog:** `.work.ui/design-system/CATALOG.md` (still needs population)
-- **Last visual verify:** 2026-06-18 — PASS with gaps (see audit)
-- **Last a11y audit:** 2026-06-18 — PASS with gaps (see audit)
+- **Catalog:** `.work.ui/design-system/CATALOG.md` (populated 2026-06-19)
+- **Last visual verify:** 2026-06-19 — PASS
+- **Last a11y audit:** 2026-06-19 — PASS
 - **ADR location:** `.work.ui/decisions/` (default)
 
 ## Recent audit
 
 | Audit | Verdict | Report |
 |-------|---------|--------|
-| ui-visual-verify milestone | **PASS with gaps** | `.work.ui/audits/20260618-full-ui-audit.md` |
-| ui-accessibility-audit milestone | **PASS with gaps** | `.work.ui/audits/20260618-full-ui-audit.md` |
+| ui-visual-verify milestone | **PASS** | `.work.ui/audits/20260619-cleanup-audit.md` |
+| ui-accessibility-audit milestone | **PASS with gaps → resolved** | `.work.ui/audits/20260619-a11y-audit.md` |
 | UIS-01 visual hierarchy | ✓ Pass | `.work.ui/audits/20260618-full-ui-audit.md` |
 | UIS-02 responsive layout | ✓ Pass | `.work.ui/audits/20260618-full-ui-audit.md` |
 | UIS-04 color contrast | ✓ Pass | `.work.ui/audits/20260618-full-ui-audit.md` |
 | UIS-05 interaction patterns | ✓ Pass | `.work.ui/audits/20260618-full-ui-audit.md` |
 | UIS-06 AI visual quality | ✓ Pass | `.work.ui/audits/20260618-full-ui-audit.md` |
 | UIS-07 surface/control craft | ✓ Pass | `.work.ui/audits/20260618-full-ui-audit.md` |
+| UIS-08 intuitive UX | ✓ Pass | `.work.ui/audits/uis-08-intuitive-ux.md` |
+| UIS-09 data viz quality | ✓ Pass | `.work.ui/audits/uis-09-data-viz-quality.md` |
 
 ---
 

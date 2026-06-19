@@ -540,7 +540,7 @@ function ProspectForm({
         <span className="label">Notes</span>
         <textarea className="input" rows={3} value={formNotes} onChange={(e) => onNotesChange(e.target.value)} />
       </label>
-      {formErr ? <p className="err text-sm">{formErr}</p> : null}
+      {formErr ? <p id="prospect-form-err" className="err text-sm" role="alert">{formErr}</p> : null}
     </form>
   );
 }

@@ -1,6 +1,6 @@
 # Prospects list — Screen SPEC
 
-**Status:** Draft
+**Status:** Approved
 **Slug:** prospects-list
 **Path:** `.work.ui/screens/prospects-list/20260618-SCREEN-SPEC.md`
 
@@ -99,14 +99,14 @@ Breakpoints: sm (0–639px), md (640–1023px), lg (1024+). Filter bar stacks on
 | Component | Catalog status | Native waiver |
 |-----------|----------------|---------------|
 | Button | done | — |
-| DataTable | planned | no — required per §13 |
-| Badge | planned | no — required per §13 (stage badges) |
-| Chip | planned | no — required per §13 (filter chips) |
-| Select | planned | no — native `<select>` allowed on filter bar (non-primary flow) |
+| DataTable | done | — |
+| Badge | done | — |
+| Chip | done | — |
+| Select | done | — native `<select>` allowed on filter bar (non-primary flow) |
 | Input | done | — |
-| Dialog | planned | no — required for create/edit/delete confirm |
-| DropdownMenu | planned | no — required for per-row actions |
-| Skeleton | planned | no — required for loading state |
+| Dialog | done | — |
+| DropdownMenu | done | — |
+| Skeleton | done | — |
 
 Use `--surface-*` tokens from globals.css. Status must be **done** before screen build tasks unless waiver documented.
 
@@ -133,6 +133,9 @@ WCAG AA targets for this screen. Focus trap in modals (UIS-05). Stage badges mus
 - [ ] Advance stage sends `PATCH /v1/prospects/{id}/stage` with next stage; row updates optimistically
 - [ ] Terminal stages (won, lost) have disabled advance action with tooltip
 - [ ] Overflow menu includes Edit (opens modal) and Delete (confirms via `confirm_yes` dialog)
+- [ ] Sortable column headers toggle between asc/desc on click; `aria-sort` reflects current direction
+- [ ] Table rows show hover highlight; clickable rows have pointer cursor and keyboard activation
+- [ ] Filter bar collapses into a single "Filters" toggle button on sm viewport; chips shown inline on md+
 - [ ] Table responsive: md+ shows full table; sm shows card list with same data
 - [ ] Empty state (no prospects at all) shows illustration + CTA
 - [ ] Error state shows retry banner

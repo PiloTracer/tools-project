@@ -122,9 +122,11 @@ Treat prior closed sessions as historical only; see "What this cycle produced" b
 ---
 
 ### UI layer (see .work.ui/)
-- Active UI milestone: Batch J — CRM Pipeline Front-End
+- Active UI milestone: Batch J — CRM Pipeline Front-End **closed 2026-06-19**
 - Foundation complete: yes · Screen-spec-ready: yes
 - Implementation complete: yes (all CRM screens delivered)
+- All verifiers: PASS · All UIS concepts: PASS
+- CATALOG.md populated (14 components); prospects-list SPEC Approved
 - NEXT_UI: `.work.ui/plans/NEXT_UI.md`
 
 ## Agent notes

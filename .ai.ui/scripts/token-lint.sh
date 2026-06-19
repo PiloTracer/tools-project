@@ -68,7 +68,7 @@ for p in "${paths[@]}"; do
     while IFS= read -r -d '' f; do candidates+=("$f"); done \
       < <(find "$p" -type f -regextype posix-extended -iregex ".*${exts_re}" \
             -not -path '*/node_modules/*' -not -path '*/.git/*' -not -path '*/dist/*' \
-            -not -path '*/build/*' -print0 2>/dev/null || true)
+            -not -path '*/build/*' -not -path '*/.next/*' -print0 2>/dev/null || true)
   elif [[ -f "$p" ]]; then
     candidates+=("$p")
   fi
