@@ -8,6 +8,7 @@ import { Badge, stageBadgeVariant } from "@/components/Badge";
 import { Dialog } from "@/components/Dialog";
 import { DropdownMenu, DropdownItem } from "@/components/DropdownMenu";
 import { toast, ToastContainer } from "@/components/Toast";
+import { MarkdownEditor } from "@/components/MarkdownEditor";
 
 const PIPELINE_STAGES = [
   "target", "connected", "engaged", "call_scheduled", "call_done",
@@ -310,7 +311,7 @@ export default function ProspectDetailPage() {
           </label>
           <label className="field">
             <span className="label">Notes</span>
-            <textarea className="input" rows={3} value={editNotes} onChange={(e) => setEditNotes(e.target.value)} />
+            <MarkdownEditor value={editNotes} onChange={setEditNotes} rows={3} />
           </label>
           {editErr ? <p id="edit-form-err" className="err text-sm" role="alert">{editErr}</p> : null}
         </form>

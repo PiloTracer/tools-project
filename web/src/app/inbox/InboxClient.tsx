@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { MarkdownEditor } from "@/components/MarkdownEditor";
+
 type InboxItem = {
   id: string;
   body_md: string;
@@ -90,11 +92,10 @@ export function InboxClient({
       <div className="card wide stack">
         <h2 style={{ marginTop: 0 }}>Capture</h2>
         <form onSubmit={onSubmit} className="stack" style={{ gap: "0.5rem" }}>
-          <textarea
-            className="input"
-            rows={3}
+          <MarkdownEditor
             value={body}
-            onChange={(e) => setBody(e.target.value)}
+            onChange={setBody}
+            rows={3}
             placeholder="Jot down a thought, idea, or task…"
           />
           <div>

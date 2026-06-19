@@ -150,7 +150,7 @@ async def _upload_attachment(
     if sniffed is None or sniffed not in ALLOWED_MIMES:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
-            detail="Only image/png, image/jpeg, image/gif, image/webp, application/pdf, text/plain are allowed",
+            detail="Only image/png, image/jpeg, image/gif, image/webp, application/pdf, text/plain, and common office documents (.doc, .docx, .xls, .xlsx, .ppt, .pptx, .odt, .ods, .odp) are allowed",
         )
 
     ext = MIME_TO_EXT.get(sniffed, ".bin")

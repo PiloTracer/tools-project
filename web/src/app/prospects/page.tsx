@@ -11,6 +11,7 @@ import { Chip } from "@/components/Chip";
 import { toast, ToastContainer } from "@/components/Toast";
 import { PipelineFunnel, type PipelineStageRow } from "@/components/PipelineFunnel";
 import { useDownload } from "@/components/useDownload";
+import { MarkdownEditor } from "@/components/MarkdownEditor";
 
 const PIPELINE_STAGES = [
   "target", "connected", "engaged", "call_scheduled", "call_done",
@@ -538,7 +539,7 @@ function ProspectForm({
       </label>
       <label className="field">
         <span className="label">Notes</span>
-        <textarea className="input" rows={3} value={formNotes} onChange={(e) => onNotesChange(e.target.value)} />
+        <MarkdownEditor value={formNotes} onChange={onNotesChange} rows={3} />
       </label>
       {formErr ? <p id="prospect-form-err" className="err text-sm" role="alert">{formErr}</p> : null}
     </form>

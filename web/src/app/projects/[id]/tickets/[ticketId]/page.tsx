@@ -32,38 +32,6 @@ type TicketOut = {
   updated_at: string;
 };
 
-const IMG_LINE = /^!\[([^\]]*)\]\((\/api\/attachments\/[0-9a-fA-F-]+)\)\s*$/;
-
-function TicketDescriptionBody({ text }: { text: string }) {
-  const lines = text.split("\n");
-  return (
-    <div className="stack" style={{ gap: "0.65rem" }}>
-      {lines.map((line, i) => {
-        const m = line.match(IMG_LINE);
-        if (m) {
-          return (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              key={i}
-              src={m[2]}
-              alt={m[1] || "image"}
-              style={{ maxWidth: "min(100%, 720px)", height: "auto", borderRadius: 8 }}
-            />
-          );
-        }
-        if (line.trim() === "") {
-          return <div key={i} style={{ minHeight: "0.35rem" }} />;
-        }
-        return (
-          <span key={i} style={{ whiteSpace: "pre-wrap", display: "block" }}>
-            {line}
-          </span>
-        );
-      })}
-    </div>
-  );
-}
-
 export default async function TicketDetailPage({
   params,
 }: {

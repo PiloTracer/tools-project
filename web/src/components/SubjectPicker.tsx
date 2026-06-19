@@ -30,9 +30,8 @@ export function SubjectPicker({
 
   useEffect(() => {
     if (!query.trim()) {
-      setTasks([]);
-      setTickets([]);
-      return;
+      const t = setTimeout(() => { setTasks([]); setTickets([]); }, 0);
+      return () => clearTimeout(t);
     }
     const timer = setTimeout(async () => {
       setBusy(true);

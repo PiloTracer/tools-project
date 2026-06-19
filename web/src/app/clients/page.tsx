@@ -7,6 +7,7 @@ import { DataTable, type Column } from "@/components/DataTable";
 import { Dialog } from "@/components/Dialog";
 import { toast, ToastContainer } from "@/components/Toast";
 import { useDownload } from "@/components/useDownload";
+import { MarkdownEditor } from "@/components/MarkdownEditor";
 
 type ClientRow = {
   id: string;
@@ -179,7 +180,7 @@ export default function ClientsPage() {
           </label>
           <label className="field">
             <span className="label">Notes</span>
-            <textarea className="input" rows={3} value={formNotes} onChange={(e) => setFormNotes(e.target.value)} />
+            <MarkdownEditor value={formNotes} onChange={setFormNotes} rows={3} />
           </label>
           {formErr ? <p id="client-form-err" className="err text-sm" role="alert">{formErr}</p> : null}
         </form>

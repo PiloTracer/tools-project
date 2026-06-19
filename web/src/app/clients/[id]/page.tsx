@@ -8,6 +8,7 @@ import { Badge } from "@/components/Badge";
 import { DataTable, type Column } from "@/components/DataTable";
 import { Dialog } from "@/components/Dialog";
 import { toast, ToastContainer } from "@/components/Toast";
+import { MarkdownEditor } from "@/components/MarkdownEditor";
 
 type ClientDetail = {
   id: string;
@@ -302,7 +303,7 @@ export default function ClientDetailPage() {
           </label>
           <label className="field">
             <span className="label">Notes</span>
-            <textarea className="input" rows={3} value={editNotes} onChange={(e) => setEditNotes(e.target.value)} />
+            <MarkdownEditor value={editNotes} onChange={setEditNotes} rows={3} />
           </label>
           {editErr ? <p id="edit-client-form-err" className="err text-sm" role="alert">{editErr}</p> : null}
         </form>

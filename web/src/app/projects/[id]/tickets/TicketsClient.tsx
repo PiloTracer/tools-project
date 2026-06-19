@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { clipboardUploadableFiles, usePendingImages } from "./use-pending-images";
+import { MarkdownEditor } from "@/components/MarkdownEditor";
+import { usePendingImages } from "@/shared/client/use-pending-images";
 
 export type TicketQueueRow = {
   id: string;
@@ -274,29 +275,13 @@ export function NewTicketForm({
       </div>
       <label className="stack" style={{ gap: "0.25rem" }}>
         <span className="text-sm muted">Description (issue details, repro, impact)</span>
-        <textarea
-          className="input"
-          rows={4}
+        <MarkdownEditor
           value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          onPaste={(e) => {
-            const files = clipboardUploadableFiles(e.nativeEvent);
-            if (files.length) {
-              e.preventDefault();
-              addFiles(files);
-            }
-          }}
-          onDragOver={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-          }}
-          onDrop={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            const files = Array.from(e.dataTransfer.files);
-            if (files.length) addFiles(files);
-          }}
+          onChange={setDescription}
+          rows={4}
           placeholder="What is broken or requested? Steps, expected vs actual, links…"
+          onPasteFiles={(files) => addFiles(files)}
+          onDropFiles={(files) => addFiles(files)}
         />
       </label>
       <div className="stack" style={{ gap: "0.35rem" }}>
