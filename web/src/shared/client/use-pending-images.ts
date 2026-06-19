@@ -8,11 +8,15 @@ export function filterImageFiles(files: Iterable<File>): File[] {
   return Array.from(files).filter((f) => f.type.startsWith("image/"));
 }
 
-/** Matches server `file_sniff` allowlist for ticket/task uploads (browser MIME only). */
+/** Matches server `file_sniff` allowlist — browser MIME + extension fallback. */
 export function filterUploadableFiles(files: Iterable<File>): File[] {
   return Array.from(files).filter((f) => {
     if (f.type.startsWith("image/")) return true;
-    if (f.type === "application/pdf" || f.type === "text/plain") return true;
+    if (f.type === "application/pdf" || f.type === "text/plain" || f.type === "text/csv") return true;
+    if (f.type.startsWith("application/vnd.")) return true;
+    if (f.type === "application/msword" || f.type === "application/zip" || f.type === "application/x-zip-compressed") return true;
+    const ext = f.name.split(".").pop()?.toLowerCase();
+    if (ext && ["csv", "xls", "xlsx", "ppt", "pptx", "doc", "docx", "odt", "ods", "odp", "odg"].includes(ext)) return true;
     return false;
   });
 }
