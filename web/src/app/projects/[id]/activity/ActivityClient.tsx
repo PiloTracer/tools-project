@@ -337,6 +337,7 @@ export function ActivityFeed({
   canPost?: boolean;
 }) {
   const router = useRouter();
+  const { pending: replyPending, addFiles: addReplyFiles, remove: removeReplyFile, clear: clearReplyPending } = usePendingImages();
   const [replyToId, setReplyToId] = useState<string | null>(null);
   const [replyBody, setReplyBody] = useState("");
   const [replyBusy, setReplyBusy] = useState(false);
@@ -348,36 +349,64 @@ export function ActivityFeed({
 
   async function submitReply(parentActivity: ActivityRow) {
     if (!projectId) return;
-    const rim = replyBody.trim();
-    if (!rim) return;
+    const caption = replyBody.trim();
+    if (!caption && replyPending.length === 0) return;
     setReplyBusy(true);
     setReplyMsg(null);
-    const r = await fetch(`/api/projects/${projectId}/activities`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+    try {
+      const uploadedIds: string[] = [];
+      for (const p of replyPending) {
+        const fd = new FormData();
+        fd.append("file", p.file);
+        const ur = await fetch(`/api/projects/${projectId}/attachments`, {
+          method: "POST",
+          body: fd,
+        });
+        const ut = await ur.text();
+        if (!ur.ok) {
+          try { const j = JSON.parse(ut) as { detail?: string }; throw new Error(j.detail ?? ut); }
+          catch (e) {
+            if (e instanceof Error && e.message !== ut) throw e;
+            throw new Error(ut || `Upload failed (${ur.status})`);
+          }
+        }
+        const row = JSON.parse(ut) as { id: string };
+        uploadedIds.push(row.id);
+      }
+      const payload: Record<string, unknown> = {
         subject_type: parentActivity.subject_type,
         subject_id: parentActivity.subject_id || projectId,
         kind: "comment",
-        body: rim,
+        body: caption || (uploadedIds.length ? "(image)" : ""),
         parent_activity_id: parentActivity.id,
-      }),
-    });
-    const text = await r.text();
-    if (!r.ok) {
-      try {
-        const j = JSON.parse(text) as { detail?: string };
-        setReplyMsg(j.detail ?? text);
-      } catch {
-        setReplyMsg(text || `Error ${r.status}`);
+      };
+      if (uploadedIds.length) {
+        payload.meta_json = { attachment_ids: uploadedIds };
       }
-      setReplyBusy(false);
-      return;
+      const r = await fetch(`/api/projects/${projectId}/activities`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const text = await r.text();
+      if (!r.ok) {
+        try {
+          const j = JSON.parse(text) as { detail?: string };
+          setReplyMsg(j.detail ?? text);
+        } catch {
+          setReplyMsg(text || `Error ${r.status}`);
+        }
+        setReplyBusy(false);
+        return;
+      }
+      setReplyBody("");
+      setReplyToId(null);
+      clearReplyPending();
+      router.refresh();
+    } catch (err) {
+      setReplyMsg(err instanceof Error ? err.message : "Upload failed");
     }
-    setReplyBody("");
-    setReplyToId(null);
     setReplyBusy(false);
-    router.refresh();
   }
 
   return (
@@ -491,11 +520,45 @@ export function ActivityFeed({
                       onChange={setReplyBody}
                       rows={3}
                       placeholder="Write a reply…"
+                      onPasteFiles={(files) => addReplyFiles(files)}
+                      onDropFiles={(files) => addReplyFiles(files)}
                       mentionSuggestions={_searchUsers}
                       refSuggestions={_searchRefs}
                     />
+                    <div className="stack" style={{ gap: "0.35rem" }}>
+                      <label className="btn btn-ghost text-sm" style={{ cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/gif,image/webp,application/pdf,text/plain"
+                          multiple
+                          style={{ display: "none" }}
+                          onChange={(e) => {
+                            const list = e.target.files;
+                            if (list?.length) addReplyFiles(Array.from(list));
+                            e.target.value = "";
+                          }}
+                        />
+                        Browse files…
+                      </label>
+                      {replyPending.length > 0 ? (
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", alignItems: "flex-start" }}>
+                          {replyPending.map((p) => (
+                            <div key={p.key} style={{ position: "relative" }}>
+                              {p.url ? (
+                                <img src={p.url} alt="" style={{ width: 72, height: 72, objectFit: "cover", borderRadius: 6, border: "1px solid var(--border)" }} />
+                              ) : (
+                                <div className="text-sm muted" style={{ width: 120, minHeight: 72, padding: "0.35rem", borderRadius: 6, border: "1px solid var(--border)", wordBreak: "break-all" }} title={p.file.name}>
+                                  {p.file.name}
+                                </div>
+                              )}
+                              <button type="button" className="btn btn-ghost text-sm" style={{ position: "absolute", top: -6, right: -6, padding: "0 0.35rem", minHeight: 0 }} onClick={() => removeReplyFile(p.key)} aria-label="Remove attachment">×</button>
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
                     <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-                      <button type="submit" className="btn btn-primary text-sm" disabled={replyBusy || !replyBody.trim()}>
+                      <button type="submit" className="btn btn-primary text-sm" disabled={replyBusy || (!replyBody.trim() && replyPending.length === 0)}>
                         {replyBusy ? "Posting…" : "Reply"}
                       </button>
                       <button
