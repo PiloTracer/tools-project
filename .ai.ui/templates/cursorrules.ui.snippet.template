@@ -1,0 +1,68 @@
+<!-- UI_DESIGN_OS_BEGIN -->
+<!-- Merged by @ui-bootstrap into an existing .cursorrules (typically after Agent OS). Core Principles §1–7 above apply to all UI work. -->
+
+## UI Design OS (`.ai.ui/`)
+
+**Coexistence:** [`.ai.ui/COHABITATION.md`](.ai.ui/COHABITATION.md) — UI skills write to `.work.ui/` only; do not overwrite `.work/plans/NEXT.md` except cross-links.
+
+**Lost on UI?** [`.ai.ui/START_HERE.md`](.ai.ui/START_HERE.md) · **Router:** `@ui-process-router - <question>`
+
+### UI completion gate (addition to Core Principle 7)
+
+UI milestone work is not done until: UI lint/type/tests pass; `@ui-visual-verify` + `@ui-accessibility-audit` pass or are waived in `{HANDOFF_UI}`; agent-assisted UI has `@ui-concept-run - UIS-06` unless **`human-only`** in the same message.
+
+### UI context files
+
+| File | Purpose |
+|------|---------|
+| `.ai.ui/START_HERE.md` | UI operator decision tree |
+| `.ai.ui/COHABITATION.md` | Boundary with Agent OS |
+| `REPLACE:UI_TECH_STACK_DOC` | Front-end stack |
+| `.ai.ui/standards/REPLACE:UI_CONVENTIONS_FILE` | UI conventions |
+| `.ai.ui/standards/REPLACE:UI_SCREEN_SPEC_STANDARD_FILE` | Screen SPEC |
+| `.ai.ui/standards/REPLACE:UI_COMPONENT_STANDARD_FILE` | Components |
+| `.ai.ui/standards/REPLACE:UI_DESIGN_TOKENS_FILE` | Tokens |
+| `.ai.ui/standards/REPLACE:UI_ACCESSIBILITY_FILE` | WCAG |
+| `.ai.ui/standards/REPLACE:UI_DIRECTORY_MAP_FILE` | UI directories |
+| `.work.ui/context/HANDOFF_UI.md` | UI handoff |
+| `.work.ui/plans/NEXT_UI.md` | UI iteration |
+
+### UI placeholders
+
+| Placeholder | Resolves to |
+|-------------|-------------|
+| `{WORK_UI_ROOT}` | `.work.ui/` |
+| `{HANDOFF_UI}` | `.work.ui/context/HANDOFF_UI.md` |
+| `{UI_ITERATION_CARRIER}` | `.work.ui/plans/NEXT_UI.md` |
+| `{SCREEN_SPEC_ROOT}` | `.work.ui/screens/` |
+| `{UI_SKILLS_ROOT}` | `.ai.ui/skills/` |
+| `{UI_CONCEPTS_ROOT}` | `.ai.ui/concepts/` |
+| `REPLACE:UI_APP_ROOT` | e.g. `apps/web/` |
+| `REPLACE:UI_TOKENS_FILE` | e.g. `src/styles/tokens.css` |
+| `REPLACE:UI_TEST` / `REPLACE:UI_LINT` / `REPLACE:UI_TYPECHECK` | Frontend checks |
+| `REPLACE:UI_VISUAL_TEST` / `REPLACE:UI_A11Y_TOOL` | Visual + a11y |
+| `REPLACE:SERVICE_FRONTEND` / `REPLACE:FRONTEND_WORKDIR` | Docker UI service |
+
+### UI skills (`@ui-*` only)
+
+| Skill | Purpose |
+|-------|---------|
+| ui-bootstrap | `.work.ui/` + cursorrules merge |
+| ui-design-foundation | Foundation 01–04; screen-spec-ready |
+| ui-screen-spec | `.work.ui/screens/` SPECs |
+| ui-component-build | `NEXT_UI.md` iterations |
+| ui-visual-verify | Visual regression |
+| ui-accessibility-audit | WCAG |
+| ui-design-system | Catalog + Storybook |
+| ui-concept-run | UIS-01…07 |
+| ui-process-router | UI Q&A (read-only) |
+
+**Sessions:** `@session-control` (`.ai/`) · **Backend:** `@code-implementation` (`.ai/`) · **UIS-06** + **UIS-07** (tier ≥ refined) before `ui-component-build complete`.
+
+### UI protected files (union with existing list)
+
+- `REPLACE:UI_TOKENS_FILE`
+- `REPLACE:UI_FRAMEWORK_CONFIG_PATHS`
+- `.ai.ui/inputs/brand/` (reference — do not auto-edit)
+
+<!-- UI_DESIGN_OS_END -->

@@ -35,10 +35,11 @@ export default function ClientLoginPage() {
         <h1>Client Portal</h1>
         <p className="muted text-sm">Sign in to access your projects.</p>
         {error ? <p role="alert" className="err">{error}</p> : null}
-        <form onSubmit={handleSubmit} className="stack">
-          <label>
-            Email
+        <form onSubmit={handleSubmit} className="stack-lg">
+          <label className="field">
+            <span className="label">Email</span>
             <input
+              className="input"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -46,9 +47,10 @@ export default function ClientLoginPage() {
               autoFocus
             />
           </label>
-          <label>
-            Password
+          <label className="field">
+            <span className="label">Password</span>
             <input
+              className="input"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}

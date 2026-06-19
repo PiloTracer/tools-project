@@ -15,9 +15,10 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-COMPOSE_ABS="$REPO_ROOT/docker-compose.yml"
 PROFILE="dev"
-# Must match the default in docker-compose.yml for ${COMPOSE_PROJECT_NAME:-…}
+# Default compose file — overridden in load_env() for prd mode.
+COMPOSE_ABS="$REPO_ROOT/docker-compose.dev.yml"
+# Must match the default in docker-compose.dev.yml for ${COMPOSE_PROJECT_NAME:-…}
 DEFAULT_PROJECT_NAME="tools_project_dev"
 
 # Read KEY=value from a dotenv file without `source` (safe for values like `profile email`,
@@ -51,8 +52,30 @@ read_dotenv_value() {
   return 1
 }
 
+ENV_MODE="${ENV_MODE:-dev}"
+
 load_env() {
-  local envf="$REPO_ROOT/.env"
+  local env_name="${1:-dev}"
+  ENV_MODE="$env_name"
+  local envf
+  case "$env_name" in
+    dev|"")
+      envf="$REPO_ROOT/.env.dev"
+      [[ -f "$envf" ]] || envf="$REPO_ROOT/.env"
+      ENV_MODE="dev"
+      COMPOSE_ABS="$REPO_ROOT/docker-compose.dev.yml"
+      ;;
+    prd)
+      envf="$REPO_ROOT/.env.prd"
+      ENV_MODE="prd"
+      COMPOSE_ABS="$REPO_ROOT/docker-compose.prd.yml"
+      ;;
+    *)
+      envf="$REPO_ROOT/.env"
+      ENV_MODE="$env_name"
+      COMPOSE_ABS="$REPO_ROOT/docker-compose.dev.yml"
+      ;;
+  esac
   COMPOSE_PROJECT_NAME="$DEFAULT_PROJECT_NAME"
   PUBLIC_HOST="${PUBLIC_HOST:-localhost}"
   WEB_DEV_HOST_PORT="${WEB_DEV_HOST_PORT:-18513}"
@@ -60,6 +83,9 @@ load_env() {
   POSTGRES_USER="${POSTGRES_USER:-prj}"
   POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-prj_dev_change_me}"
   POSTGRES_DB="${POSTGRES_DB:-tools_project}"
+  GLOBAL_BASE_PATH="${GLOBAL_BASE_PATH:-/mnt/data}"
+  BOOTSTRAP_ADMIN_EMAIL="${BOOTSTRAP_ADMIN_EMAIL:-}"
+  BOOTSTRAP_ADMIN_PASSWORD="${BOOTSTRAP_ADMIN_PASSWORD:-}"
   if [[ -f "$envf" ]]; then
     local v
     v="$(read_dotenv_value "$envf" COMPOSE_PROJECT_NAME)" && COMPOSE_PROJECT_NAME="$v"
@@ -69,9 +95,13 @@ load_env() {
     v="$(read_dotenv_value "$envf" POSTGRES_USER)" && POSTGRES_USER="$v"
     v="$(read_dotenv_value "$envf" POSTGRES_PASSWORD)" && POSTGRES_PASSWORD="$v"
     v="$(read_dotenv_value "$envf" POSTGRES_DB)" && POSTGRES_DB="$v"
+    v="$(read_dotenv_value "$envf" GLOBAL_BASE_PATH)" && GLOBAL_BASE_PATH="$v"
+    v="$(read_dotenv_value "$envf" BOOTSTRAP_ADMIN_EMAIL)" && BOOTSTRAP_ADMIN_EMAIL="$v"
+    v="$(read_dotenv_value "$envf" BOOTSTRAP_ADMIN_PASSWORD)" && BOOTSTRAP_ADMIN_PASSWORD="$v"
   fi
-  export COMPOSE_PROJECT_NAME PUBLIC_HOST WEB_DEV_HOST_PORT API_HOST_PORT
-  export POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB
+  export COMPOSE_PROJECT_NAME PUBLIC_HOST WEB_DEV_HOST_PORT API_HOST_PORT COMPOSE_ABS
+  export POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB GLOBAL_BASE_PATH
+  export ENV_MODE BOOTSTRAP_ADMIN_EMAIL BOOTSTRAP_ADMIN_PASSWORD
 }
 
 require_compose_file() {
@@ -155,11 +185,22 @@ urls_hint() {
   local host="$PUBLIC_HOST"
   local web="$WEB_DEV_HOST_PORT"
   local api="$API_HOST_PORT"
-  printf 'URLs (from env / defaults):\n'
+  printf 'Login URLs:\n'
   printf '  Web   http://%s:%s\n' "$host" "$web"
   printf '  API   http://%s:%s/healthz\n' "$host" "$api"
   printf '  Docs  http://%s:%s/docs\n' "$host" "$api"
   printf '\n'
+}
+
+confirm_yes() {
+  local prompt="${1:-Type \"yes\" to confirm: }"
+  local reply
+  read -r -p "$prompt" reply
+  if [[ "${reply,,}" != "yes" ]]; then
+    printf 'Aborted.\n'
+    return 1
+  fi
+  return 0
 }
 
 validate_config() {
@@ -285,22 +326,201 @@ cmd_build_only() {
   printf 'Images rebuilt.\n\n'
 }
 
+cmd_cleanup_stack() {
+  validate_config
+  printf 'Cleaning up stack (containers, networks, orphans) for project %s…\n' "$COMPOSE_PROJECT_NAME"
+  printf 'Named volumes (data) are KEPT. Other Docker stacks are NOT affected.\n\n'
+  if stream_compose_ops; then
+    dc down --remove-orphans || return 1
+    wait_ack_if_menu
+  elif runs_menu_quiet; then
+    quiet_dc down --remove-orphans || return 1
+  else
+    dc down --remove-orphans || return 1
+  fi
+  printf 'Cleanup complete. Stack containers/networks removed; data volumes preserved.\n\n'
+}
+
+cmd_backup() {
+  validate_config
+  local backup_base="${GLOBAL_BASE_PATH}/backups_${COMPOSE_PROJECT_NAME}"
+  local timestamp
+  timestamp=$(date +%Y%m%d_%H%M%S)
+  local backup_dir="${backup_base}/${timestamp}"
+
+  printf 'Backup target: %s\n' "$backup_dir"
+  printf 'Ensuring Postgres is running…\n'
+  if stream_compose_ops; then
+    dc up -d postgresql || return 1
+    wait_ack_if_menu
+  elif runs_menu_quiet; then
+    quiet_dc up -d postgresql || return 1
+  else
+    dc up -d postgresql || return 1
+  fi
+  cmd_wait_postgres || return 1
+
+  mkdir -p "$backup_dir"
+
+  # 1. Logical DB dump (pg_dump --clean so restore can re-create objects)
+  printf 'Backing up database (pg_dump)…\n'
+  if runs_menu_quiet; then
+    quiet_dc exec -T postgresql pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists > "$backup_dir/db_dump.sql" 2>/dev/null || {
+      printf 'ERROR: pg_dump failed.\n' >&2
+      return 1
+    }
+  else
+    dc exec -T postgresql pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists > "$backup_dir/db_dump.sql" || {
+      printf 'ERROR: pg_dump failed.\n' >&2
+      return 1
+    }
+  fi
+  printf '  db_dump.sql: %d bytes\n' "$(wc -c < "$backup_dir/db_dump.sql")"
+
+  # 2. Named volume backups (tar)
+  for vol in tpr_pg_data tpr_attachments; do
+    local vol_name="${COMPOSE_PROJECT_NAME}_${vol}"
+    printf 'Backing up volume: %s…\n' "$vol_name"
+    if docker volume inspect "$vol_name" >/dev/null 2>&1; then
+      docker run --rm \
+        -v "${vol_name}":/source:ro \
+        -v "$backup_dir":/dest \
+        busybox tar czf "/dest/${vol}.tar.gz" -C /source . 2>/dev/null || {
+        printf '  WARNING: tar backup of %s failed (volume may be empty or in use).\n' "$vol_name" >&2
+        continue
+      }
+      printf '  %s.tar.gz: %d bytes\n' "$vol" "$(wc -c < "$backup_dir/${vol}.tar.gz")"
+    else
+      printf '  WARNING: volume %s does not exist — skipping.\n' "$vol_name" >&2
+    fi
+  done
+
+  # 3. Write a metadata file
+  cat > "$backup_dir/backup.info" <<EOF
+timestamp=$timestamp
+compose_project_name=$COMPOSE_PROJECT_NAME
+postgres_user=$POSTGRES_USER
+postgres_db=$POSTGRES_DB
+created_by=start.sh cmd_backup
+EOF
+
+  printf '\nBackup complete: %s\n' "$backup_dir"
+}
+
+cmd_restore() {
+  validate_config
+  local backup_base="${GLOBAL_BASE_PATH}/backups_${COMPOSE_PROJECT_NAME}"
+
+  if [[ ! -d "$backup_base" ]]; then
+    printf 'No backups found at %s\n' "$backup_base" >&2
+    return 1
+  fi
+
+  # List available backups (newest last)
+  local backups=()
+  while IFS= read -r -d '' d; do
+    backups+=("$d")
+  done < <(find "$backup_base" -maxdepth 1 -type d -name '????????_??????' -print0 | sort -z)
+
+  if [[ ${#backups[@]} -eq 0 ]]; then
+    printf 'No backups found at %s\n' "$backup_base" >&2
+    return 1
+  fi
+
+  printf 'Available backups:\n'
+  for i in "${!backups[@]}"; do
+    local name; name=$(basename "${backups[$i]}")
+    local info; info=$(cat "${backups[$i]}/backup.info" 2>/dev/null | head -1 || true)
+    printf '  %2d) %s  %s\n' $((i+1)) "$name" "${info:+($info)}"
+  done
+
+  read -r -p 'Select backup to restore [1-'"${#backups[@]}"']: ' sel
+  if [[ ! "$sel" =~ ^[0-9]+$ ]] || [[ "$sel" -lt 1 ]] || [[ "$sel" -gt "${#backups[@]}" ]]; then
+    printf 'Invalid selection.\n' >&2
+    return 1
+  fi
+
+  local restore_dir="${backups[$((sel-1))]}"
+  local restore_name; restore_name=$(basename "$restore_dir")
+
+  printf '\nWARNING: This will OVERWRITE the database and named volumes for project\n'
+  printf '  %s\n' "$COMPOSE_PROJECT_NAME"
+  printf 'with the state from backup: %s\n\n' "$restore_name"
+  confirm_yes 'Type "yes" to confirm: ' || return 0
+
+  printf '\nStopping stack…\n'
+  if stream_compose_ops; then
+    dc down --remove-orphans || return 1
+    wait_ack_if_menu
+  elif runs_menu_quiet; then
+    quiet_dc down --remove-orphans || return 1
+  else
+    dc down --remove-orphans || return 1
+  fi
+
+  # Restore named volumes from tar
+  for vol in tpr_pg_data tpr_attachments; do
+    local vol_name="${COMPOSE_PROJECT_NAME}_${vol}"
+    local tar_file="${restore_dir}/${vol}.tar.gz"
+    if [[ -f "$tar_file" ]]; then
+      printf 'Restoring volume: %s from %s…\n' "$vol_name" "$tar_file"
+      # Ensure volume exists (create if missing)
+      docker volume inspect "$vol_name" >/dev/null 2>&1 || docker volume create "$vol_name" >/dev/null
+      docker run --rm \
+        -v "${vol_name}":/target \
+        -v "$restore_dir":/source:ro \
+        busybox tar xzf "/source/${vol}.tar.gz" -C /target || {
+        printf '  ERROR: tar restore of %s failed.\n' "$vol_name" >&2
+        return 1
+      }
+    else
+      printf '  WARNING: no backup tar for volume %s — skipping.\n' "$vol_name" >&2
+    fi
+  done
+
+  # Restore DB from SQL dump
+  local dump_file="${restore_dir}/db_dump.sql"
+  if [[ -f "$dump_file" ]]; then
+    printf 'Starting Postgres to restore DB dump…\n'
+    if stream_compose_ops; then
+      dc up -d postgresql || return 1
+      wait_ack_if_menu
+    elif runs_menu_quiet; then
+      quiet_dc up -d postgresql || return 1
+    else
+      dc up -d postgresql || return 1
+    fi
+    cmd_wait_postgres || return 1
+
+    printf 'Restoring database from db_dump.sql…\n'
+    if runs_menu_quiet; then
+      quiet_dc exec -T postgresql psql -q -v ON_ERROR_STOP=1 \
+        -U "$POSTGRES_USER" -d "$POSTGRES_DB" < "$dump_file" 2>/dev/null || {
+        printf 'ERROR: psql restore failed.\n' >&2
+        return 1
+      }
+    else
+      dc exec -T postgresql psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" --set ON_ERROR_STOP=1 < "$dump_file" || {
+        printf 'ERROR: psql restore failed.\n' >&2
+        return 1
+      }
+    fi
+    printf '  Database restore complete.\n'
+  else
+    printf '  WARNING: no db_dump.sql found — skipping DB restore.\n' >&2
+  fi
+
+  printf '\nRestore complete from: %s\n' "$restore_name"
+  printf 'Run option 2 (start stack) to bring services back up.\n\n'
+}
+
 cmd_nuke() {
   validate_config
   print_banner
   printf 'WARNING: This removes containers, networks, and Compose-managed NAMED volumes\n'
   printf 'for project %s only (Postgres data + web_node_modules volume).\n' "$COMPOSE_PROJECT_NAME"
   printf 'Other Docker apps and other Compose projects are NOT affected.\n\n'
-  read -r -p 'Type the project name to confirm: ' confirm
-  if [[ "$confirm" != "$COMPOSE_PROJECT_NAME" ]]; then
-    printf 'Aborted (name mismatch).\n'
-    return 0
-  fi
-  read -r -p 'Second confirm: type YES to delete volumes: ' confirm2
-  if [[ "$confirm2" != "YES" ]]; then
-    printf 'Aborted.\n'
-    return 0
-  fi
+  confirm_yes 'Type "yes" to confirm: ' || return 0
   if stream_compose_ops; then
     dc down -v --remove-orphans || return 1
     wait_ack_if_menu
@@ -334,17 +554,8 @@ cmd_drop_tables() {
   printf 'WARNING: This drops ALL tables in database **%s** (user %s) for Compose project **%s**.\n' \
     "$POSTGRES_DB" "$POSTGRES_USER" "$COMPOSE_PROJECT_NAME"
   printf 'This is like a fresh **public** schema — all application data in this DB is removed.\n'
-  printf 'Containers and Docker volumes are NOT removed (unlike option 8).\n\n'
-  read -r -p "$(printf 'Type the database name to confirm [%s]: ' "$POSTGRES_DB")" confirm
-  if [[ "$confirm" != "$POSTGRES_DB" ]]; then
-    printf 'Aborted (database name mismatch).\n'
-    return 0
-  fi
-  read -r -p 'Second confirm: type DROP to proceed: ' confirm2
-  if [[ "$confirm2" != "DROP" ]]; then
-    printf 'Aborted.\n'
-    return 0
-  fi
+  printf 'Containers and Docker volumes are NOT removed.\n\n'
+  confirm_yes 'Type "yes" to confirm: ' || return 0
   printf 'Ensuring Postgres is running…\n'
   if stream_compose_ops; then
     dc up -d postgresql || return 1
@@ -420,25 +631,38 @@ show_menu() {
   5) Status                               — docker compose ps -a
   6) Logs (follow)                        — docker compose logs -f
   7) Build images only                     — docker compose build --pull
-  8) Destroy stack + volumes (DANGEROUS)  — docker compose down -v (this project only)
-  9) Show URL hints
-  10) Drop all DB tables (DANGEROUS)      — Postgres: DROP SCHEMA public CASCADE (project DB only)
-  11) Rebuild DDL from SQL               — sql/schema_*.sql + bootstrap + seeds (mirrors API startup)
+  8) Cleanup stack (gentle)               — docker compose down --remove-orphans (keeps volumes)
+  9) Backup (volumes + pg_dump)           — to \$GLOBAL_BASE_PATH/backups_\$COMPOSE_PROJECT_NAME
+  10) Restore from backup                  — pick a previous backup to restore
+  11) Destroy stack + volumes (DANGEROUS)  — docker compose down -v (this project only)
+  12) Drop all DB tables (DANGEROUS)      — Postgres: DROP SCHEMA public CASCADE (project DB only)
+  13) Rebuild DDL from SQL                — sql/schema_*.sql + bootstrap + seeds (mirrors API startup)
   0) Exit
 EOF
   printf '\n'
+  urls_hint
+  if [[ "$ENV_MODE" == "dev" ]]; then
+    printf -- '--- Test credentials (dev) ---\n'
+    if [[ -n "$BOOTSTRAP_ADMIN_EMAIL" ]] && [[ -n "$BOOTSTRAP_ADMIN_PASSWORD" ]]; then
+      printf '  Admin:  %s / %s\n' "$BOOTSTRAP_ADMIN_EMAIL" "$BOOTSTRAP_ADMIN_PASSWORD"
+    fi
+    printf '  Client: alice@umbrella-corp.test / client-demo\n'
+    printf '\n'
+  fi
 }
 
 main() {
+  load_env "${1:-}"
   require_compose_file
-  load_env
 
   if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
     print_banner
     printf '%s [command]\n' "${0##*/}"
-    printf '  With no args (or `dev`), runs interactively.\n'
+    printf '  With no args (or `dev`), opens interactive dev menu (uses .env.dev / .env).\n'
+    printf '  `prd` opens interactive production menu (uses .env only).\n'
     printf '  Commands: start-fg (detached up --build, then logs -f; Ctrl+C stops tail only) |\n'
-    printf '           start | stop | restart | status | logs | build | nuke | drop-tables | rebuild-schema | urls\n'
+    printf '           start | stop | restart | status | logs | build | cleanup |\n'
+    printf '           backup | restore | nuke | drop-tables | rebuild-schema | urls\n'
     exit 0
   fi
 
@@ -450,17 +674,19 @@ main() {
     status)   cmd_status ;;
     logs)     cmd_logs ;;
     build)    cmd_build_only ;;
+    cleanup)       cmd_cleanup_stack ;;
+    backup)        cmd_backup ;;
+    restore)       cmd_restore ;;
     nuke)          cmd_nuke ;;
     drop-tables)   cmd_drop_tables ;;
     rebuild-schema) cmd_rebuild_schema ;;
     urls)          urls_hint ;;
-    dev|"")
-      # Interactive menu: stream compose up/down/run progress (TTY) and pause after each step.
+    dev)
       START_SH_MENU=1
       MENU_QUIET=0
       while true; do
         show_menu
-        read -r -p 'Choose [0-11]: ' choice || true
+        read -r -p 'Choose [0-13]: ' choice || true
         set +e
         case "$choice" in
           1) cmd_start_attached ;;
@@ -470,10 +696,68 @@ main() {
           5) cmd_status ;;
           6) cmd_logs ;;
           7) cmd_build_only ;;
-          8) cmd_nuke ;;
-          9) urls_hint ;;
-          10) cmd_drop_tables ;;
-          11) cmd_rebuild_schema ;;
+          8) cmd_cleanup_stack ;;
+          9) cmd_backup ;;
+          10) cmd_restore ;;
+          11) cmd_nuke ;;
+          12) cmd_drop_tables ;;
+          13) cmd_rebuild_schema ;;
+          0) printf 'Bye.\n'; exit 0 ;;
+          *) printf 'Invalid option.\n\n' ;;
+        esac
+        set -e
+      done
+      ;;
+    prd)
+      START_SH_MENU=1
+      MENU_QUIET=0
+      while true; do
+        show_menu
+        read -r -p 'Choose [0-13]: ' choice || true
+        set +e
+        case "$choice" in
+          1) cmd_start_attached ;;
+          2) cmd_start_detached ;;
+          3) cmd_stop ;;
+          4) cmd_restart ;;
+          5) cmd_status ;;
+          6) cmd_logs ;;
+          7) cmd_build_only ;;
+          8) cmd_cleanup_stack ;;
+          9) cmd_backup ;;
+          10) cmd_restore ;;
+          11) cmd_nuke ;;
+          12) cmd_drop_tables ;;
+          13) cmd_rebuild_schema ;;
+          0) printf 'Bye.\n'; exit 0 ;;
+          *) printf 'Invalid option.\n\n' ;;
+        esac
+        set -e
+      done
+      ;;
+    "")
+      # Default (no args): same as dev mode.
+      load_env dev
+      START_SH_MENU=1
+      MENU_QUIET=0
+      while true; do
+        show_menu
+        read -r -p 'Choose [0-13]: ' choice || true
+        set +e
+        case "$choice" in
+          1) cmd_start_attached ;;
+          2) cmd_start_detached ;;
+          3) cmd_stop ;;
+          4) cmd_restart ;;
+          5) cmd_status ;;
+          6) cmd_logs ;;
+          7) cmd_build_only ;;
+          8) cmd_cleanup_stack ;;
+          9) cmd_backup ;;
+          10) cmd_restore ;;
+          11) cmd_nuke ;;
+          12) cmd_drop_tables ;;
+          13) cmd_rebuild_schema ;;
           0) printf 'Bye.\n'; exit 0 ;;
           *) printf 'Invalid option.\n\n' ;;
         esac

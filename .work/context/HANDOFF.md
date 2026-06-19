@@ -2,12 +2,12 @@
 
 **Date:** 2026-06-18
 
-**Closed:** 2026-06-18 — all 4 milestones (M1–M4) of the clients-participants CRM plan complete. 26/26 tasks done.
+**Closed:** 2026-06-18 — dev/prd mode routing, start.sh menu fix, backup/restore, client seed + login form polish, UI screen spec for prospects list.
 **Updated:** 2026-06-18
 
 Treat prior closed sessions as historical only; see "What this cycle produced" below.
 
-**Repository state:** Framework aligned — brownfield repair complete: foundation doc 01 (scope), doc 04 (architecture), standards (CONVENTIONS, FEATURE_STANDARD, DIRECTORY_MAP), registries (ASSUMPTIONS, RISK_REGISTRY, UNKNOWNS), ADR-0001–0004 Decided. **Plan-master-ready: 2026-06-18.** `.cursorrules` REPLACE tokens resolved. **Batch J implementation gaps fixed:** prospect stage validation, pipeline service, client permission resolution in `deps.py`/routers, client portal pages, `actor_id` nullable for system activities, attachment purge wired. GitHub Batch I web (I10d) remains open pending a priority call.
+**Repository state:** `bin/start.sh` extended with cleanup, backup/restore, dev/prd mode routing via `load_env`. Menu input bug fixed (printf `---`). Docker Compose split into dev/prd variants. Client login form styled. Demo client user seed added. Prospects list screen spec created (Draft). UI design foundation still needed before build.
 
 ## Start here (new session)
 
@@ -28,7 +28,8 @@ Treat prior closed sessions as historical only; see "What this cycle produced" b
 | **API** | Inbox, watches, **`/me/today`**, **`/me/users/search`**, **`/me/refs/search`**; attachments + quotas; SSE-rich activity hints; **GitHub:** **`GET/POST/DELETE /v1/projects/{id}/github/links`**, **`POST …/links/{link_id}/sync`**, **`GET …/github/commits`** (`CommitSummary` always includes **`html_url`**); background poll (**`app/github_background.py`**, **`GITHUB_*`** env). |
 | **DB** | Includes **`github_links`** (encrypted **`token_cipher`**), **`github_commits`** (**`html_url` NOT NULL**). |
 | **Config** | Attachments: `attachment_max_per_project`, `attachment_max_bytes_per_project`, `attachment_retention_days`. GitHub: **`github_sync_enabled`**, **`github_poll_interval_seconds`**, **`github_poll_initial_delay_seconds`**, **`github_commits_per_sync`**; optional **`GITHUB_TOKEN_ENCRYPTION_KEY`** (see **`.env.example`**). |
-| **`./bin/start.sh`** | Interactive menu: compose progress + keypress ack (see script header). |
+| **`./bin/start.sh`** | Interactive menu with cleanup, backup/restore, dev/prd mode routing, nuke. |
+| **UI** | `.work.ui/screens/prospects-list/` — screen SPEC created (Draft). Foundation not yet complete. |
 
 ---
 
@@ -43,11 +44,11 @@ Treat prior closed sessions as historical only; see "What this cycle produced" b
 
 ## Recommended next work
 
-1. **Seed a client user** in `sql/schema_inserts.sql` so `/client/login` can be exercised locally.
-2. **`github_ref` picker (M4-T4):** Build commit-cite UI for tasks/comments — backend validation exists, UI is TODO.
-3. **Client task/ticket scope by company contacts:** Currently filtered by the signed-in contact's user_id; SPEC also mentions "their client company contacts".
-4. **`next/image` migration:** Suppress or fix pre-existing ESLint warning in `TicketDiscussion.tsx`.
-5. **Batch I web:** `/projects/[id]/github` page exists, `github_commit` activity is wired. Remaining polish is low priority.
+1. **Complete UI design foundation** (`@ui-design-foundation greenfield`) — needed before prospects list can be built.
+2. **Prospects list UI** — implement from the Approved SPEC after foundation is done.
+3. **`github_ref` picker (M4-T4):** Build commit-cite UI for tasks/comments — backend validation exists, UI is TODO.
+4. **Client task/ticket scope by company contacts:** Currently filtered by the signed-in contact's user_id; SPEC also mentions "their client company contacts".
+5. **`next/image` migration:** Suppress or fix pre-existing ESLint warning in `TicketDiscussion.tsx`.
 
 ---
 
@@ -97,6 +98,15 @@ Treat prior closed sessions as historical only; see "What this cycle produced" b
 | `web/src/app/projects/[id]/github/page.tsx` | GitHub commit history page |
 | `web/src/app/projects/[id]/settings/page.tsx` | Project settings with GitHub repo management |
 | `web/src/components/CmdkPalette.tsx` | Global `c` quick-capture shortcut → `/inbox` |
+| `bin/start.sh` | Extended: cleanup, backup, restore, dev/prd mode routing, `confirm_yes` helper, menu input fix |
+| `docker-compose.dev.yml`, `docker-compose.prd.yml` | Compose split into dev/prd variants |
+| `.env.dev`, `.env.prd` | Environment files per mode |
+| `sql/schema_indexes.sql` | Dedup DELETE + `uq_client_contacts_email` unique index |
+| `sql/schema_inserts.sql` | Demo client user seed (alice@umbrella-corp.test, bcrypt, project grants) |
+| `api/app/main.py` | Added imports: `project_clients`, `project_client_access` |
+| `web/next.config.ts` | Added `turbopack: { root: "/app" }` for Next.js 16 |
+| `web/src/app/client/login/page.tsx` | Form styling: `.field`/`.input`/`.label` classes, `stack-lg` spacing |
+| `.work.ui/screens/prospects-list/20260618-SCREEN-SPEC.md` | Prospects list screen SPEC (Draft) — admin-dashboard, pipeline table view |
 
 ## Where to read more
 

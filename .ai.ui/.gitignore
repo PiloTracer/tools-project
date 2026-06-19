@@ -1,0 +1,30 @@
+# UI Design OS framework repo
+.env
+.env.*
+!.env.example
+**/.private/
+**/tmp/
+**/temp/
+node_modules/
+.next/
+dist/
+build/
+
+# Project inputs may contain large assets — track selectively
+.ai.ui/inputs/**/*
+!.ai.ui/inputs/README.md
+!.ai.ui/inputs/**/.gitkeep
+
+# Local work demo (optional)
+.work.ui/local/
+# Examples: track manifests; binaries optional (large PNGs may stay local)
+**/examples/**/*.png
+**/examples/**/*.jpg
+!**/examples/**/manifest.md
+!**/examples/INDEX.md
+!**/examples/README.md
+
+**/credentials/**/*
+**/credential/**/*
+**/credenciales/**/*
+**/credencial/**/*

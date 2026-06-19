@@ -1,0 +1,39 @@
+# REPLACE:PROJECT_NAME — UI vision and principles
+
+**Doc:** UI foundation **01** · **Created:** YYYY-MM-DD · **Path:** `.work.ui/plans/foundation/`
+
+## Project classification
+
+| Field | Value |
+|-------|-------|
+| **Archetype** | marketing-site \| saas-product \| admin-dashboard \| mobile-app \| design-system \| hybrid |
+| **Complexity** | S \| M \| L |
+| **Style stack** | tailwind \| css-modules \| vanilla-css \| styled-components |
+| **Primary surfaces** | web responsive \| mobile-first \| both |
+
+(Source: `@ui-project-approach` · recorded in `HANDOFF_UI`)
+
+## Product UI intent
+
+> REPLACE:UI_VISION_VERBATIM
+
+## Design principles
+
+1. REPLACE:UI_PRINCIPLE_1
+2. REPLACE:UI_PRINCIPLE_2
+
+## Density and tone
+
+- Density: comfortable | compact | spacious
+- **Craft tier:** utilitarian | refined | premium (see SURFACE-AND-CONTROL-CRAFT)
+- Motion: minimal | moderate | expressive (see UIS-03)
+- Brand voice in UI copy: REPLACE:UI_VOICE
+
+## Out of scope (UI v1)
+
+- REPLACE:UI_OUT_OF_SCOPE_1
+
+## Links
+
+- Domain scope: `.work/plans/foundation/*-01-*` (Agent OS) when present
+- Inputs: `.ai.ui/inputs/brand/` (reference only)

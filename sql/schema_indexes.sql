@@ -71,6 +71,15 @@ CREATE INDEX IF NOT EXISTS ix_prospects_pipeline_stage ON prospects (pipeline_st
 CREATE INDEX IF NOT EXISTS ix_prospects_created_by ON prospects (created_by);
 CREATE INDEX IF NOT EXISTS ix_client_contacts_client_id ON client_contacts (client_id);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_client_contacts_user_id ON client_contacts (user_id) WHERE user_id IS NOT NULL;
+-- Deduplicate before adding unique index (cleanup from prior seed runs without email constraint).
+WITH ranked AS (
+    SELECT id,
+           ROW_NUMBER() OVER (PARTITION BY email ORDER BY created_at, id::text) AS rn
+    FROM client_contacts
+)
+DELETE FROM client_contacts
+WHERE id IN (SELECT id FROM ranked WHERE rn > 1);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_client_contacts_email ON client_contacts (email);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_project_clients_project_client ON project_clients (project_id, client_id);
 CREATE INDEX IF NOT EXISTS ix_project_clients_client_id ON project_clients (client_id);
 CREATE INDEX IF NOT EXISTS ix_project_client_access_project_id ON project_client_access (project_id);

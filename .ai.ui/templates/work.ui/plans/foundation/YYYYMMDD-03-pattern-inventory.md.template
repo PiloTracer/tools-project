@@ -1,0 +1,20 @@
+# REPLACE:PROJECT_NAME — Pattern inventory
+
+**Doc:** UI foundation **03** · **Created:** YYYY-MM-DD
+
+## Existing (in repo today)
+
+| Pattern | Location | Reuse? |
+|---------|----------|--------|
+| | | yes / refactor / replace |
+
+## Needed (net-new)
+
+| Pattern | Tier | Priority | Screen(s) | Example id | Catalog primitive |
+|---------|------|----------|-----------|------------|-------------------|
+| Button | primitive | P0 | all | — | Button |
+| RangeSlider | primitive | P0 | settings | mobile-controls/C1 | RangeSlider |
+
+## Catalog
+
+Detailed rows: `.work.ui/design-system/CATALOG.md` (maintained by `@ui-design-system`)

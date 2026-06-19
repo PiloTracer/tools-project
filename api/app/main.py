@@ -22,6 +22,8 @@ from app.routers import (
     github,
     inbox,
     me_focus,
+    project_client_access,
+    project_clients,
     projects,
     prospects,
     tasks,

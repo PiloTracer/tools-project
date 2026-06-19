@@ -1,0 +1,16 @@
+# dashboards — manifest
+
+**Archetype:** `admin-dashboard` · **Patterns doc:** UI-PATTERNS § data-density + app shell · **Craft:** [`standards/20260523-SURFACE-AND-CONTROL-CRAFT.md`](../../standards/20260523-SURFACE-AND-CONTROL-CRAFT.md)
+
+## OCR note: filenames `image copy N.png` — use **id** column only.
+
+| id | file | surfaces | controls | typography | spacing | extractedRules | primitives |
+|----|------|----------|----------|------------|---------|----------------|------------|
+| D1 | `image.png` | Dark theme; elevated cards; hero metric block; right activity rail | Segmented status bar (paid/credits/balance) with legend icons; pill tabs (Details/Docs/Notes); overflow menu on cards | Large currency hero; metadata row; activity card titles | Hero + segmented bar full width; card grid for line items | One hero metric + metadata row; segmented status bar with legend — not color-only; line items as cards with image + qty; activity sidebar with typed chips; Pay CTA prominent | `Card`, `SegmentedBar`, `Button`, `Tabs` |
+| D2 | `image copy.png` | Light lavender page; white cards; soft shadow elevation | Sidebar nav pills; table row selection; status badges; chart tooltips | Bold KPI numbers; muted axis labels; badge pills | Sidebar + main grid; card grid 2–3 col | Soft card elevation on light background; sidebar active pill; mixed chart cards (bar, line, donut); table with status badges + row highlight; dark accent card for contrast block | `Card`, `Sidebar`, `Badge`, `DataTable`, `Chart` |
+| D3 | `image copy 2.png` | Bento allocation grid; light base; warning glow on cards | Header nav underline active; chart scrubber/slider; generate button with icon | Large portfolio total; green delta badge; small metric columns | Bento grid irregular cell sizes | Bento grid for allocation cards (size = weight); interactive chart scrubber; warning state on cards (glow/icon); breakdown table below grid; AI/Generate action in header | `Card`, `RangeSlider`, `Badge`, `DataTable`, `Button` |
+| D4 | `image copy 3.png` | Dark analytics; rounded panels; sidebar icons | Filter chips; date range; table sort; kebab menus | KPI headline; column headers medium weight | Dashboard grid with KPI row first | KPI row 3–5 metrics; filters chip row collapses on mobile; chart + table pairing; sticky table header | `Card`, `Chip`, `DataTable`, `Chart` |
+| D5 | `image copy 4.png` | Split layout; invoice/list pattern variant | Action buttons top-right; row overflow menus | Strong numeric hierarchy | List + detail split | Master-detail or list-heavy dashboard variant; action cluster top-right | `Card`, `Button`, `DataTable` |
+| D6 | `image copy 5.png` | Card-based widgets; consistent radius | Widget controls; tabs | Widget titles | Uniform widget grid | Widget grid dashboard; repeated card pattern for modularity | `Card`, `Tabs`, `Chart` |
+| D7 | `image copy 6.png` | Minimal light dashboard; whitespace | Simple nav; primary buttons | Clean sans hierarchy | Airy spacing tier | Spacious marketing-adjacent dashboard; fewer density rules | `Card`, `Button`, `Sidebar` |
+| D8 | `image copy 7.png` | Dark variant; high contrast KPIs | Toggle filters; icon buttons | Monospace for IDs optional | Compact KPI band | Dark KPI-focused variant | `Card`, `Badge`, `Chip` |

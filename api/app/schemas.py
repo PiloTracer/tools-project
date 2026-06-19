@@ -18,8 +18,17 @@ ACTIVITY_KINDS: frozenset[str] = frozenset({
 
 
 class LocalLoginRequest(BaseModel):
-    email: EmailStr
+    # Allow development/test domains (e.g. .test) that email-validator rejects.
+    email: str = Field(min_length=3, max_length=254)
     password: str = Field(min_length=1, max_length=1024)
+
+    @field_validator("email")
+    @classmethod
+    def _validate_login_email(cls, v: str) -> str:
+        value = v.strip().lower()
+        if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", value):
+            raise ValueError("Invalid email address")
+        return value
 
 
 class TokenResponse(BaseModel):

@@ -1,0 +1,33 @@
+# REPLACE:PROJECT_NAME — Design tokens
+
+**Doc:** UI foundation **02** · **Created:** YYYY-MM-DD
+
+## Canonical token file (code)
+
+**Path:** `REPLACE:UI_TOKENS_FILE` (application source — not under `.work.ui/`)
+
+## Semantic token map (summary)
+
+| Token | Light | Dark | Usage |
+|-------|-------|------|-------|
+| `--color-text-primary` | | | body text |
+| `--surface-base` | | | page background |
+| `--surface-elevated` | | | cards, panels |
+| `--surface-inset` | | | wells, input backgrounds |
+| `--surface-overlay` | | | sheets, modals |
+| `--elevation-1` | | | shadow/elevation pairing |
+
+## Surface & control tokens
+
+Required when craft tier ≥ refined — see [`20260523-SURFACE-AND-CONTROL-CRAFT.md`](../../standards/20260523-SURFACE-AND-CONTROL-CRAFT.md) §2.
+
+## Rules
+
+- Components use semantic tokens only (see DESIGN_TOKENS_STANDARD)
+- Theme changes require UIS-04 audit
+
+## Evidence
+
+| Claim | Tag |
+|-------|-----|
+| WCAG target | REPLACE:UI_WCAG_LEVEL — assumption until measured |

@@ -70,9 +70,36 @@ ON CONFLICT (slug) DO NOTHING;
 INSERT INTO client_contacts (id, client_id, name, email, phone, title, role, is_primary, notes, created_at, updated_at)
 SELECT gen_random_uuid(), c.id, 'Alice Johnson', 'alice@umbrella-corp.test', '+1-555-0101', 'VP of Engineering', 'contact', TRUE, 'Primary contact for technical discussions.', now(), now()
 FROM clients c WHERE c.slug = 'umbrella-corp'
-ON CONFLICT DO NOTHING;
+ON CONFLICT (email) DO NOTHING;
+
+-- Demo client user (password: "client-demo") linked to the client_contact for client portal testing.
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+INSERT INTO users (id, email, password_hash, display_name, auth_source, is_active, is_superuser, created_at, updated_at)
+SELECT gen_random_uuid(), 'alice@umbrella-corp.test', crypt('client-demo', gen_salt('bf')), 'Alice Johnson', 'local', TRUE, FALSE, now(), now()
+WHERE NOT EXISTS (SELECT 1 FROM users WHERE email = 'alice@umbrella-corp.test');
+
+-- Link the alice@umbrella-corp.test user to its client_contact row (idempotent).
+UPDATE client_contacts cc
+SET user_id = u.id, updated_at = now()
+FROM users u
+WHERE u.email = 'alice@umbrella-corp.test'
+  AND cc.email = 'alice@umbrella-corp.test'
+  AND cc.user_id IS NULL;
+
+-- Grant the demo client contact view-level access to the demo workspace and sandbox projects.
+INSERT INTO project_client_access (id, project_id, client_contact_id, role, can_view_tasks, can_view_tickets, can_create_tasks, created_by, created_at)
+SELECT gen_random_uuid(), p.id, cc.id, 'view', TRUE, TRUE, FALSE, admin.id, now()
+FROM projects p
+CROSS JOIN client_contacts cc
+CROSS JOIN LATERAL (SELECT u.id FROM users u WHERE u.is_superuser = TRUE ORDER BY u.created_at ASC LIMIT 1) admin
+WHERE cc.email = 'alice@umbrella-corp.test'
+  AND p.slug IN ('demo-workspace', 'demo-sandbox')
+  AND NOT EXISTS (
+      SELECT 1 FROM project_client_access pca
+      WHERE pca.project_id = p.id AND pca.client_contact_id = cc.id
+  );
 
 INSERT INTO client_contacts (id, client_id, name, email, phone, title, role, is_primary, notes, created_at, updated_at)
 SELECT gen_random_uuid(), c.id, 'Bob Williams', 'bob@umbrella-corp.test', '+1-555-0102', ' procurement lead', 'contact', FALSE, 'Handles procurement and contracts.', now(), now()
 FROM clients c WHERE c.slug = 'umbrella-corp'
-ON CONFLICT DO NOTHING;
+ON CONFLICT (email) DO NOTHING;

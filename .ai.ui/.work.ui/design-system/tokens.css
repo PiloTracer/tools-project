@@ -1,0 +1,64 @@
+/* Demo SaaS dashboard — semantic design tokens (worked example).
+ * Canonical token file referenced by foundation doc 02. Components consume
+ * semantic vars only (no raw hex), per DESIGN_TOKENS_STANDARD. Craft tier:
+ * refined → surface/elevation tokens present, overridden in every theme. */
+
+:root {
+  /* color — text */
+  --color-text-primary: #1a1d21;
+  --color-text-secondary: #5b6470;
+  --color-text-inverse: #ffffff;
+
+  /* color — surfaces */
+  --surface-base: #f6f7f9;       /* page background  */
+  --surface-elevated: #ffffff;   /* cards, panels    */
+  --surface-inset: #eceef1;      /* wells, inputs    */
+  --surface-overlay: #ffffffe6;  /* sheets, modals   */
+
+  /* brand / accent */
+  --color-accent: #2f6df6;
+  --color-accent-text: #ffffff;
+  --color-border: #d8dce1;
+
+  /* elevation */
+  --elevation-1: 0 1px 2px rgba(16, 24, 40, 0.06), 0 1px 3px rgba(16, 24, 40, 0.10);
+  --elevation-inset: inset 0 1px 2px rgba(16, 24, 40, 0.08);
+
+  /* type scale (rem) */
+  --font-size-100: 0.875rem;
+  --font-size-200: 1rem;
+  --font-size-300: 1.25rem;
+  --font-size-400: 1.75rem;
+
+  /* spacing scale (px) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+}
+
+/* Dark theme — every semantic token the default theme exposes is overridden,
+ * including inset bg + text and inset elevation (DESIGN_TOKENS_STANDARD
+ * § theme variant completeness). */
+:root[data-theme="dark"] {
+  --color-text-primary: #e7eaee;
+  --color-text-secondary: #9aa4b1;
+  --color-text-inverse: #11141a;
+
+  --surface-base: #0f1216;
+  --surface-elevated: #171b21;
+  --surface-inset: #0a0c10;
+  --surface-overlay: #11141ae6;
+
+  --color-accent: #5b8cff;
+  --color-accent-text: #0b0e13;
+  --color-border: #2a313a;
+
+  --elevation-1: 0 1px 2px rgba(0, 0, 0, 0.40), 0 2px 6px rgba(0, 0, 0, 0.45);
+  --elevation-inset: inset 0 1px 2px rgba(0, 0, 0, 0.55);
+}

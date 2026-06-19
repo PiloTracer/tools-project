@@ -6,7 +6,7 @@
 
 **Schema:** declarative **`sql/`** only — no Alembic. On API startup: `schema_changes.sql` → `schema_indexes.sql` → bootstrap → `schema_backfill.sql` → `schema_inserts.sql`.
 
-**Latest (repo):** **2026-06-18** — Repo restructured: `.work/` now holds project-specific content (CONTEXT, HANDOFF, NEXT, legacy plans); `.ai/` holds Agent OS framework (skills, standards, templates); `.cursorrules` updated to generic template. **Product scope unchanged:** Phases **1–2** (**Batch G**, **Batch H**, carryovers **P2–P5**) **complete** on `main`. **Batch I (GitHub) — partial:** API + sync done; web tab + activity feed + ref attach still open (see **§ I12**). **Batch J (CRM / clients-participants) — starting:** SPEC Approved, ADR-0001 Decided, schema + model slice is next (see **§ Batch J**). **Still deferred:** attachment **retention purge** cron; optional Inbox **`c`** shortcut.
+**Latest (repo):** **2026-06-18** — Repo restructured: `.work/` now holds project-specific content (CONTEXT, HANDOFF, NEXT, legacy plans); `.ai/` holds Agent OS framework (skills, standards, templates); `.cursorrules` updated to generic template. **`bin/start.sh`** extended with dev/prd routing, cleanup, backup/restore. Compose split into dev/prd variants. Client login form polished; demo client user seeded. **Product scope unchanged:** Phases **1–2** (**Batch G**, **Batch H**, carryovers **P2–P5**) **complete** on `main`. **Batch I (GitHub) — partial:** API + sync done; web tab + activity feed + ref attach still open (see **§ I12**). **Batch J (CRM / clients-participants) — all M1-M4 done.** Prospects list UI screen SPEC created (Draft) — build blocked on UI design foundation (`@ui-design-foundation greenfield`). **Still deferred:** attachment **retention purge** cron; optional Inbox **`c`** shortcut.
 
 ### Status at a glance (visual)
 
@@ -19,7 +19,7 @@ Phase 3 (I)     ██████░░░░░░░░░░░░░░  ~3
 Matrix (G+H+P)  ████████████████████  14/14 Done
 
 Open: Batch I web + github_commit activity + github_ref · retention cron · optional Inbox "c"
-Active: Batch J — CRM (M1: schema + prospects) — next task: M1-T1 (prospects DDL + model)
+Active: Batch J — CRM (M1-M4 complete). Prospects list UI SPEC (Draft) — blocked on UI design foundation.
 ```
 
 ---
@@ -280,8 +280,8 @@ Run `apply-ddl` twice to verify idempotency.
 
 ### J2 — Prospects API + UI
 
-- `api/app/routers/prospects.py`: list, create, get, update, delete, `PATCH /stage` with transition validation.
-- `web/src/app/prospects/`: list page, detail page with tabs (overview, activity, referrals), stage transition widget.
+- `api/app/routers/prospects.py`: list, create, get, update, delete, `PATCH /stage` with transition validation. **Done.**
+- `web/src/app/prospects/`: list page, detail page with tabs (overview, activity, referrals), stage transition widget. **Screen SPEC created (Draft)** — `.work.ui/screens/prospects-list/20260618-SCREEN-SPEC.md`. Build pending UI design foundation.
 
 ### J3 — Clients + contacts API + UI
 
@@ -360,7 +360,7 @@ docker compose --profile dev run --rm --no-deps web sh -lc "npm ci --no-audit --
 
 ---
 
-## Current iteration - M1: CRM schema + models + prospects API
+## Current iteration — M1: CRM schema + models + prospects API
 
 **Milestone ref:** M1 · `.work/plans/full/20260618-full-plan.md` §19
 **Status:** complete

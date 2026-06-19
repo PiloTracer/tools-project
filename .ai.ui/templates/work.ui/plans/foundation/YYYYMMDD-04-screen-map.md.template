@@ -1,0 +1,19 @@
+# REPLACE:PROJECT_NAME — Screen map
+
+**Doc:** UI foundation **04** · **Created:** YYYY-MM-DD
+
+## Screens
+
+| Slug | Route | Priority | Domain SPEC link | SPEC status |
+|------|-------|----------|------------------|-------------|
+| example-home | `/` | P0 | - | Draft |
+
+## Milestones (UI)
+
+| Milestone | Screens | Notes |
+|-----------|---------|-------|
+| S1 | example-home | shell + first screen |
+
+## Dependencies
+
+- Backend APIs: link `.work/features/` SPECs — do not duplicate contracts here
