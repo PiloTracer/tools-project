@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
@@ -38,6 +39,8 @@ type ActivityRow = {
   parent_activity_id?: string | null;
   is_internal?: boolean;
   meta_json?: Record<string, unknown> | null;
+  subject_ref?: string | null;
+  subject_title?: string | null;
 };
 
 export function ActivityComposer({
@@ -318,7 +321,18 @@ export function ActivityFeed({
                     ) : (
                       <span className="pill" style={{ fontSize: "0.65rem" }}>{a.kind}</span>
                     )}
-                    <span>· {a.subject_type} ·</span>
+                    {a.subject_type === "task" && a.subject_id ? (
+                      <Link href={`/projects/${projectId}/tasks/${a.subject_id}`} className="muted" style={{ fontSize: "inherit" }}>
+                        {a.subject_ref ?? "task"}
+                      </Link>
+                    ) : a.subject_type === "ticket" && a.subject_id ? (
+                      <Link href={`/projects/${projectId}/tickets/${a.subject_id}`} className="muted" style={{ fontSize: "inherit" }}>
+                        {a.subject_ref ?? "ticket"}
+                      </Link>
+                    ) : (
+                      <span>{a.subject_type}</span>
+                    )}
+                    <span>·</span>
                     <span suppressHydrationWarning>{new Date(a.created_at).toLocaleString()}</span>
                     {internal ? (
                       <span

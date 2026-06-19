@@ -270,6 +270,8 @@ class ActivityOut(BaseModel):
     meta_json: dict | None = None
     is_internal: bool = False
     created_at: datetime
+    subject_ref: str | None = None
+    subject_title: str | None = None
 
     model_config = {"from_attributes": True}
 

@@ -13,6 +13,9 @@ from sqlalchemy.orm import selectinload
 from app.db import get_db
 from app.deps import get_current_user
 from app.models.activity import Activity
+from app.models.task import Task
+from app.models.ticket import Ticket
+from app.routers.activities import _enrich_subject_titles
 from app.models.client_contact import ClientContact
 from app.models.project import Project
 from app.models.project_client import ProjectClient
@@ -137,12 +140,19 @@ async def list_client_project_activities(
         .limit(limit)
     )
     rows = list((await db.scalars(stmt)).all())
-    items = [
-        ActivityOut.model_validate(r).model_copy(
-            update={"actor_email": r.actor.email if r.actor else None}
+    lookup = await _enrich_subject_titles(db, rows)
+    items = []
+    for r in rows:
+        ref, title = lookup.get(r.subject_id, (None, None))
+        items.append(
+            ActivityOut.model_validate(r).model_copy(
+                update={
+                    "actor_email": r.actor.email if r.actor else None,
+                    "subject_ref": ref,
+                    "subject_title": title,
+                }
+            )
         )
-        for r in rows
-    ]
     return ActivityListResponse(items=items)
 
 

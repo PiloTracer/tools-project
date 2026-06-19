@@ -11,6 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+
 from app.db import get_db, session_factory
 from app.deps import get_current_user
 from app.models.activity import Activity
@@ -197,6 +198,25 @@ async def _insert_mentions_for_activity(
         await db.execute(stmt)
 
 
+async def _enrich_subject_titles(
+    db: AsyncSession,
+    rows: list[Activity],
+) -> dict[uuid.UUID, tuple[str | None, str | None]]:
+    """Batch-resolve task/ticket ref + title for activities with non-project subject_type."""
+    task_ids = [r.subject_id for r in rows if r.subject_type == "task"]
+    ticket_ids = [r.subject_id for r in rows if r.subject_type == "ticket"]
+    lookup: dict[uuid.UUID, tuple[str | None, str | None]] = {}
+    if task_ids:
+        result = await db.scalars(select(Task).where(Task.id.in_(task_ids)))
+        for t in result.all():
+            lookup[t.id] = (t.ref, t.title)
+    if ticket_ids:
+        result = await db.scalars(select(Ticket).where(Ticket.id.in_(ticket_ids)))
+        for t in result.all():
+            lookup[t.id] = (t.ref, t.title)
+    return lookup
+
+
 @router.get("", response_model=ActivityListResponse)
 async def list_activities(
     project_id: uuid.UUID,
@@ -232,19 +252,25 @@ async def list_activities(
     if kind is not None:
         stmt = stmt.where(Activity.kind == kind.strip().lower())
     if client_participant:
-        # Client participants only ever see non-internal activities.
         stmt = stmt.where(Activity.is_internal.is_(False))
     elif visibility == "internal":
         stmt = stmt.where(Activity.is_internal.is_(True))
     elif visibility == "external":
         stmt = stmt.where(Activity.is_internal.is_(False))
     rows = list((await db.scalars(stmt)).all())
-    items = [
-        ActivityOut.model_validate(r).model_copy(
-            update={"actor_email": r.actor.email if r.actor else None}
+    lookup = await _enrich_subject_titles(db, rows)
+    items = []
+    for r in rows:
+        ref, title = lookup.get(r.subject_id, (None, None))
+        items.append(
+            ActivityOut.model_validate(r).model_copy(
+                update={
+                    "actor_email": r.actor.email if r.actor else None,
+                    "subject_ref": ref,
+                    "subject_title": title,
+                }
+            )
         )
-        for r in rows
-    ]
     return ActivityListResponse(items=items)
 
 
