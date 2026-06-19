@@ -12,6 +12,7 @@ import { toast, ToastContainer } from "@/components/Toast";
 import { PipelineFunnel, type PipelineStageRow } from "@/components/PipelineFunnel";
 import { useDownload } from "@/components/useDownload";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
+import { ProspectBoard } from "@/components/ProspectBoard";
 
 const PIPELINE_STAGES = [
   "target", "connected", "engaged", "call_scheduled", "call_done",
@@ -86,6 +87,7 @@ export default function ProspectsPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [showEdit, setShowEdit] = useState<ProspectRow | null>(null);
   const [showDelete, setShowDelete] = useState<ProspectRow | null>(null);
+  const [view, setView] = useState<"board" | "table">("table");
 
   const [formName, setFormName] = useState("");
   const [formStage, setFormStage] = useState("target");
@@ -126,7 +128,7 @@ export default function ProspectsPage() {
 
   const filtered = rows.filter((r) =>
     !search || r.company_name.toLowerCase().includes(search.toLowerCase())
-  );
+  ).filter((r, i, a) => a.findIndex((x) => x.id === r.id) === i);
 
   const handleAdvanceStage = async (prospect: ProspectRow) => {
     const next = getNextStage(prospect.pipeline_stage);
@@ -142,6 +144,22 @@ export default function ProspectsPage() {
       return;
     }
     toast(`Advanced ${prospect.company_name} to next stage`);
+    fetchRows({ stage: filterStage || undefined, source: filterSource || undefined });
+  };
+
+  const handleBoardStageChange = async (prospectId: string, newStage: string) => {
+    const r = await fetch(`/api/prospects/${prospectId}/stage`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ stage: newStage }),
+    });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({ detail: "Stage transition failed" }));
+      toast(err.detail, "error");
+      return;
+    }
+    const prospect = rows.find((p) => p.id === prospectId);
+    toast(`Moved ${prospect?.company_name ?? "prospect"} to ${STAGE_LABELS[newStage] ?? newStage}`);
     fetchRows({ stage: filterStage || undefined, source: filterSource || undefined });
   };
 
@@ -419,17 +437,43 @@ export default function ProspectsPage() {
           </button>
         </div>
 
-        <DataTable
-          columns={columns}
-          rows={filtered}
-          loading={loading}
-          onRowClick={(r) => router.push(`/prospects/${r.id}`)}
-          emptyMessage={
-            filterStage || filterSource
-              ? "No prospects match these filters."
-              : "No prospects yet. Create your first prospect to start tracking leads."
-          }
-        />
+        <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.75rem" }}>
+          <button
+            type="button"
+            className={`btn btn-sm ${view === "board" ? "btn-primary" : "btn-ghost"}`}
+            onClick={() => setView("board")}
+          >
+            Board
+          </button>
+          <button
+            type="button"
+            className={`btn btn-sm ${view === "table" ? "btn-primary" : "btn-ghost"}`}
+            onClick={() => setView("table")}
+          >
+            Table
+          </button>
+        </div>
+
+        {view === "board" ? (
+          <ProspectBoard
+            key={`board-${filtered.length}-${(filtered[0]?.id ?? "none").slice(0, 8)}`}
+            prospects={filtered}
+            canEdit={true}
+            onStageChange={handleBoardStageChange}
+          />
+        ) : (
+          <DataTable
+            columns={columns}
+            rows={filtered}
+            loading={loading}
+            onRowClick={(r) => router.push(`/prospects/${r.id}`)}
+            emptyMessage={
+              filterStage || filterSource
+                ? "No prospects match these filters."
+                : "No prospects yet. Create your first prospect to start tracking leads."
+            }
+          />
+        )}
       </section>
 
       <Dialog
