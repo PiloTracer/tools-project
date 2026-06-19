@@ -35,20 +35,31 @@ type MentionItem = {
   created_at: string;
 };
 
+type MyStats = {
+  open_tasks: number;
+  overdue_tasks: number;
+  done_this_week: number;
+  inbox_count: number;
+  mention_count: number;
+  open_tickets: number;
+};
+
 export default async function TodayPage() {
   const me = await fetchMe();
   if (!me) {
     redirect("/login");
   }
 
-  const [tr, mr] = await Promise.all([
+  const [tr, mr, sr] = await Promise.all([
     apiServerFetch("/v1/me/today"),
     apiServerFetch("/v1/me/mentions"),
+    apiServerFetch("/v1/stats/me"),
   ]);
   const todayJson = tr.ok ? ((await tr.json()) as { items: TodayItem[]; watched_tickets?: WatchedTicketRow[] }) : { items: [], watched_tickets: [] };
   const today = todayJson.items ?? [];
   const watchedTickets = todayJson.watched_tickets ?? [];
   const mentions = mr.ok ? ((await mr.json()) as { items: MentionItem[] }).items : [];
+  const stats: MyStats | null = sr.ok ? (await sr.json()) as MyStats : null;
 
   return (
     <div className="page-inner">
@@ -57,7 +68,7 @@ export default async function TodayPage() {
           <span className="pill">My focus</span>
           <h1>Today</h1>
           <p className="muted text-sm page-header__lead">
-            Assigned tasks with due dates in the next week (UTC), watched items, plus @mentions from activity.
+            Assigned tasks with due dates in the next week, watched items, and @mentions.
           </p>
         </div>
         <div className="page-header__actions">
@@ -66,6 +77,22 @@ export default async function TodayPage() {
           </Link>
         </div>
       </header>
+
+      {stats ? (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+            gap: "0.75rem",
+            marginBottom: "1.5rem",
+          }}
+        >
+          <StatCard label="Open tasks" value={stats.open_tasks} secondary={stats.overdue_tasks > 0 ? `${stats.overdue_tasks} overdue` : undefined} />
+          <StatCard label="Done this week" value={stats.done_this_week} />
+          <StatCard label="Open tickets" value={stats.open_tickets} />
+          <StatCard label="Inbox" value={stats.inbox_count} secondary={stats.mention_count > 0 ? `${stats.mention_count} recent mentions` : undefined} />
+        </div>
+      ) : null}
 
       <div className="page-body stack-lg">
         <section className="card wide stack">
@@ -164,6 +191,28 @@ export default async function TodayPage() {
           <Link href="/projects">← Projects</Link>
         </p>
       </div>
+    </div>
+  );
+}
+
+function StatCard({ label, value, secondary }: { label: string; value: number; secondary?: string }) {
+  return (
+    <div
+      style={{
+        background: "var(--surface-elevated)",
+        border: "1px solid var(--border)",
+        borderRadius: "var(--radius-lg)",
+        padding: "1.25rem 1.5rem",
+        display: "flex",
+        flexDirection: "column",
+        gap: "0.15rem",
+      }}
+    >
+      <span className="text-sm muted">{label}</span>
+      <span style={{ fontSize: "1.75rem", fontWeight: 700, lineHeight: 1.2 }}>
+        {value}
+      </span>
+      {secondary ? <span className="text-xs muted">{secondary}</span> : null}
     </div>
   );
 }

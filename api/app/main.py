@@ -26,6 +26,8 @@ from app.routers import (
     project_clients,
     projects,
     prospects,
+    reports,
+    stats,
     tasks,
     tickets,
 )
@@ -99,6 +101,8 @@ app.include_router(clients.router)
 app.include_router(client_contacts.router)
 app.include_router(client_portal.router)
 app.include_router(github.router)
+app.include_router(stats.router)
+app.include_router(reports.router)
 
 
 @app.get("/healthz")

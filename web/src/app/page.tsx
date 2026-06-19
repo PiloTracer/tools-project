@@ -56,11 +56,18 @@ export default async function HomePage() {
   ]);
 
   let projects: ProjectRow[] = [];
+  let globalStats: Record<string, number> | null = null;
   if (me) {
-    const pr = await apiServerFetch("/v1/projects");
+    const [pr, sr] = await Promise.all([
+      apiServerFetch("/v1/projects"),
+      apiServerFetch("/v1/stats/global"),
+    ]);
     if (pr.ok) {
       const data = (await pr.json()) as { items?: ProjectRow[] };
       projects = data.items ?? [];
+    }
+    if (sr.ok) {
+      globalStats = (await sr.json()) as Record<string, number>;
     }
   }
 
@@ -84,6 +91,37 @@ export default async function HomePage() {
           behind your org auth.
         </p>
       </header>
+
+      {globalStats ? (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
+            gap: "0.75rem",
+          }}
+        >
+          <div className="stat-card">
+            <span className="text-sm muted">Active projects</span>
+            <span className="stat-value">{globalStats.active_projects}</span>
+          </div>
+          <div className="stat-card">
+            <span className="text-sm muted">Open tasks</span>
+            <span className="stat-value">{globalStats.open_tasks}</span>
+          </div>
+          <div className="stat-card">
+            <span className="text-sm muted">Open tickets</span>
+            <span className="stat-value">{globalStats.open_tickets}</span>
+          </div>
+          <div className="stat-card">
+            <span className="text-sm muted">Prospects</span>
+            <span className="stat-value">{globalStats.total_prospects}</span>
+          </div>
+          <div className="stat-card">
+            <span className="text-sm muted">Clients</span>
+            <span className="stat-value">{globalStats.total_clients}</span>
+          </div>
+        </div>
+      ) : null}
 
       <div className="grid-dashboard">
         {me ? (

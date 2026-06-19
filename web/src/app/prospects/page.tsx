@@ -9,6 +9,8 @@ import { Dialog } from "@/components/Dialog";
 import { DropdownMenu, DropdownItem } from "@/components/DropdownMenu";
 import { Chip } from "@/components/Chip";
 import { toast, ToastContainer } from "@/components/Toast";
+import { PipelineFunnel, type PipelineStageRow } from "@/components/PipelineFunnel";
+import { useDownload } from "@/components/useDownload";
 
 const PIPELINE_STAGES = [
   "target", "connected", "engaged", "call_scheduled", "call_done",
@@ -76,6 +78,10 @@ export default function ProspectsPage() {
   const [search, setSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
 
+  const [pipelineStats, setPipelineStats] = useState<PipelineStageRow[] | null>(null);
+  const [pipelineTotal, setPipelineTotal] = useState(0);
+  const download = useDownload();
+
   const [showCreate, setShowCreate] = useState(false);
   const [showEdit, setShowEdit] = useState<ProspectRow | null>(null);
   const [showDelete, setShowDelete] = useState<ProspectRow | null>(null);
@@ -108,6 +114,12 @@ export default function ProspectsPage() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchRows({ stage: filterStage || undefined, source: filterSource || undefined });
+    fetch("/api/stats/pipeline").then(r => r.ok && r.json()).then(d => {
+      if (d) {
+        setPipelineStats(d.by_stage ?? []);
+        setPipelineTotal(d.total_value ?? 0);
+      }
+    }).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterStage, filterSource]);
 
@@ -301,6 +313,39 @@ export default function ProspectsPage() {
         </div>
       </header>
 
+      {pipelineStats && pipelineStats.length > 0 ? (
+        <div style={{ marginBottom: "1.5rem" }}>
+          <div className="stat-card-row" style={{ marginBottom: "0.75rem" }}>
+            <div className="stat-card">
+              <span className="text-sm muted">Total pipeline value</span>
+              <span className="stat-value">${pipelineTotal.toLocaleString()}</span>
+            </div>
+            <div className="stat-card">
+              <span className="text-sm muted">Active prospects</span>
+              <span className="stat-value">{pipelineStats.filter(s => s.stage !== "won" && s.stage !== "lost").reduce((a, s) => a + s.count, 0)}</span>
+            </div>
+            <div className="stat-card">
+              <span className="text-sm muted">Won</span>
+              <span className="stat-value" style={{ color: "var(--success)" }}>{pipelineStats.find(s => s.stage === "won")?.count ?? 0}</span>
+            </div>
+            <div className="stat-card">
+              <span className="text-sm muted">Lost</span>
+              <span className="stat-value" style={{ color: "var(--danger)" }}>{pipelineStats.find(s => s.stage === "lost")?.count ?? 0}</span>
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
+            <div style={{ flex: 1, background: "var(--surface-elevated)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", padding: "1rem" }}>
+              <span className="text-sm muted" style={{ marginBottom: "0.5rem", display: "block" }}>Pipeline by stage</span>
+              <PipelineFunnel data={pipelineStats} metric="count" />
+            </div>
+            <div style={{ flex: 1, background: "var(--surface-elevated)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", padding: "1rem" }}>
+              <span className="text-sm muted" style={{ marginBottom: "0.5rem", display: "block" }}>Pipeline value by stage</span>
+              <PipelineFunnel data={pipelineStats} metric="value" />
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <section className="page-body" aria-label="Prospect list">
         {error ? (
           <div
@@ -368,6 +413,9 @@ export default function ProspectsPage() {
               {filterSource ? `Source: ${filterSource}` : ""}
             </Chip>
           ) : null}
+          <button className="btn btn-sm btn-secondary" style={{ marginLeft: "auto" }} onClick={() => download("/api/reports/pipeline", "pipeline-report.xlsx")} title="Export to Excel">
+            Export
+          </button>
         </div>
 
         <DataTable

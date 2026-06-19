@@ -752,3 +752,36 @@ class ClientAccessOut(BaseModel):
 
 class ClientAccessListResponse(BaseModel):
     items: list[ClientAccessOut]
+
+
+class MyStatsOut(BaseModel):
+    open_tasks: int
+    overdue_tasks: int
+    done_this_week: int
+    inbox_count: int
+    mention_count: int
+    open_tickets: int
+
+
+class PipelineStageStats(BaseModel):
+    stage: str
+    label: str
+    count: int
+    value: float
+
+
+class PipelineStatsOut(BaseModel):
+    by_stage: list[PipelineStageStats]
+    total_value: float
+    won_value: float
+    lost_value: float
+    conversion_rate: float | None
+
+
+class GlobalStatsOut(BaseModel):
+    total_projects: int
+    active_projects: int
+    open_tasks: int
+    open_tickets: int
+    total_prospects: int
+    total_clients: int

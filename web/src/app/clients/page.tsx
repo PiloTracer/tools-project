@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { DataTable, type Column } from "@/components/DataTable";
 import { Dialog } from "@/components/Dialog";
 import { toast, ToastContainer } from "@/components/Toast";
+import { useDownload } from "@/components/useDownload";
 
 type ClientRow = {
   id: string;
@@ -26,6 +27,7 @@ export default function ClientsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const download = useDownload();
 
   const [showCreate, setShowCreate] = useState(false);
   const [formName, setFormName] = useState("");
@@ -141,6 +143,9 @@ export default function ClientsPage() {
             style={{ maxWidth: "260px", fontSize: "0.88rem" }}
             aria-label="Search clients"
           />
+          <button className="btn btn-sm btn-secondary" style={{ marginLeft: "auto" }} onClick={() => download("/api/reports/clients", "clients-report.xlsx")} title="Export to Excel">
+            Export
+          </button>
         </div>
 
         <DataTable

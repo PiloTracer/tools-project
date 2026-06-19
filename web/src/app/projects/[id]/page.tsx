@@ -8,6 +8,7 @@ import { apiServerFetch, fetchMe } from "@/shared/server/session";
 
 import { ProjectSettingsForm } from "./ProjectSettingsForm";
 import { ProjectSubNav } from "./ProjectSubNav";
+import { ProjectDashboard } from "./ProjectDashboard";
 
 type ProjectRow = {
   id: string;
@@ -88,6 +89,7 @@ export default async function ProjectDetailPage({
           canEdit={canEditSettings}
         />
       </div>
+      <ProjectDashboard projectId={id} projectSlug={p.slug} />
       <div className="card wide stack">
         <span className="pill">Project hub</span>
         <p className="muted text-sm" style={{ marginTop: "0.75rem" }}>
