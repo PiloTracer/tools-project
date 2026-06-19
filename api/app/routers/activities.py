@@ -138,11 +138,6 @@ async def _validate_and_link_ticket_attachments(
     ids = _attachment_ids_from_meta(meta)
     if not ids:
         return
-    if subject_type not in ("ticket", "task"):
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST,
-            detail="Image attachments on comments are only supported for tickets and tasks",
-        )
     for aid in ids:
         att = await db.get(Attachment, aid)
         if att is None:

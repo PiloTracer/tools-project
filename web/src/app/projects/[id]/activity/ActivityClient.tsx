@@ -7,6 +7,7 @@ import { CommitPicker } from "@/components/CommitPicker";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { SubjectPicker } from "@/components/SubjectPicker";
 import { SubjectPreview } from "@/components/SubjectPreview";
+import { usePendingImages } from "@/shared/client/use-pending-images";
 
 async function _searchUsers(prefix: string): Promise<{ label: string; insert: string }[]> {
   const r = await fetch(`/api/me/users/search?q=${encodeURIComponent(prefix)}&limit=8`);
@@ -51,10 +52,12 @@ export function ActivityComposer({
   canPost: boolean;
 }) {
   const router = useRouter();
+  const { pending, addFiles, remove, clear } = usePendingImages();
   const [subjectType, setSubjectType] = useState("project");
   const [subjectId, setSubjectId] = useState<string | null>(null);
   const [subjectLabel, setSubjectLabel] = useState<string | null>(null);
   const [body, setBody] = useState("");
+  const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [showCommitPicker, setShowCommitPicker] = useState(false);
   const [showSubjectPicker, setShowSubjectPicker] = useState(false);
@@ -72,47 +75,102 @@ export function ActivityComposer({
     }
   }
 
+  async function uploadPending(): Promise<string[]> {
+    const ids: string[] = [];
+    for (const p of pending) {
+      const fd = new FormData();
+      fd.append("file", p.file);
+      const ur = await fetch(`/api/projects/${projectId}/attachments`, {
+        method: "POST",
+        body: fd,
+      });
+      const ut = await ur.text();
+      if (!ur.ok) {
+        try {
+          const j = JSON.parse(ut) as { detail?: string };
+          throw new Error(j.detail ?? ut);
+        } catch (e) {
+          if (e instanceof Error && e.message !== ut) throw e;
+          throw new Error(ut || `Upload failed (${ur.status})`);
+        }
+      }
+      const row = JSON.parse(ut) as { id: string };
+      ids.push(row.id);
+    }
+    return ids;
+  }
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const caption = body.trim();
+    if (!caption && pending.length === 0) return;
     setMsg(null);
-    let resolvedSubjectId = projectId;
-    let resolvedSubjectType = "project";
-    if (subjectType !== "project") {
-      if (!subjectId) {
-        setMsg("Select a task or ticket to link this post to.");
-        return;
+    setBusy(true);
+    try {
+      const uploadedIds = pending.length ? await uploadPending() : [];
+      let resolvedSubjectId = projectId;
+      let resolvedSubjectType = "project";
+      if (subjectType !== "project") {
+        if (!subjectId) {
+          setMsg("Select a task or ticket to link this post to.");
+          setBusy(false);
+          return;
+        }
+        resolvedSubjectId = subjectId;
+        resolvedSubjectType = subjectType;
       }
-      resolvedSubjectId = subjectId;
-      resolvedSubjectType = subjectType;
-    }
-    const r = await fetch(`/api/projects/${projectId}/activities`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+      const payload: Record<string, unknown> = {
         subject_type: resolvedSubjectType,
         subject_id: resolvedSubjectId,
-        body: body.trim(),
-      }),
-    });
-    const text = await r.text();
-    if (!r.ok) {
-      try {
-        const j = JSON.parse(text) as { detail?: string };
-        setMsg(j.detail ?? text);
-      } catch {
-        setMsg(text || `Error ${r.status}`);
+        kind: "note",
+        body: caption || (uploadedIds.length ? "(image)" : ""),
+      };
+      if (uploadedIds.length) {
+        payload.meta_json = { attachment_ids: uploadedIds };
       }
-      return;
+      const r = await fetch(`/api/projects/${projectId}/activities`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const text = await r.text();
+      if (!r.ok) {
+        try {
+          const j = JSON.parse(text) as { detail?: string };
+          setMsg(j.detail ?? text);
+        } catch {
+          setMsg(text || `Error ${r.status}`);
+        }
+        setBusy(false);
+        return;
+      }
+      setBody("");
+      setSubjectType("project");
+      setSubjectId(null);
+      setSubjectLabel(null);
+      clear();
+      router.refresh();
+    } catch (err) {
+      setMsg(err instanceof Error ? err.message : "Upload failed");
     }
-    setBody("");
-    setSubjectType("project");
-    setSubjectId(null);
-    setSubjectLabel(null);
-    router.refresh();
+    setBusy(false);
   }
 
   return (
-    <form onSubmit={onSubmit} className="stack" style={{ gap: "0.65rem", maxWidth: "40rem" }}>
+    <form
+      onSubmit={onSubmit}
+      className="stack"
+      style={{ gap: "0.65rem", maxWidth: "40rem" }}
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        addFiles(Array.from(e.dataTransfer.files));
+      }}
+    >
       <div className="stack" style={{ gap: "0.35rem" }}>
         <span className="text-sm muted">Subject</span>
         <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
@@ -169,13 +227,44 @@ export function ActivityComposer({
           onChange={setBody}
           rows={4}
           placeholder="Type a message…"
+          onPasteFiles={(files) => addFiles(files)}
           mentionSuggestions={_searchUsers}
           refSuggestions={_searchRefs}
         />
       </label>
+      <div className="stack" style={{ gap: "0.35rem" }}>
+        <span className="text-sm muted">Attachments — images, PDF, or plain text (optional)</span>
+        <input
+          type="file"
+          accept="image/png,image/jpeg,image/gif,image/webp,application/pdf,text/plain"
+          multiple
+          className="text-sm"
+          onChange={(e) => {
+            const list = e.target.files;
+            if (list?.length) addFiles(Array.from(list));
+            e.target.value = "";
+          }}
+        />
+        {pending.length > 0 ? (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", alignItems: "flex-start" }}>
+            {pending.map((p) => (
+              <div key={p.key} style={{ position: "relative" }}>
+                {p.url ? (
+                  <img src={p.url} alt="" style={{ width: 72, height: 72, objectFit: "cover", borderRadius: 6, border: "1px solid var(--border)" }} />
+                ) : (
+                  <div className="text-sm muted" style={{ width: 120, minHeight: 72, padding: "0.35rem", borderRadius: 6, border: "1px solid var(--border)", wordBreak: "break-all" }} title={p.file.name}>
+                    {p.file.name}
+                  </div>
+                )}
+                <button type="button" className="btn btn-ghost text-sm" style={{ position: "absolute", top: -6, right: -6, padding: "0 0.35rem", minHeight: 0 }} onClick={() => remove(p.key)} aria-label="Remove attachment">×</button>
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </div>
       <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-        <button type="submit" className="btn btn-primary">
-          Post
+        <button type="submit" className="btn btn-primary" disabled={busy || (!body.trim() && pending.length === 0)}>
+          {busy ? "Posting…" : "Post"}
         </button>
         <button
           type="button"
