@@ -80,9 +80,9 @@ export function TicketDetailEditor({
             </>
           ) : null}
           <dt className="muted">Opened</dt>
-          <dd style={{ margin: 0 }}>{new Date(ticket.created_at).toLocaleString()}</dd>
+          <dd suppressHydrationWarning style={{ margin: 0 }}>{new Date(ticket.created_at).toLocaleString()}</dd>
           <dt className="muted">Updated</dt>
-          <dd style={{ margin: 0 }}>{new Date(ticket.updated_at).toLocaleString()}</dd>
+          <dd suppressHydrationWarning style={{ margin: 0 }}>{new Date(ticket.updated_at).toLocaleString()}</dd>
         </dl>
         <div>
           <h3 className="text-sm muted" style={{ margin: "0.75rem 0 0.35rem" }}>

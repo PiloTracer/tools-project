@@ -72,13 +72,13 @@ export function TaskDetailEditor({
           {task.due_at ? (
             <>
               <dt className="muted">Due</dt>
-              <dd style={{ margin: 0 }}>{new Date(task.due_at).toLocaleString()}</dd>
+              <dd suppressHydrationWarning style={{ margin: 0 }}>{new Date(task.due_at).toLocaleString()}</dd>
             </>
           ) : null}
           <dt className="muted">Created</dt>
-          <dd style={{ margin: 0 }}>{new Date(task.created_at).toLocaleString()}</dd>
+          <dd suppressHydrationWarning style={{ margin: 0 }}>{new Date(task.created_at).toLocaleString()}</dd>
           <dt className="muted">Updated</dt>
-          <dd style={{ margin: 0 }}>{new Date(task.updated_at).toLocaleString()}</dd>
+          <dd suppressHydrationWarning style={{ margin: 0 }}>{new Date(task.updated_at).toLocaleString()}</dd>
         </dl>
         <div>
           <h3 className="text-sm muted" style={{ margin: "0.75rem 0 0.35rem" }}>
