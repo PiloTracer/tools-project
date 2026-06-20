@@ -21,9 +21,12 @@ Detail view for a single prospect. Shows company name, pipeline stage badge, key
 | State | Behaviour |
 |-------|-----------|
 | loading | Skeleton rows (pulse) while fetch in-flight |
+| empty | Prospect loaded but has no notes or activity — show empty notes section with "No notes yet" prompt |
 | not-found | Redirect to `/prospects` list |
 | error | Inline error message with back link |
 | success | Detail cards with metric grid, notes, pipeline progress, action menu |
+| partial | Prospect loaded but related data (activity log) unavailable — show partial detail with degraded sections |
+| permission-denied | Redirect to login or show "Access denied" with contact admin message |
 
 ## 4. Layout & hierarchy
 
@@ -71,16 +74,17 @@ Breakpoints: sm (0–639px) stacks metric grid to single column; md+ shows 2–3
 - API: `PATCH /v1/prospects/{id}` — update fields
 - API: `PATCH /v1/prospects/{id}/stage` — advance stage
 - API: `DELETE /v1/prospects/{id}` — delete
+- Feature SPEC: `.work/features/clients-participants/20260618-SPEC.md`
 
 ## 8. Tokens & components
 
 | Component | Catalog status | Native waiver |
 |-----------|----------------|---------------|
-| Button | done | — |
+| Button | native allowed | Utility classes `.btn`, `.btn-primary` (no React primitive — CATALOG.md § Missing) |
 | Badge | done | — |
 | Dialog | done | — |
 | DropdownMenu | done | — |
-| Input | done | — |
+| Input | native allowed | Utility class `.input` (no React primitive — CATALOG.md § Missing) |
 
 ## 9. Accessibility
 
@@ -109,15 +113,22 @@ WCAG AA. Stage badges include text labels (not color-only). Edit/delete modals h
 - [ ] Delete shows confirmation dialog; on confirm, deletes and redirects to list
 - [ ] Notes section only rendered when notes are non-empty
 - [ ] Metric grid responsive: stacks on mobile
+- [ ] Cards use soft shadow elevation per design tokens
+- [ ] Sidebar shows active pill on Prospects nav item
 
 ## 12. Concept / UIS registry
 
 | UIS | Applies | Reason | Status |
 |-----|---------|--------|--------|
 | UIS-01 | yes | detail layout with metric grid | pending |
+| UIS-02 | yes | breakpoints — metric grid stacks on sm, 2–3 col on md+ | pending |
+| UIS-03 | yes | skeleton pulse loading, toast transitions | pending |
+| UIS-04 | yes | stage badge colors must meet WCAG AA | pending |
 | UIS-05 | yes | modals for edit/delete | pending |
 | UIS-06 | yes | agent build of screen | pending |
 | UIS-07 | yes | craft tier refined | pending |
+| UIS-08 | yes | required for all screens before ship | pending |
+| UIS-09 | no | no charts or data visualization | N/A |
 
 ## 13. Visual references
 
@@ -130,10 +141,9 @@ WCAG AA. Stage badges include text labels (not color-only). Edit/delete modals h
 
 ### extractedRules (binding)
 
-- Detail card grid with key-value layout — D2
-- Action menu in header area — D2
-- Pipeline stage sequence with visual progress — D2
-- Back link pattern — D2
+- Soft card elevation on light background — D2
+- Card grid 2–3 col — D2
+- Sidebar active pill — D2
 
 ### regionMap
 

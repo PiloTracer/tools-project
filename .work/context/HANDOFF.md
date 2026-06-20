@@ -2,12 +2,12 @@
 
 **Date:** 2026-06-18
 
-**Closed:** 2026-06-19 — CRM pipeline polish: seed data, sorting, inline editing, hydration fixes
+**Closed:** 2026-06-19 — Production deployment verification + 3 blocker fixes; UI screen SPEC review fixes (3 Drafts pass checklist)
 **Updated:** 2026-06-19
 
 Treat prior closed sessions as historical only; see "What this cycle produced" below.
 
-**Repository state:** GitHub integration (Batch I) completed. CRM pipeline: 50-company seed across all 9 stages, deterministic IDs (no duplicate seeding). Backward stage transitions allowed. Prospects table: all 6 columns sortable (fixed JSX sort bug in DataTable). Tasks table: all 6 columns sortable, inline editing for Priority, Due, and Assignee (with search-select). Task detail page: Assignee now editable with search-select picker. Hydration warnings suppressed for all Date.toLocaleString() calls.
+**Repository state:** GitHub integration (Batch I) completed. CRM pipeline: 50-company seed across all 9 stages, deterministic IDs (no duplicate seeding). Backward stage transitions allowed. Prospects table: all 6 columns sortable (fixed JSX sort bug in DataTable). Tasks table: all 6 columns sortable, inline editing for Priority, Due, and Assignee (with search-select). Task detail page: Assignee now editable with search-select picker. Hydration warnings suppressed for all Date.toLocaleString() calls. Production deployment stack verified (Caddy + prd Dockerfiles + fail-fast secrets); 3 blockers fixed (dead COPY path, Caddy PUBLIC_HOST env, DDL-race across uvicorn workers). 3 UI screen SPECs pass `@ui-screen-spec review` checklist — pending human approval (Draft→Approved).
 
 ## Start here (new session)
 
@@ -29,7 +29,7 @@ Treat prior closed sessions as historical only; see "What this cycle produced" b
 | **DB** | Includes **`github_links`** (encrypted **`token_cipher`**), **`github_commits`** (**`html_url` NOT NULL**). |
 | **Config** | Attachments: `attachment_max_per_project`, `attachment_max_bytes_per_project`, `attachment_retention_days`. GitHub: **`github_sync_enabled`**, **`github_poll_interval_seconds`**, **`github_poll_initial_delay_seconds`**, **`github_commits_per_sync`**; optional **`GITHUB_TOKEN_ENCRYPTION_KEY`** (see **`.env.example`**). |
 | **`./bin/start.sh`** | Interactive menu with cleanup, backup/restore, dev/prd mode routing, nuke. |
-| **UI** | `.work.ui/screens/prospects-list/` — screen SPEC created (Draft). Foundation not yet complete. |
+| **UI** | Foundation complete; all CRM screens delivered (prospects list/detail, clients list/detail); 14 catalog primitives. 3 screen SPECs pass `@ui-screen-spec review` — pending human approval (Draft→Approved). prospects-list SPEC already Approved. |
 
 ---
 
@@ -42,11 +42,25 @@ Treat prior closed sessions as historical only; see "What this cycle produced" b
 
 ---
 
+## Verified (2026-06-19)
+
+- `docker compose -f docker-compose.prd.yml build` — exit 0 (api + web prd images).
+- Cold start (new volumes): 0 errors, 4× `Application startup complete`, 19 tables, `restarts=0`.
+- Routes via Caddy HTTPS: `/healthz` 200 · `/v1/auth/config` 200 · `/` 200 HTML · `/docs` 200 · HTTP→HTTPS 308.
+- Local login flow: JWT issued → `GET /v1/auth/me` 200 `is_superuser:true`.
+- Restart stability: 0 errors, 4× `startup complete`, `restarts=0`.
+- Standalone auth: bootstrap admin created, 50 prospects + 2 demo projects seeded.
+- Fail-fast guards: empty env → exit 1 with clear message.
+
+---
+
 ## Recommended next work
 
-1. **Client task/ticket scope by company contacts:** Currently filtered by the signed-in contact's user_id; SPEC also mentions "their client company contacts".
-2. **`next/image` migration:** Suppress or fix pre-existing ESLint warning in `TicketDiscussion.tsx`.
-3. **Add `tsconfig.tsbuildinfo` to `.gitignore`:** Build artifact currently untracked and showing in `git status`.
+1. **Approve 3 UI screen SPECs** (prospects-detail, clients-list, clients-detail) — pass `@ui-screen-spec review`, pending human approval (Draft→Approved).
+2. **Create amendment for prospects-list Approved SPEC** — Button/Input marked `done` should be `native allowed` per CATALOG.md § Missing (can't edit Approved in place).
+3. **Client task/ticket scope by company contacts:** Currently filtered by the signed-in contact's user_id; SPEC also mentions "their client company contacts".
+4. **`next/image` migration:** Suppress or fix pre-existing ESLint warning in `TicketDiscussion.tsx`.
+5. **Add `tsconfig.tsbuildinfo` to `.gitignore`:** Build artifact currently untracked and showing in `git status`.
 
 ---
 
@@ -113,6 +127,12 @@ Treat prior closed sessions as historical only; see "What this cycle produced" b
 | `web/src/app/projects/[id]/activity/ActivityClient.tsx` | Rich `github_commit` activity card rendering; CommitPicker in composer + replies |
 | `.work/plans/full/20260618-full-plan.md` | M4 tasks updated to `done` |
 | `.work/plans/NEXT.md` | Batch I status updated to complete |
+| `web/Dockerfile.prd` | Removed dead `COPY /app/public` (path doesn't exist in repo) |
+| `docker-compose.prd.yml` | Added `PUBLIC_HOST` env to caddy service with `:?` fail-fast guard |
+| `api/Dockerfile.prd` | `cli_schema apply-ddl` before `uvicorn --workers 4` + `SQL_SCHEMA_APPLY=false` — fixes DDL race (UniqueViolation + Deadlock across workers) |
+| `.work.ui/screens/prospects-detail/20260619-SCREEN-SPEC.md` | Fixed: §3 states (added empty/partial/permission-denied), §8 catalog (Button/Input→native allowed), §12 UIS registry (UIS-01..09), §13 extractedRules provenance, §7 feature SPEC link |
+| `.work.ui/screens/clients-list/20260619-SCREEN-SPEC.md` | Fixed: §3 states, §8 catalog, §12 UIS registry, §13 extractedRules + `(binding)` label, §7 API paths (`/api/`→`/v1/`) |
+| `.work.ui/screens/clients-detail/20260619-SCREEN-SPEC.md` | Fixed: §3 states, §10 PII (`contact_email`→`contact_id`), §8 catalog, §12 UIS registry, §13 extractedRules + exampleIds (D1+D2), §7 API paths, §4 regionMap |
 
 ## Where to read more
 
@@ -133,6 +153,7 @@ Treat prior closed sessions as historical only; see "What this cycle produced" b
 - Implementation complete: yes (all CRM screens delivered)
 - All verifiers: PASS · All UIS concepts: PASS
 - CATALOG.md populated (14 components); prospects-list SPEC Approved
+- 3 screen SPECs reviewed + fixed (prospects-detail, clients-list, clients-detail) — pass `@ui-screen-spec review` checklist, pending human approval
 - NEXT_UI: `.work.ui/plans/NEXT_UI.md`
 
 ## Agent notes

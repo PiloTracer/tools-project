@@ -25,6 +25,8 @@ Administrative list of client companies. Shows name, slug, industry, and created
 | empty | "No clients yet." message |
 | error | Inline error banner with retry button |
 | success | Data table with rows; search bar active |
+| partial | Server returns 200 with empty items array after search applied — "No clients match your search. [Clear search]" |
+| permission-denied | Redirect to login or show "Access denied" with contact admin message |
 
 ## 4. Layout & hierarchy
 
@@ -56,22 +58,22 @@ Breakpoints: sm (0–639px) shows table with horizontal scroll; md+ full table l
 - **Table row click:** Navigate to `/clients/{id}` detail page.
 - **Search:** Filters rows client-side by name or slug.
 - **New client:** Opens modal with name (required), industry, notes fields.
-- **Create:** POST `/api/clients` — on success, toast + table refresh.
+- **Create:** POST `/v1/clients` — on success, toast + table refresh.
 
 ## 7. Data dependencies
 
-- API: `GET /api/clients` — returns `{ items: ClientRow[] }`
-- API: `POST /api/clients` — create new client
+- API: `GET /v1/clients` — returns `{ items: ClientRow[] }`
+- API: `POST /v1/clients` — create new client
 - Feature SPEC: `.work/features/clients-participants/20260618-SPEC.md`
 
 ## 8. Tokens & components
 
 | Component | Catalog status | Native waiver |
 |-----------|----------------|---------------|
-| Button | done | — |
+| Button | native allowed | Utility classes `.btn`, `.btn-primary` (no React primitive — CATALOG.md § Missing) |
 | DataTable | done | — |
 | Dialog | done | — |
-| Input | done | — |
+| Input | native allowed | Utility class `.input` (no React primitive — CATALOG.md § Missing) |
 
 ## 9. Accessibility
 
@@ -87,7 +89,7 @@ WCAG AA. Sortable table headers have `aria-sort`. Search input has `aria-label`.
 
 ## 11. Acceptance criteria
 
-- [ ] Loads clients from `GET /api/clients` on mount; shows skeleton during load
+- [ ] Loads clients from `GET /v1/clients` on mount; shows skeleton during load
 - [ ] Search filters rows by name or slug client-side
 - [ ] Columns: Name (sortable), Slug, Industry (sortable), Created (sortable)
 - [ ] Row click navigates to `/clients/{id}`
@@ -95,15 +97,22 @@ WCAG AA. Sortable table headers have `aria-sort`. Search input has `aria-label`.
 - [ ] Create sends POST and refreshes table with toast on success
 - [ ] Empty state shows "No clients yet."
 - [ ] Error state shows retry banner
+- [ ] Cards use soft shadow elevation per design tokens
+- [ ] Sidebar shows active pill on Clients nav item
 
 ## 12. Concept / UIS registry
 
 | UIS | Applies | Reason | Status |
 |-----|---------|--------|--------|
 | UIS-01 | yes | list page with data table | pending |
+| UIS-02 | yes | breakpoints — table horizontal scroll on sm, full layout on md+ | pending |
+| UIS-03 | yes | skeleton pulse loading, toast transitions | pending |
+| UIS-04 | yes | WCAG AA on sortable headers and search input | pending |
 | UIS-05 | yes | create modal | pending |
 | UIS-06 | yes | agent build of screen | pending |
 | UIS-07 | yes | craft tier refined | pending |
+| UIS-08 | yes | required for all screens before ship | pending |
+| UIS-09 | no | no charts or data visualization | N/A |
 
 ## 13. Visual references
 
@@ -114,11 +123,13 @@ WCAG AA. Sortable table headers have `aria-sort`. Search input has `aria-label`.
 | **craftTier** | refined |
 | **beforeScreenshot** | (none) |
 
-### extractedRules
+### extractedRules (binding)
 
-- Data table with sortable columns — D4
-- Page header with pill + title + subtitle — D2
-- Search bar with action buttons — D4
+- Soft card elevation on light background — D2
+- Table with status badges + row highlight — D2
+- Sidebar active pill — D2
+- Table with sortable columns — D4
+- Filters chip row collapses on mobile — D4
 
 ### regionMap
 
