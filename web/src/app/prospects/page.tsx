@@ -128,7 +128,7 @@ export default function ProspectsPage() {
 
   const filtered = rows.filter((r) =>
     !search || r.company_name.toLowerCase().includes(search.toLowerCase())
-  ).filter((r, i, a) => a.findIndex((x) => x.id === r.id) === i);
+  );
 
   const handleAdvanceStage = async (prospect: ProspectRow) => {
     const next = getNextStage(prospect.pipeline_stage);
@@ -260,22 +260,26 @@ export default function ProspectsPage() {
       key: "pipeline_value",
       label: "Value",
       sortable: true,
+      sortValue: (r) => r.pipeline_value,
       render: (r) => <span style={{ fontFamily: "ui-monospace, monospace", color: "var(--muted)" }}>{formatCurrency(r.pipeline_value)}</span>,
     },
     {
       key: "source",
       label: "Source",
+      sortable: true,
       render: (r) => r.source ? <span className="muted text-sm">{r.source}</span> : <span className="muted text-sm">—</span>,
     },
     {
       key: "next_action",
       label: "Next action",
+      sortable: true,
       render: (r) => r.next_action ? <span className="text-sm">{r.next_action}</span> : <span className="muted text-sm">—</span>,
     },
     {
       key: "last_interaction",
       label: "Last interaction",
       sortable: true,
+      sortValue: (r) => r.last_interaction,
       render: (r) => <span className="muted text-sm">{formatDate(r.last_interaction)}</span>,
     },
     {

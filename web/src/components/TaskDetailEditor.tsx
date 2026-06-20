@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { MarkdownEditor } from "@/components/MarkdownEditor";
+import { AssigneePicker } from "@/components/AssigneePicker";
 import { usePendingImages } from "@/shared/client/use-pending-images";
 
 const TASK_STATUSES = ["todo", "in_progress", "blocked", "done", "cancelled"];
@@ -26,9 +27,11 @@ type TaskOut = {
 export function TaskDetailEditor({
   task,
   canEdit,
+  members,
 }: {
   task: TaskOut;
   canEdit: boolean;
+  members: { user_id: string; email: string; role: string }[];
 }) {
   const router = useRouter();
   const { pending, addFiles, remove, clear } = usePendingImages();
@@ -37,9 +40,16 @@ export function TaskDetailEditor({
   const [description, setDescription] = useState(task.description ?? "");
   const [status, setStatus] = useState(task.status);
   const [priority, setPriority] = useState(task.priority);
+  const [assigneeId, setAssigneeId] = useState(task.assignee_id ?? "");
   const [dueAt, setDueAt] = useState(task.due_at ? task.due_at.slice(0, 16) : "");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+
+  const assigneeLabel = (uid: string | null) => {
+    if (!uid) return "—";
+    const m = members.find((m) => m.user_id === uid);
+    return m ? m.email : `${uid.slice(0, 8)}…`;
+  };
 
   if (!editing) {
     return (
@@ -73,6 +83,8 @@ export function TaskDetailEditor({
           </dd>
           <dt className="muted">Priority</dt>
           <dd style={{ margin: 0 }}>{task.priority}</dd>
+          <dt className="muted">Assignee</dt>
+          <dd style={{ margin: 0 }}>{assigneeLabel(task.assignee_id)}</dd>
           {task.due_at ? (
             <>
               <dt className="muted">Due</dt>
@@ -139,6 +151,8 @@ export function TaskDetailEditor({
       if (descVal !== task.description) body.description = descVal;
       if (status !== task.status) body.status = status;
       if (priority !== task.priority) body.priority = priority;
+      const newAssignee = assigneeId || null;
+      if (newAssignee !== task.assignee_id) body.assignee_id = newAssignee;
       const dueVal = dueAt ? new Date(dueAt).toISOString() : null;
       if (dueVal !== task.due_at) body.due_at = dueVal;
 
@@ -177,6 +191,7 @@ export function TaskDetailEditor({
     setDescription(task.description ?? "");
     setStatus(task.status);
     setPriority(task.priority);
+    setAssigneeId(task.assignee_id ?? "");
     setDueAt(task.due_at ? task.due_at.slice(0, 16) : "");
     setMsg(null);
     setEditing(false);
@@ -216,6 +231,14 @@ export function TaskDetailEditor({
             </select>
           </label>
         </div>
+        <label className="field">
+          <span className="label">Assignee</span>
+          <AssigneePicker
+            members={members}
+            value={assigneeId || null}
+            onChange={(uid) => setAssigneeId(uid ?? "")}
+          />
+        </label>
         <label className="field">
           <span className="label">Due date</span>
           <input

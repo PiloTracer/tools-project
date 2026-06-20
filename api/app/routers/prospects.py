@@ -167,13 +167,18 @@ async def transition_prospect_stage(
                 status_code=422,
                 detail="Can only transition to 'won' from 'negotiating'",
             )
+    elif target_idx < current_idx:
+        # Backward movement — allowed to any previous non-terminal stage.
+        pass
+    elif target_idx == current_idx + 1:
+        # Forward one step — standard progression.
+        pass
     else:
-        # Non-terminal stages must advance exactly one step at a time.
-        if target_idx != current_idx + 1:
-            raise HTTPException(
-                status_code=422,
-                detail=f"Cannot skip stages from '{current_stage}' to '{target_stage}'",
-            )
+        # Skipping forward more than one step.
+        raise HTTPException(
+            status_code=422,
+            detail=f"Cannot skip stages from '{current_stage}' to '{target_stage}'",
+        )
 
     row.pipeline_stage = target_stage
 

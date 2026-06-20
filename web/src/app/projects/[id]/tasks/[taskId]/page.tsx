@@ -53,10 +53,14 @@ export default async function TaskDetailPage({
   }
   const { id: projectId, taskId } = await params;
 
-  const [pr, tr] = await Promise.all([
+  const [pr, tr, mr] = await Promise.all([
     apiServerFetch(`/v1/projects/${projectId}`),
     apiServerFetch(`/v1/tasks/${taskId}`),
+    apiServerFetch(`/v1/projects/${projectId}/members`),
   ]);
+  const members: { user_id: string; email: string; role: string }[] = mr.ok
+    ? ((await mr.json()) as { items: { user_id: string; email: string; role: string }[] }).items
+    : [];
   if (pr.status === 404) notFound();
   if (!pr.ok) {
     return (
@@ -111,7 +115,7 @@ export default async function TaskDetailPage({
         <ProjectSubNav projectId={projectId} current="tasks" />
       </div>
 
-      <TaskDetailEditor task={task} canEdit={canEdit} />
+      <TaskDetailEditor task={task} canEdit={canEdit} members={members} />
 
       <TaskDiscussion projectId={projectId} taskId={taskId} initialItems={activityItems} canEdit={canEdit} />
     </div>

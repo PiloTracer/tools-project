@@ -234,7 +234,7 @@ export function TicketDiscussion({
                   }}
                 >
                   <div className="muted text-sm" style={{ marginBottom: "0.35rem", display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
-                    <span>
+                    <span suppressHydrationWarning>
                       {(a.actor_email ?? "user") + " · " + new Date(a.created_at).toLocaleString()}
                     </span>
                     {internal ? (
@@ -292,7 +292,7 @@ export function TicketDiscussion({
                             }}
                           >
                             <div className="muted text-sm" style={{ marginBottom: "0.25rem", display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
-                              <span>{(cr.actor_email ?? "user") + " · " + new Date(cr.created_at).toLocaleString()}</span>
+                              <span suppressHydrationWarning>{(cr.actor_email ?? "user") + " · " + new Date(cr.created_at).toLocaleString()}</span>
                               {cinternal ? (
                                 <span className="pill" style={{ fontSize: "0.6rem", background: "var(--accent-warn, #c98300)", color: "#fff" }}>
                                   Internal

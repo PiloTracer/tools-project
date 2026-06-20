@@ -103,7 +103,7 @@ export default async function ProjectGithubPage({
                       {l.owner}/{l.repo}
                     </a>
                   </td>
-                  <td>{l.last_synced_at ? new Date(l.last_synced_at).toLocaleString() : "—"}</td>
+                  <td suppressHydrationWarning>{l.last_synced_at ? new Date(l.last_synced_at).toLocaleString() : "—"}</td>
                   <td>{commits.filter((c) => c.owner === l.owner && c.repo === l.repo).length}</td>
                 </tr>
               ))}
@@ -136,7 +136,7 @@ export default async function ProjectGithubPage({
                   </td>
                   <td>{c.message_preview}</td>
                   <td>{c.author_name ?? "—"}</td>
-                  <td>{new Date(c.committed_at).toLocaleString()}</td>
+                  <td suppressHydrationWarning>{new Date(c.committed_at).toLocaleString()}</td>
                 </tr>
               ))}
             </tbody>

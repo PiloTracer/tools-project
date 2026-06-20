@@ -6,7 +6,7 @@
 
 **Schema:** declarative **`sql/`** only — no Alembic. On API startup: `schema_changes.sql` → `schema_indexes.sql` → bootstrap → `schema_backfill.sql` → `schema_inserts.sql`.
 
-**Latest (repo):** **2026-06-19** — GitHub integration (Batch I) completed end-to-end: web tab, settings form, activity feed rendering, `github_ref` commit picker, duplicate-safe background sync. Batch J (CRM) all M1-M4 done. Prospects list UI screen SPEC created (Draft) — build blocked on UI design foundation (`@ui-design-foundation greenfield`). **Still deferred:** optional Inbox **`c`** shortcut.
+**Latest (repo):** **2026-06-19** — GitHub integration (Batch I) completed. CRM pipeline: 50-company seed, backward stage transitions, sortable columns in Prospects + Tasks tables, inline editing (Priority/Due/Assignee with search-select), task detail Assignee picker, hydration fixes. Batch J (CRM) all M1-M4 done. **Still deferred:** optional Inbox **`c`** shortcut.
 
 ### Status at a glance (visual)
 

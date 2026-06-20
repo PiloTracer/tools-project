@@ -104,7 +104,7 @@ export default async function ClientProjectPage({
           <ul className="stack-sm" style={{ listStyle: "none", padding: 0 }}>
             {activities.map((activity) => (
               <li key={activity.id} className="card">
-                <p className="muted text-sm">
+                <p className="muted text-sm" suppressHydrationWarning>
                   {activity.kind} · {new Date(activity.created_at).toLocaleString()}
                   {activity.actor_email ? ` · ${activity.actor_email}` : ""}
                 </p>

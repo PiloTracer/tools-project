@@ -7,6 +7,8 @@ export type Column<T> = {
   label: string;
   sortable?: boolean;
   render: (row: T) => ReactNode;
+  /** Explicit sort value. Falls back to row[key] then render(row) if omitted. */
+  sortValue?: (row: T) => string | number | null;
   style?: React.CSSProperties;
 };
 
@@ -48,8 +50,17 @@ export function DataTable<T extends { id: string }>({
     if (!sortKey) return 0;
     const col = columns.find((c) => c.key === sortKey);
     if (!col) return 0;
-    const va = String(col.render(a) ?? "");
-    const vb = String(col.render(b) ?? "");
+    const rawA = col.sortValue
+      ? col.sortValue(a)
+      : (a as Record<string, unknown>)[col.key];
+    const rawB = col.sortValue
+      ? col.sortValue(b)
+      : (b as Record<string, unknown>)[col.key];
+    if (typeof rawA === "number" && typeof rawB === "number") {
+      return sortDir === "asc" ? rawA - rawB : rawB - rawA;
+    }
+    const va = String(rawA ?? "");
+    const vb = String(rawB ?? "");
     const cmp = va.localeCompare(vb);
     return sortDir === "asc" ? cmp : -cmp;
   });

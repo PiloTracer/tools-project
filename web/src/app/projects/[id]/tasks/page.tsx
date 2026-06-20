@@ -36,13 +36,17 @@ export default async function ProjectTasksPage({
   }
   const project = (await pr.json()) as ProjectRow;
 
-  const [tr, cr] = await Promise.all([
+  const [tr, cr, mr] = await Promise.all([
     apiServerFetch(`/v1/projects/${id}/tasks`),
     apiServerFetch(`/v1/projects/${id}/components`),
+    apiServerFetch(`/v1/projects/${id}/members`),
   ]);
   const tasks = tr.ok ? ((await tr.json()) as { items: TaskRow[] }).items : [];
   const components = cr.ok
     ? ((await cr.json()) as { items: { id: string; name: string }[] }).items
+    : [];
+  const members: { user_id: string; email: string; role: string }[] = mr.ok
+    ? ((await mr.json()) as { items: { user_id: string; email: string; role: string }[] }).items
     : [];
 
   const role = project.membership_role ?? "";
@@ -71,7 +75,7 @@ export default async function ProjectTasksPage({
         {tasks.length === 0 ? (
           <p className="muted">No tasks yet.</p>
         ) : (
-          <TasksView projectId={id} tasks={tasks} canEdit={canEdit} />
+          <TasksView projectId={id} tasks={tasks} canEdit={canEdit} members={members} />
         )}
       </div>
     </div>

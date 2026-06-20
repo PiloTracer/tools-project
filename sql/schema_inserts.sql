@@ -46,21 +46,77 @@ WHERE p.slug IN ('demo-workspace', 'demo-sandbox')
       WHERE pm.project_id = p.id AND pm.user_id = p.owner_id
   );
 
--- M2: Seed prospects, client, and contacts
+-- M2: Seed prospects (50 companies across pipeline stages).
+-- IDs are deterministic (md5 of seed key) so ON CONFLICT DO NOTHING is effective across restarts.
 INSERT INTO prospects (id, company_name, pipeline_stage, pipeline_value, source, first_contact_date, notes, created_by, created_at, updated_at)
-SELECT gen_random_uuid(), 'Acme Corp', 'negotiating', 25000.00, 'referral', now()::date - 14, 'Hot lead from existing customer referral.', u.id, now(), now()
-FROM users u WHERE u.is_superuser = TRUE ORDER BY u.created_at ASC LIMIT 1
+SELECT md5('prospect:' || v.company_name || ':' || u.id::text)::uuid,
+       v.company_name, v.pipeline_stage, v.pipeline_value, v.source,
+       now()::date - v.days_ago, v.notes, u.id, now(), now()
+FROM (VALUES
+  -- target (12)
+  ('AeroDyne Systems',    'target',   18000,  'cold_outreach', 3,   'Cold outbound to CTO.'),
+  ('BluePeak Analytics',  'target',   22000,  'conference',    5,   'Met at SaaStr booth.'),
+  ('CoreBridge Tech',     'target',    9500,  'linkedin',      2,   'InMail response pending.'),
+  ('DeltaStream Inc',     'target',   30000,  'cold_outreach', 1,   'Sequence started today.'),
+  ('Echelon Data',        'target',   15000,  'referral',      4,   'Referred by Acme Corp.'),
+  ('Fermion Labs',        'target',   12000,  'website',       6,   'Trial signup, no follow-up yet.'),
+  ('GridPoint Energy',    'target',   40000,  'conference',    7,   'Enterprise prospect from AWS re:Invent.'),
+  ('Helix Robotics',      'target',    8000,  'cold_outreach', 8,   'Outbound to head of engineering.'),
+  ('IonForge Materials',  'target',   16000,  'linkedin',      3,   'Connected with VP Ops.'),
+  ('Juno Payroll',        'target',   11000,  'partner',       5,   'Partner intro through Stripe.'),
+  ('Kestrel Aviation',    'target',   27000,  'cold_outreach', 2,   'Targeting fleet management.'),
+  ('Lumen Publishing',    'target',    6500,  'website',       9,   'Downloaded whitepaper.'),
+  -- connected (8)
+  ('Meridian Health',     'connected', 35000, 'referral',     12,   'Warm intro from board member. LinkedIn accepted.'),
+  ('Nexa Capital',        'connected', 50000, 'conference',   15,   'Follow-up call booked after Money2020.'),
+  ('Orbit Logistics',     'connected', 14000, 'linkedin',     10,   'Decision-maker engaged on thread.'),
+  ('Pivot CRM',           'connected',  8000, 'cold_outreach', 11,   'Replied to sequence, interested.'),
+  ('Quantum Signage',     'connected', 20000, 'website',      14,   'Demo request submitted.'),
+  ('RidgeLine Security',  'connected', 28000, 'partner',      13,   'Introduced via Okta partnership.'),
+  ('Saturn Payments',     'connected', 17000, 'referral',      8,   'Referral from Nexa Capital.'),
+  ('TerraForm Energy',    'connected', 45000, 'conference',   18,   'CIO expressed interest at GreenTech summit.'),
+  -- engaged (8)
+  ('Umbra Software',      'engaged',   32000, 'referral',     25,   'POC agreed. Engineering reviewing API docs.'),
+  ('Vector Aerospace',    'engaged',   60000, 'conference',   30,   'Completed technical deep-dive. Procurement involved.'),
+  ('Wavelength Media',    'engaged',   10000, 'website',      20,   'Trial active, 4 seats. Weekly check-in cadence.'),
+  ('Xenith Bio',          'engaged',   25000, 'cold_outreach',28,   'Passed champion to economic buyer.'),
+  ('YieldMax Trading',    'engaged',   75000, 'referral',     35,   'Multiple stakeholders aligned. Legal review started.'),
+  ('Zenith Consulting',   'engaged',   13000, 'linkedin',     22,   'Active evaluation against competitor.'),
+  ('AlphaGrid Networks',  'engaged',   42000, 'partner',      27,   'Co-selling with AWS. Joint pitch delivered.'),
+  ('BarrelHouse Brewing', 'engaged',    7000, 'cold_outreach',19,   'Owner loved the demo. Budget approval pending.'),
+  -- call_scheduled (6)
+  ('CipherTrust Bank',    'call_scheduled', 55000, 'referral', 40,   'Call with CISO and VP Eng on Thursday.'),
+  ('Dune Capital Partners','call_scheduled', 38000, 'conference', 38,   'Partner call scheduled. Deck ready.'),
+  ('Epoch AI',            'call_scheduled', 90000, 'website',  42,   'Enterprise evaluation call. SE assigned.'),
+  ('Flux Semiconductor',  'call_scheduled', 26000, 'linkedin',  36,   'Director of Eng accepted meeting.'),
+  ('GigaWatt Solutions',  'call_scheduled', 48000, 'cold_outreach', 44,   'Cold email → CTO booked 30 min.'),
+  ('HyperLoop Transit',   'call_scheduled', 65000, 'partner',    33,   'Introduction through YC network.'),
+  -- call_done (5)
+  ('Island View Resorts', 'call_done',      12000, 'website',  50,   'Demo completed. Awaiting technical questionnaire.'),
+  ('Jasper Materials',    'call_done',      31000, 'referral',  48,   'Call went well. Sending security review.'),
+  ('KiloWatt Electric',   'call_done',      19000, 'cold_outreach', 55,   'Gatekeeper bypassed. Needs champion.'),
+  ('Lattice BioPharma',   'call_done',      44000, 'conference', 52,   'VP impressed. Compliance review next.'),
+  ('Monarch Insurance',   'call_done',      23000, 'partner',    46,   'Mutual customer reference call done.'),
+  -- proposal_sent (5)
+  ('NorthStar Shipping',  'proposal_sent',  58000, 'referral',  65,   'Proposal sent. Board reviews Friday.'),
+  ('Opal Ventures',       'proposal_sent',  36000, 'conference', 60,   'Term sheet + proposal delivered.'),
+  ('Phoenix Construction','proposal_sent',  72000, 'website',    70,   'RFP response submitted. 3 competitors.'),
+  ('Quarry Digital',      'proposal_sent',  15000, 'linkedin',   58,   'SOW sent. Procurement reviewing.'),
+  ('Redwood Analytics',   'proposal_sent',  41000, 'cold_outreach', 62,   'Custom pricing proposal sent.'),
+  -- negotiating (4)
+  ('SkyBridge Capital',   'negotiating',    85000, 'referral',   80,   'Final terms. Redlines on MSA.'),
+  ('Titan Manufacturing', 'negotiating',    66000, 'conference',  75,   'Negotiating scope and pricing. Near close.'),
+  ('Union Data Centers',  'negotiating',   120000,'partner',      90,   'Multi-year deal. Legal on v3 of contract.'),
+  ('Vertex AI Labs',      'negotiating',    53000, 'website',     72,   'Discount request. Counter-offer sent.'),
+  -- won (1)
+  ('Waypoint Financial',  'won',            47000, 'referral',   100,   'Closed! Contract signed. Onboarding next week.'),
+  -- lost (1)
+  ('X-Ray Media Group',   'lost',           19000, 'website',     95,   'Chose competitor on price. Lost to Salesforce.')
+) AS v(company_name, pipeline_stage, pipeline_value, source, days_ago, notes)
+CROSS JOIN (SELECT u.id FROM users u WHERE u.is_superuser = TRUE ORDER BY u.created_at ASC LIMIT 1) u
 ON CONFLICT DO NOTHING;
 
-INSERT INTO prospects (id, company_name, pipeline_stage, pipeline_value, source, first_contact_date, notes, created_by, created_at, updated_at)
-SELECT gen_random_uuid(), 'Globex Inc', 'engaged', 15000.00, 'website', now()::date - 30, 'Initial demo completed, follow-up scheduled.', u.id, now(), now()
-FROM users u WHERE u.is_superuser = TRUE ORDER BY u.created_at ASC LIMIT 1
-ON CONFLICT DO NOTHING;
-
-INSERT INTO prospects (id, company_name, pipeline_stage, pipeline_value, source, first_contact_date, notes, created_by, created_at, updated_at)
-SELECT gen_random_uuid(), 'Initech', 'target', 5000.00, 'cold_outreach', now()::date - 7, 'Cold outbound, awaiting response.', u.id, now(), now()
-FROM users u WHERE u.is_superuser = TRUE ORDER BY u.created_at ASC LIMIT 1
-ON CONFLICT DO NOTHING;
+-- M2: Seed client and contacts
 
 INSERT INTO clients (id, name, slug, industry, notes, created_by, created_at, updated_at)
 SELECT gen_random_uuid(), 'Umbrella Corp', 'umbrella-corp', 'Pharmaceuticals', 'Existing client from seed data.', u.id, now(), now()

@@ -115,7 +115,7 @@ export function InboxClient({
           <ul className="stack" style={{ listStyle: "none", padding: 0, gap: "0.75rem" }}>
             {initialItems.map((item) => (
               <li key={item.id} className="card" style={{ padding: "0.75rem 1rem" }}>
-                <div className="text-sm muted" style={{ marginBottom: "0.35rem" }}>
+                <div className="text-sm muted" style={{ marginBottom: "0.35rem" }} suppressHydrationWarning>
                   {new Date(item.created_at).toLocaleString()}
                 </div>
                 <p style={{ whiteSpace: "pre-wrap", margin: "0 0 0.5rem" }}>{item.body_md}</p>

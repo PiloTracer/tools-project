@@ -174,7 +174,7 @@ export default async function TodayPage() {
           <ul className="stack" style={{ listStyle: "none", padding: 0, gap: "0.75rem" }}>
             {mentions.map((m) => (
               <li key={m.id} className="card" style={{ padding: "0.65rem 1rem" }}>
-                <div className="text-sm muted">
+                <div className="text-sm muted" suppressHydrationWarning>
                   {m.project_name} · {new Date(m.created_at).toLocaleString()}
                 </div>
                 <p style={{ margin: "0.35rem 0 0" }}>{m.excerpt}</p>

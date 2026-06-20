@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { KanbanBoard } from "@/components/KanbanBoard";
+import { AssigneePicker } from "@/components/AssigneePicker";
 
 export type TaskRow = {
   id: string;
@@ -126,14 +127,16 @@ export function TaskTable({
   projectId,
   tasks,
   canEdit,
+  members,
 }: {
   projectId: string;
   tasks: TaskRow[];
   canEdit: boolean;
+  members: { user_id: string; email: string; role: string }[];
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
-  const [sortKey, setSortKey] = useState<"ref" | "title" | "status" | "priority" | "due_at">("title");
+  const [sortKey, setSortKey] = useState<"ref" | "title" | "status" | "priority" | "due_at" | "assignee_id">("title");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
   const sorted = useMemo(() => {
@@ -198,6 +201,23 @@ export function TaskTable({
     router.refresh();
   }
 
+  async function updateTask(taskId: string, patch: Record<string, unknown>) {
+    setBusy(taskId);
+    await fetch(`/api/tasks/${taskId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    });
+    setBusy(null);
+    router.refresh();
+  }
+
+  function memberLabel(uid: string | null) {
+    if (!uid) return "—";
+    const m = members.find((m) => m.user_id === uid);
+    return m ? m.email : `${uid.slice(0, 8)}…`;
+  }
+
   return (
     <div style={{ overflowX: "auto" }}>
       <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "560px" }}>
@@ -208,9 +228,7 @@ export function TaskTable({
             {thLabel("status", "Status")}
             {thLabel("priority", "Priority")}
             {thLabel("due_at", "Due")}
-            <th className="muted text-sm" style={{ fontWeight: 600 }}>
-              Assignee
-            </th>
+            {thLabel("assignee_id", "Assignee")}
             {canEdit ? <th /> : null}
           </tr>
         </thead>
@@ -244,12 +262,50 @@ export function TaskTable({
                   <span className="pill">{t.status}</span>
                 )}
               </td>
-              <td>{t.priority}</td>
-              <td className="muted text-sm">
-                {t.due_at ? new Date(t.due_at).toLocaleDateString() : "—"}
+              <td>
+                {canEdit ? (
+                  <select
+                    className="input text-sm"
+                    style={{ padding: "0.15rem 0.25rem", minHeight: 0, fontSize: "0.8rem" }}
+                    value={t.priority}
+                    disabled={busy === t.id}
+                    onChange={(e) => updateTask(t.id, { priority: e.target.value })}
+                  >
+                    <option value="low">low</option>
+                    <option value="normal">normal</option>
+                    <option value="high">high</option>
+                    <option value="urgent">urgent</option>
+                  </select>
+                ) : (
+                  <span>{t.priority}</span>
+                )}
               </td>
-              <td className="muted text-sm" title={t.assignee_id ?? ""}>
-                {t.assignee_id ? `${t.assignee_id.slice(0, 8)}…` : "—"}
+              <td>
+                {canEdit ? (
+                  <input
+                    type="date"
+                    className="input text-sm"
+                    style={{ padding: "0.15rem 0.25rem", minHeight: 0, fontSize: "0.8rem", maxWidth: "140px" }}
+                    value={t.due_at ? new Date(t.due_at).toISOString().slice(0, 10) : ""}
+                    disabled={busy === t.id}
+                    onChange={(e) => updateTask(t.id, { due_at: e.target.value ? new Date(e.target.value).toISOString() : null })}
+                  />
+                ) : (
+                  <span className="muted text-sm">{t.due_at ? new Date(t.due_at).toLocaleDateString() : "—"}</span>
+                )}
+              </td>
+              <td>
+                {canEdit ? (
+                  <AssigneePicker
+                    members={members}
+                    value={t.assignee_id}
+                    onChange={(uid) => updateTask(t.id, { assignee_id: uid })}
+                    disabled={busy === t.id}
+                    compact
+                  />
+                ) : (
+                  <span className="muted text-sm" title={t.assignee_id ?? ""}>{memberLabel(t.assignee_id)}</span>
+                )}
               </td>
               {canEdit ? (
                 <td>
@@ -275,10 +331,12 @@ export function TasksView({
   projectId,
   tasks,
   canEdit,
+  members,
 }: {
   projectId: string;
   tasks: TaskRow[];
   canEdit: boolean;
+  members: { user_id: string; email: string; role: string }[];
 }) {
   const router = useRouter();
   const [view, setView] = useState<"board" | "table">("board");
@@ -319,7 +377,7 @@ export function TasksView({
           onStatusChange={onStatusChange}
         />
       ) : (
-        <TaskTable projectId={projectId} tasks={tasks} canEdit={canEdit} />
+        <TaskTable projectId={projectId} tasks={tasks} canEdit={canEdit} members={members} />
       )}
     </div>
   );

@@ -2,12 +2,12 @@
 
 **Date:** 2026-06-18
 
-**Closed:** 2026-06-19 — GitHub integration (Batch I) completed end-to-end
+**Closed:** 2026-06-19 — CRM pipeline polish: seed data, sorting, inline editing, hydration fixes
 **Updated:** 2026-06-19
 
 Treat prior closed sessions as historical only; see "What this cycle produced" below.
 
-**Repository state:** GitHub integration (Batch I) completed. Web tab at `/projects/[id]/github` with linked repos + commit table. Settings form for add/remove repos + PAT. Background poller writes `github_commit` activity rows for new commits only. Activity feed renders `github_commit` cards with rich SHA/repo/preview. `github_ref` validation on activity create. Commit picker component integrated into composer + replies. Plans updated to reflect completion.
+**Repository state:** GitHub integration (Batch I) completed. CRM pipeline: 50-company seed across all 9 stages, deterministic IDs (no duplicate seeding). Backward stage transitions allowed. Prospects table: all 6 columns sortable (fixed JSX sort bug in DataTable). Tasks table: all 6 columns sortable, inline editing for Priority, Due, and Assignee (with search-select). Task detail page: Assignee now editable with search-select picker. Hydration warnings suppressed for all Date.toLocaleString() calls.
 
 ## Start here (new session)
 

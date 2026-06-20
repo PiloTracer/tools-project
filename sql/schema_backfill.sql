@@ -4,6 +4,16 @@
 --   UPDATE ... WHERE ... AND old_column IS NULL;
 --   INSERT ... SELECT ... WHERE NOT EXISTS (...);
 
+-- Dedup prospects: keep only the LATEST row per (company_name, created_by).
+-- Seed inserts used gen_random_uuid() before 2026-06-19 which created duplicates on every
+-- API restart (ON CONFLICT DO NOTHING with no unique key to conflict on).
+DELETE FROM prospects
+WHERE id NOT IN (
+  SELECT DISTINCT ON (company_name, created_by) id
+  FROM prospects
+  ORDER BY company_name, created_by, updated_at DESC
+);
+
 -- Ensure legacy owner-only projects have an explicit owner membership row (idempotent).
 INSERT INTO project_members (id, project_id, user_id, role, created_at)
 SELECT gen_random_uuid(),
