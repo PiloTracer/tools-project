@@ -6,10 +6,10 @@
 #   ./bin/start.sh prd          # interactive menu
 #   docker compose -f docker-compose.prd.yml --env-file .env.prd up -d --build
 #
-# Services:
-#   → Web:  http://${PUBLIC_HOST}:${WEB_PORT:-80}
-#   → API:  http://${PUBLIC_HOST}:${API_PORT:-8300}/healthz
-#   → Docs: http://${PUBLIC_HOST}:${API_PORT:-8300}/docs
+# Services (API/Web ports exposed on 127.0.0.1 for host Nginx reverse proxy):
+#   → Web:  127.0.0.1:3000  (container :3000)
+#   → API:  127.0.0.1:8300  (container :8300)
+#   → Docs: http://127.0.0.1:8300/docs
 
 name: ${COMPOSE_PROJECT_NAME:-tools_project_prd}
 
@@ -72,6 +72,8 @@ services:
       retries: 10
       start_period: 30s
     restart: unless-stopped
+    ports:
+      - "127.0.0.1:8300:8300"
     networks:
       - internal
 
@@ -102,25 +104,8 @@ services:
       api:
         condition: service_healthy
     restart: unless-stopped
-    networks:
-      - internal
-
-  caddy:
-    image: caddy:2-alpine
-    container_name: tpr_caddy_${COMPOSE_PROJECT_NAME:-tools_project_prd}
-    environment:
-      PUBLIC_HOST: ${PUBLIC_HOST:?Set PUBLIC_HOST in .env.prd}
     ports:
-      - "${HTTP_PORT:-80}:80"
-      - "${HTTPS_PORT:-443}:443"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
-    depends_on:
-      - web
-      - api
-    restart: unless-stopped
+      - "127.0.0.1:3000:3000"
     networks:
       - internal
 
@@ -129,10 +114,6 @@ volumes:
     name: ${COMPOSE_PROJECT_NAME:-tools_project_prd}_tpr_pg_data
   tpr_attachments:
     name: ${COMPOSE_PROJECT_NAME:-tools_project_prd}_tpr_attachments
-  caddy_data:
-    name: ${COMPOSE_PROJECT_NAME:-tools_project_prd}_caddy_data
-  caddy_config:
-    name: ${COMPOSE_PROJECT_NAME:-tools_project_prd}_caddy_config
 
 networks:
   internal:
