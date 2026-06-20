@@ -24,6 +24,7 @@ from app.services.project_access import (
     MemberRole,
     can_mutate_tasks,
     can_view_tickets,
+    client_company_user_ids,
     is_client_participant,
     require_project_access,
     require_role,
@@ -64,8 +65,9 @@ async def list_tickets(
     if ticket_status:
         stmt = stmt.where(Ticket.status == ticket_status.strip())
     if is_client_participant(acc):
-        # Client participants only see tickets assigned to them.
-        stmt = stmt.where(Ticket.assignee_id == user.id)
+        # Client participants see tickets assigned to them or their client company contacts (SPEC FR-5).
+        peer_ids = await client_company_user_ids(db, acc)
+        stmt = stmt.where(Ticket.assignee_id.in_(peer_ids))
     # Support queue: open work first, oldest first (age / triage); terminal tickets sink.
     stmt = stmt.order_by(
         case(

@@ -162,7 +162,7 @@ async def list_client_project_tasks(
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    """Tasks assigned to the current client contact in an accessible project."""
+    """Tasks assigned to the current client contact or their client company contacts in an accessible project (SPEC FR-5)."""
     contact = await _require_client_contact(db, user)
     project, acc = await _require_client_project_access(db, contact, project_id)
     if not acc.can_view_tasks:
@@ -170,10 +170,17 @@ async def list_client_project_tasks(
             status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to view tasks in this project",
         )
+    peer_rows = await db.scalars(
+        select(ClientContact.user_id).where(
+            ClientContact.client_id == contact.client_id,
+            ClientContact.user_id.is_not(None),
+        )
+    )
+    peer_ids = [u for u in peer_rows.all() if u is not None]
     stmt = (
         select(Task)
         .where(Task.project_id == project_id)
-        .where(Task.assignee_id == user.id)
+        .where(Task.assignee_id.in_(peer_ids))
         .order_by(Task.updated_at.desc())
     )
     rows = list((await db.scalars(stmt)).all())

@@ -131,6 +131,30 @@ def is_client_participant(acc: ProjectAccess) -> bool:
     return acc.client_access is not None
 
 
+async def client_company_user_ids(
+    db: AsyncSession, acc: ProjectAccess
+) -> list[uuid.UUID]:
+    """User ids of every contact in the signed-in client participant's company.
+
+    Includes the signed-in contact. Use only when ``is_client_participant(acc)`` is True.
+    Implements SPEC FR-5: client participants see tasks/tickets assigned to them or their
+    client company contacts (not just themselves).
+    """
+    ca = acc.client_access
+    if ca is None:
+        return []
+    contact = await db.get(ClientContact, ca.client_contact_id)
+    if contact is None:
+        return []
+    rows = await db.scalars(
+        select(ClientContact.user_id).where(
+            ClientContact.client_id == contact.client_id,
+            ClientContact.user_id.is_not(None),
+        )
+    )
+    return [u for u in rows.all() if u is not None]
+
+
 def can_view_tasks(acc: ProjectAccess) -> bool:
     if acc.client_access is not None:
         return acc.client_access.can_view_tasks

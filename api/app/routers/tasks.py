@@ -26,6 +26,7 @@ from app.services.project_access import (
     can_create_tasks,
     can_edit_tasks,
     can_view_tasks,
+    client_company_user_ids,
     is_client_participant,
     require_project_access,
 )
@@ -75,8 +76,9 @@ async def list_tasks(
     if is_todo is not None:
         stmt = stmt.where(Task.is_todo == is_todo)
     if is_client_participant(acc):
-        # Client participants only see tasks assigned to them.
-        stmt = stmt.where(Task.assignee_id == user.id)
+        # Client participants see tasks assigned to them or their client company contacts (SPEC FR-5).
+        peer_ids = await client_company_user_ids(db, acc)
+        stmt = stmt.where(Task.assignee_id.in_(peer_ids))
     stmt = stmt.order_by(Task.updated_at.desc())
     result = await db.scalars(stmt)
     rows = list(result.all())
