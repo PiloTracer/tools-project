@@ -35,6 +35,8 @@ services:
       timeout: 5s
       retries: 10
       start_period: 10s
+    networks:
+      - internal
 
   api:
     profiles:
@@ -79,10 +81,14 @@ services:
       timeout: 5s
       retries: 10
       start_period: 25s
+    networks:
+      - internal
 
   web:
     profiles:
       - dev
+    networks:
+      - internal
     build:
       context: ./web
       dockerfile: Dockerfile.dev
@@ -128,3 +134,7 @@ volumes:
     name: ${COMPOSE_PROJECT_NAME:-tools_project_dev}_tpr_pg_data
   tpr_attachments:
     name: ${COMPOSE_PROJECT_NAME:-tools_project_dev}_tpr_attachments
+
+networks:
+  internal:
+    name: ${COMPOSE_PROJECT_NAME:-tools_project_dev}_internal
