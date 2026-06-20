@@ -53,6 +53,7 @@ read_dotenv_value() {
 }
 
 ENV_MODE="${ENV_MODE:-dev}"
+ENV_FILE=""
 
 load_env() {
   local env_name="${1:-dev}"
@@ -76,6 +77,7 @@ load_env() {
       COMPOSE_ABS="$REPO_ROOT/docker-compose.dev.yml"
       ;;
   esac
+  ENV_FILE="$envf"
   COMPOSE_PROJECT_NAME="$DEFAULT_PROJECT_NAME"
   PUBLIC_HOST="${PUBLIC_HOST:-localhost}"
   WEB_DEV_HOST_PORT="${WEB_DEV_HOST_PORT:-18513}"
@@ -113,11 +115,14 @@ require_compose_file() {
 
 # Expanded on each invocation (after load_env sets COMPOSE_PROJECT_NAME) — required for bash `set -u`.
 _compose_invoke() {
+  local env_flag=()
+  [[ -n "$ENV_FILE" && -f "$ENV_FILE" ]] && env_flag=(--env-file "$ENV_FILE")
   docker compose \
     --project-directory "$REPO_ROOT" \
     -f "$COMPOSE_ABS" \
     -p "$COMPOSE_PROJECT_NAME" \
     --profile "$PROFILE" \
+    "${env_flag[@]}" \
     "$@"
 }
 
