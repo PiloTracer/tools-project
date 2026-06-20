@@ -2,7 +2,7 @@
 
 **Date:** 2026-06-18
 
-**Closed:** 2026-06-20 — FR-5 runtime-verified; app logger cosmetic gap fixed; commit_subject_refs + watcher hooks (I10f) implemented
+**Closed:** 2026-06-20 — backup/restore overhaul: .tar.gz volumes only, no pg_dump
 **Updated:** 2026-06-20
 
 **Open:** (none — session closed)
@@ -64,7 +64,7 @@ Treat prior closed sessions as historical only; see "What this cycle produced" b
 
 ## Recommended next work
 
-All previously listed follow-ups are now complete. The project has no open blocking work.
+All follow-ups are complete. The project has no open blocking work.
 
 ---
 
@@ -156,6 +156,7 @@ All previously listed follow-ups are now complete. The project has no open block
 | `api/app/routers/commit_refs.py` | New router: GET/POST/DELETE `/v1/projects/{id}/github/refs` |
 | `api/app/routers/activities.py` | Auto-create `CommitSubjectRef` when `github_ref` present in activity |
 | Runtime verification | SPEC FR-5 cross-visibility verified with Alice + Bob (Umbrella Corp) |
+| `bin/start.sh` | Backup/restore overhaul: no pg_dump, .tar.gz volume-only backup; restore now removes+recreates volumes to overwrite existing data |
 
 ## Where to read more
 

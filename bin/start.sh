@@ -348,36 +348,9 @@ cmd_backup() {
   timestamp=$(date +%Y%m%d_%H%M%S)
   local backup_dir="${backup_base}/${timestamp}"
 
-  printf 'Backup target: %s\n' "$backup_dir"
-  printf 'Ensuring Postgres is running…\n'
-  if stream_compose_ops; then
-    dc up -d postgresql || return 1
-    wait_ack_if_menu
-  elif runs_menu_quiet; then
-    quiet_dc up -d postgresql || return 1
-  else
-    dc up -d postgresql || return 1
-  fi
-  cmd_wait_postgres || return 1
-
   mkdir -p "$backup_dir"
 
-  # 1. Logical DB dump (pg_dump --clean so restore can re-create objects)
-  printf 'Backing up database (pg_dump)…\n'
-  if runs_menu_quiet; then
-    quiet_dc exec -T postgresql pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists > "$backup_dir/db_dump.sql" 2>/dev/null || {
-      printf 'ERROR: pg_dump failed.\n' >&2
-      return 1
-    }
-  else
-    dc exec -T postgresql pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists > "$backup_dir/db_dump.sql" || {
-      printf 'ERROR: pg_dump failed.\n' >&2
-      return 1
-    }
-  fi
-  printf '  db_dump.sql: %d bytes\n' "$(wc -c < "$backup_dir/db_dump.sql")"
-
-  # 2. Named volume backups (tar)
+  # Named volume backups as .tar.gz (no SQL dumps)
   for vol in tpr_pg_data tpr_attachments; do
     local vol_name="${COMPOSE_PROJECT_NAME}_${vol}"
     printf 'Backing up volume: %s…\n' "$vol_name"
@@ -395,12 +368,10 @@ cmd_backup() {
     fi
   done
 
-  # 3. Write a metadata file
+  # Write a metadata file
   cat > "$backup_dir/backup.info" <<EOF
 timestamp=$timestamp
 compose_project_name=$COMPOSE_PROJECT_NAME
-postgres_user=$POSTGRES_USER
-postgres_db=$POSTGRES_DB
 created_by=start.sh cmd_backup
 EOF
 
@@ -458,14 +429,15 @@ cmd_restore() {
     dc down --remove-orphans || return 1
   fi
 
-  # Restore named volumes from tar
+  # Restore named volumes from .tar.gz (overwrite existing content)
   for vol in tpr_pg_data tpr_attachments; do
     local vol_name="${COMPOSE_PROJECT_NAME}_${vol}"
     local tar_file="${restore_dir}/${vol}.tar.gz"
     if [[ -f "$tar_file" ]]; then
       printf 'Restoring volume: %s from %s…\n' "$vol_name" "$tar_file"
-      # Ensure volume exists (create if missing)
-      docker volume inspect "$vol_name" >/dev/null 2>&1 || docker volume create "$vol_name" >/dev/null
+      # Remove existing volume contents, recreate, and restore
+      docker volume rm -f "$vol_name" >/dev/null 2>&1 || true
+      docker volume create "$vol_name" >/dev/null
       docker run --rm \
         -v "${vol_name}":/target \
         -v "$restore_dir":/source:ro \
@@ -478,40 +450,8 @@ cmd_restore() {
     fi
   done
 
-  # Restore DB from SQL dump
-  local dump_file="${restore_dir}/db_dump.sql"
-  if [[ -f "$dump_file" ]]; then
-    printf 'Starting Postgres to restore DB dump…\n'
-    if stream_compose_ops; then
-      dc up -d postgresql || return 1
-      wait_ack_if_menu
-    elif runs_menu_quiet; then
-      quiet_dc up -d postgresql || return 1
-    else
-      dc up -d postgresql || return 1
-    fi
-    cmd_wait_postgres || return 1
-
-    printf 'Restoring database from db_dump.sql…\n'
-    if runs_menu_quiet; then
-      quiet_dc exec -T postgresql psql -q -v ON_ERROR_STOP=1 \
-        -U "$POSTGRES_USER" -d "$POSTGRES_DB" < "$dump_file" 2>/dev/null || {
-        printf 'ERROR: psql restore failed.\n' >&2
-        return 1
-      }
-    else
-      dc exec -T postgresql psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" --set ON_ERROR_STOP=1 < "$dump_file" || {
-        printf 'ERROR: psql restore failed.\n' >&2
-        return 1
-      }
-    fi
-    printf '  Database restore complete.\n'
-  else
-    printf '  WARNING: no db_dump.sql found — skipping DB restore.\n' >&2
-  fi
-
   printf '\nRestore complete from: %s\n' "$restore_name"
-  printf 'Run option 2 (start stack) to bring services back up.\n\n'
+  printf 'Run option 2 (start stack) to bring services back up.\n\n'}]}
 }
 
 cmd_nuke() {
@@ -632,7 +572,7 @@ show_menu() {
   6) Logs (follow)                        — docker compose logs -f
   7) Build images only                     — docker compose build --pull
   8) Cleanup stack (gentle)               — docker compose down --remove-orphans (keeps volumes)
-  9) Backup (volumes + pg_dump)           — to \$GLOBAL_BASE_PATH/backups_\$COMPOSE_PROJECT_NAME
+  9) Backup (volumes .tar.gz)             — to \$GLOBAL_BASE_PATH/backups_\$COMPOSE_PROJECT_NAME
   10) Restore from backup                  — pick a previous backup to restore
   11) Destroy stack + volumes (DANGEROUS)  — docker compose down -v (this project only)
   12) Drop all DB tables (DANGEROUS)      — Postgres: DROP SCHEMA public CASCADE (project DB only)
