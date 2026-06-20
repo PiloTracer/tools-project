@@ -3,8 +3,8 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
@@ -17,6 +17,7 @@ from app.schemas import (
     ClientContactListResponse,
     ClientContactOut,
     ClientContactUpdate,
+    UserSearchResult,
 )
 
 router = APIRouter(prefix="/v1/clients/{client_id}/contacts", tags=["client_contacts"])
@@ -38,14 +39,35 @@ async def list_contacts(
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     await _resolve_client(db, client_id)
-    q = (
-        select(ClientContact)
+    result = await db.execute(
+        select(ClientContact, User)
+        .outerjoin(User, User.id == ClientContact.user_id)
         .where(ClientContact.client_id == client_id)
         .order_by(ClientContact.created_at.desc())
     )
-    result = await db.scalars(q)
-    rows = list(result.all())
-    return ClientContactListResponse(items=[ClientContactOut.model_validate(r) for r in rows])
+    rows = result.all()
+    return ClientContactListResponse(
+        items=[
+            ClientContactOut(
+                id=cc.id,
+                client_id=cc.client_id,
+                prospect_id=cc.prospect_id,
+                user_id=cc.user_id,
+                user_email=u.email if u else None,
+                user_name=u.display_name if u else None,
+                name=cc.name,
+                email=cc.email,
+                phone=cc.phone,
+                title=cc.title,
+                role=cc.role,
+                is_primary=cc.is_primary,
+                notes=cc.notes,
+                created_at=cc.created_at,
+                updated_at=cc.updated_at,
+            )
+            for cc, u in rows
+        ]
+    )
 
 
 @router.post("", response_model=ClientContactOut, status_code=status.HTTP_201_CREATED)
@@ -72,6 +94,31 @@ async def create_contact(
     await db.commit()
     await db.refresh(row)
     return ClientContactOut.model_validate(row)
+
+
+@router.get("/search-users", response_model=list[UserSearchResult])
+async def search_linkable_users(
+    client_id: uuid.UUID,
+    q: Annotated[str, Query(min_length=1, max_length=200)],
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    await _resolve_client(db, client_id)
+    term = f"%{q.strip()}%"
+    result = await db.execute(
+        select(User.id, User.email, User.display_name)
+        .where(User.is_active.is_(True))
+        .where(
+            or_(
+                User.email.ilike(term),
+                User.display_name.ilike(term),
+            )
+        )
+        .order_by(User.email.asc())
+        .limit(20)
+    )
+    rows = result.all()
+    return [UserSearchResult(id=uid, email=email, display_name=name) for uid, email, name in rows]
 
 
 @router.get("/{contact_id}", response_model=ClientContactOut)
@@ -114,6 +161,13 @@ async def update_contact(
         row.is_primary = body.is_primary
     if body.notes is not None:
         row.notes = body.notes.strip() if body.notes else None
+    if body.user_id is not None:
+        linked = await db.get(User, body.user_id)
+        if linked is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="User not found")
+        row.user_id = body.user_id
+    elif "user_id" in body.model_dump(exclude_unset=True):
+        row.user_id = None
     await db.commit()
     await db.refresh(row)
     return ClientContactOut.model_validate(row)

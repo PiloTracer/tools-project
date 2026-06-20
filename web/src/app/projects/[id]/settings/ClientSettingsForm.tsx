@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 import { Badge } from "@/components/Badge";
 import { Dialog } from "@/components/Dialog";
@@ -26,6 +26,28 @@ type AccessRow = {
   can_create_tasks: boolean;
 };
 
+type ContactRow = {
+  id: string;
+  client_id: string;
+  client_name: string | null;
+  name: string;
+  email: string;
+  phone: string | null;
+  title: string | null;
+  role: string;
+  is_primary: boolean;
+};
+
+type SearchHit = {
+  client_id: string;
+  client_name: string;
+  client_slug: string;
+  contact_name: string | null;
+  contact_email: string | null;
+};
+
+const CLIENT_ROLES = ["view", "contribute", "decision_maker", "billing"];
+
 export function ClientSettingsForm({
   projectId,
   canEdit,
@@ -37,23 +59,93 @@ export function ClientSettingsForm({
   const [linkedClients, setLinkedClients] = useState<LinkedClientRow[]>([]);
   const [accessGrants, setAccessGrants] = useState<AccessRow[]>([]);
   const [showLinkClient, setShowLinkClient] = useState(false);
-  const [clientId, setClientId] = useState("");
+  const [showGrantAccess, setShowGrantAccess] = useState(false);
+  const [contacts, setContacts] = useState<ContactRow[]>([]);
+  const [contactsLoading, setContactsLoading] = useState(false);
+  const [selectedContactId, setSelectedContactId] = useState("");
+  const [selectedRole, setSelectedRole] = useState("view");
   const [msg, setMsg] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<SearchHit[]>([]);
+  const [searchPending, setSearchPending] = useState(false);
+  const [selectedClient, setSelectedClient] = useState<SearchHit | null>(null);
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     const [lc, ag] = await Promise.all([
       fetch(`/api/projects/${projectId}/clients`),
       fetch(`/api/projects/${projectId}/client-access`),
     ]);
     if (lc.ok) setLinkedClients((await lc.json()).items ?? []);
     if (ag.ok) setAccessGrants((await ag.json()).items ?? []);
-  };
+  }, [projectId]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId]);
+  }, [fetchData]);
+
+  const openGrantAccess = async () => {
+    setMsg(null);
+    setSelectedContactId("");
+    setSelectedRole("view");
+    setContactsLoading(true);
+    setShowGrantAccess(true);
+    try {
+      const r = await fetch(`/api/projects/${projectId}/client-contacts`);
+      if (r.ok) {
+        setContacts((await r.json()).items ?? []);
+      } else {
+        setContacts([]);
+      }
+    } catch {
+      setContacts([]);
+    } finally {
+      setContactsLoading(false);
+    }
+  };
+
+  const openLinkClient = () => {
+    setSearchQuery("");
+    setSearchResults([]);
+    setSelectedClient(null);
+    setMsg(null);
+    setShowLinkClient(true);
+  };
+
+  const doSearch = useCallback(
+    async (q: string) => {
+      if (q.length < 1) {
+        setSearchResults([]);
+        setSearchPending(false);
+        return;
+      }
+      setSearchPending(true);
+      try {
+        const r = await fetch(
+          `/api/projects/${projectId}/clients/search?q=${encodeURIComponent(q)}`,
+        );
+        if (r.ok) {
+          setSearchResults((await r.json()).items ?? []);
+        }
+      } catch {
+        setSearchResults([]);
+      } finally {
+        setSearchPending(false);
+      }
+    },
+    [projectId],
+  );
+
+  useEffect(() => {
+    if (!showLinkClient) return;
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    if (selectedClient) return;
+    searchTimer.current = setTimeout(() => doSearch(searchQuery), 200);
+    return () => {
+      if (searchTimer.current) clearTimeout(searchTimer.current);
+    };
+  }, [searchQuery, showLinkClient, selectedClient, doSearch]);
 
   if (!canEdit) {
     return (
@@ -71,19 +163,21 @@ export function ClientSettingsForm({
 
   const handleLinkClient = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!clientId.trim()) return;
+    if (!selectedClient) return;
     setMsg(null);
     const r = await fetch(`/api/projects/${projectId}/clients`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ client_id: clientId.trim() }),
+      body: JSON.stringify({ client_id: selectedClient.client_id }),
     });
     if (!r.ok) {
       const err = await r.json().catch(() => ({ detail: "Failed to link" }));
       setMsg(err.detail);
       return;
     }
-    setClientId("");
+    setSelectedClient(null);
+    setSearchQuery("");
+    setSearchResults([]);
     setShowLinkClient(false);
     fetchData();
     router.refresh();
@@ -99,6 +193,30 @@ export function ClientSettingsForm({
     await fetch(`/api/projects/${projectId}/client-access/${accessId}`, { method: "DELETE" });
     fetchData();
   };
+
+  const handleGrantAccess = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedContactId) return;
+    setMsg(null);
+    const r = await fetch(`/api/projects/${projectId}/client-access`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        client_contact_id: selectedContactId,
+        role: selectedRole,
+      }),
+    });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({ detail: "Failed to grant access" }));
+      setMsg(err.detail);
+      return;
+    }
+    setShowGrantAccess(false);
+    fetchData();
+  };
+
+  const alreadyHasAccess = (contactId: string) =>
+    accessGrants.some((a) => a.client_contact_id === contactId);
 
   return (
     <div>
@@ -133,7 +251,7 @@ export function ClientSettingsForm({
         <p className="muted text-sm">No clients linked to this project yet.</p>
       )}
 
-      <button className="btn btn-sm btn-secondary" onClick={() => { setClientId(""); setMsg(null); setShowLinkClient(true); }}>
+      <button className="btn btn-sm btn-secondary" onClick={openLinkClient}>
         Link client
       </button>
 
@@ -144,15 +262,67 @@ export function ClientSettingsForm({
         actions={
           <>
             <button type="button" className="btn btn-ghost" onClick={() => setShowLinkClient(false)}>Cancel</button>
-            <button type="submit" form="link-client-form" className="btn btn-primary">Link</button>
+            <button type="submit" form="link-client-form" className="btn btn-primary" disabled={!selectedClient}>Link</button>
           </>
         }
       >
         <form id="link-client-form" onSubmit={handleLinkClient} className="stack" style={{ gap: "0.65rem" }}>
           <label className="field">
-            <span className="label">Client ID (UUID)</span>
-            <input className="input" value={clientId} onChange={(e) => setClientId(e.target.value)} required placeholder="Enter client UUID" />
+            <span className="label">Search by name, email or company</span>
+            <input
+              className="input"
+              value={selectedClient ? `${selectedClient.client_name} — ${selectedClient.contact_name ?? selectedClient.contact_email ?? ""}` : searchQuery}
+              onChange={(e) => {
+                setSelectedClient(null);
+                setSearchQuery(e.target.value);
+              }}
+              placeholder="Type to search…"
+              autoFocus
+              autoComplete="off"
+            />
           </label>
+
+          {selectedClient ? (
+            <div style={{ padding: "0.35rem 0", color: "var(--muted)", fontSize: "0.85rem" }}>
+              Selected: <strong>{selectedClient.client_name}</strong>
+              {selectedClient.contact_name ? ` — ${selectedClient.contact_name}` : ""}
+              {selectedClient.contact_email ? ` (${selectedClient.contact_email})` : ""}
+            </div>
+          ) : searchPending ? (
+            <p className="muted text-sm">Searching…</p>
+          ) : searchQuery && searchResults.length === 0 ? (
+            <p className="muted text-sm">No matching clients found.</p>
+          ) : searchResults.length > 0 ? (
+            <div style={{ maxHeight: "14rem", overflowY: "auto", border: "1px solid var(--border)", borderRadius: 6 }}>
+              {searchResults.map((h) => (
+                <button
+                  key={h.client_id}
+                  type="button"
+                  className="btn btn-ghost"
+                  style={{
+                    display: "block",
+                    width: "100%",
+                    textAlign: "left",
+                    padding: "0.5rem",
+                    borderRadius: 0,
+                    borderBottom: "1px solid var(--border)",
+                  }}
+                  onClick={() => {
+                    setSelectedClient(h);
+                    setSearchResults([]);
+                  }}
+                >
+                  <div style={{ fontWeight: 600 }}>{h.client_name}</div>
+                  <div style={{ fontSize: "0.78rem", color: "var(--muted)" }}>
+                    {h.contact_name ?? ""}
+                    {h.contact_name && h.contact_email ? " — " : ""}
+                    {h.contact_email ?? ""}
+                  </div>
+                </button>
+              ))}
+            </div>
+          ) : null}
+
           {msg ? <p className="err text-sm">{msg}</p> : null}
         </form>
       </Dialog>
@@ -192,6 +362,100 @@ export function ClientSettingsForm({
       ) : (
         <p className="muted text-sm">No client access grants yet.</p>
       )}
+
+      {linkedClients.length > 0 && (
+        <button className="btn btn-sm btn-secondary" onClick={openGrantAccess}>
+          Grant Access
+        </button>
+      )}
+
+      <Dialog
+        open={showGrantAccess}
+        onClose={() => setShowGrantAccess(false)}
+        title="Grant client access"
+        actions={
+          <>
+            <button type="button" className="btn btn-ghost" onClick={() => setShowGrantAccess(false)}>Cancel</button>
+            <button
+              type="submit"
+              form="grant-access-form"
+              className="btn btn-primary"
+              disabled={!selectedContactId}
+            >
+              Grant Access
+            </button>
+          </>
+        }
+      >
+        <form id="grant-access-form" onSubmit={handleGrantAccess} className="stack" style={{ gap: "0.65rem" }}>
+          {contactsLoading ? (
+            <p className="muted text-sm">Loading contacts…</p>
+          ) : contacts.length === 0 ? (
+            <p className="muted text-sm">No contacts found for linked clients.</p>
+          ) : (
+            <div style={{ maxHeight: "18rem", overflowY: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border)" }}>
+                    <th style={{ padding: "0.35rem 0" }}></th>
+                    <th>Name</th>
+                    <th>Client</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {contacts.map((c) => {
+                    const granted = alreadyHasAccess(c.id);
+                    return (
+                      <tr
+                        key={c.id}
+                        style={{
+                          borderBottom: "1px solid var(--border)",
+                          opacity: granted ? 0.45 : 1,
+                        }}
+                      >
+                        <td style={{ padding: "0.35rem 0" }}>
+                          <input
+                            type="radio"
+                            name="contact"
+                            value={c.id}
+                            checked={selectedContactId === c.id}
+                            onChange={() => setSelectedContactId(c.id)}
+                            disabled={granted}
+                          />
+                        </td>
+                        <td>
+                          <div style={{ fontWeight: 500 }}>{c.name}</div>
+                          <div style={{ fontSize: "0.78rem", color: "var(--muted)" }}>{c.email}</div>
+                        </td>
+                        <td style={{ color: "var(--muted)", fontSize: "0.88rem" }}>
+                          {c.client_name ?? "—"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {selectedContactId && (
+            <label className="field">
+              <span className="label">Role</span>
+              <select
+                className="input"
+                value={selectedRole}
+                onChange={(e) => setSelectedRole(e.target.value)}
+              >
+                {CLIENT_ROLES.map((r) => (
+                  <option key={r} value={r}>{r}</option>
+                ))}
+              </select>
+            </label>
+          )}
+
+          {msg ? <p className="err text-sm">{msg}</p> : null}
+        </form>
+      </Dialog>
     </div>
   );
 }

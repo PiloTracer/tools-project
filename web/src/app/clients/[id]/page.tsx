@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -29,6 +29,15 @@ type ContactRow = {
   title: string | null;
   role: string;
   is_primary: boolean;
+  user_id: string | null;
+  user_email: string | null;
+  user_name: string | null;
+};
+
+type UserHit = {
+  id: string;
+  email: string;
+  display_name: string | null;
 };
 
 function formatDate(d: string) {
@@ -61,6 +70,15 @@ export default function ClientDetailPage() {
   const [contactTitle, setContactTitle] = useState("");
   const [contactErr, setContactErr] = useState<string | null>(null);
 
+  const [showLinkUser, setShowLinkUser] = useState(false);
+  const [linkContactId, setLinkContactId] = useState<string | null>(null);
+  const [userSearchQuery, setUserSearchQuery] = useState("");
+  const [userResults, setUserResults] = useState<UserHit[]>([]);
+  const [userSearchPending, setUserSearchPending] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<UserHit | null>(null);
+  const [linkUserErr, setLinkUserErr] = useState<string | null>(null);
+  const userSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -85,6 +103,28 @@ export default function ClientDetailPage() {
     fetchData();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  useEffect(() => {
+    if (!showLinkUser) return;
+    if (userSearchTimer.current) clearTimeout(userSearchTimer.current);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (!userSearchQuery.trim()) { setUserResults([]); return; }
+    if (selectedUser) return;
+    userSearchTimer.current = setTimeout(async () => {
+      setUserSearchPending(true);
+      try {
+        const r = await fetch(`/api/clients/${id}/contacts/search-users?q=${encodeURIComponent(userSearchQuery)}`);
+        if (r.ok) setUserResults((await r.json()) ?? []);
+      } catch {
+        setUserResults([]);
+      } finally {
+        setUserSearchPending(false);
+      }
+    }, 200);
+    return () => {
+      if (userSearchTimer.current) clearTimeout(userSearchTimer.current);
+    };
+  }, [userSearchQuery, showLinkUser, selectedUser, id]);
 
   const handleEdit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -144,6 +184,49 @@ export default function ClientDetailPage() {
     fetchData();
   };
 
+  const openLinkUser = (contactId: string) => {
+    setLinkContactId(contactId);
+    setUserSearchQuery("");
+    setUserResults([]);
+    setSelectedUser(null);
+    setLinkUserErr(null);
+    setShowLinkUser(true);
+  };
+
+  const handleLinkUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!linkContactId || !selectedUser) return;
+    setLinkUserErr(null);
+    const r = await fetch(`/api/clients/${id}/contacts/${linkContactId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: selectedUser.id }),
+    });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({ detail: "Failed to link user" }));
+      setLinkUserErr(err.detail);
+      return;
+    }
+    setShowLinkUser(false);
+    toast(`Linked ${selectedUser.email} to contact`);
+    fetchData();
+  };
+
+  const handleUnlinkUser = async (contactId: string) => {
+    const r = await fetch(`/api/clients/${id}/contacts/${contactId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: null }),
+    });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({ detail: "Failed to unlink user" }));
+      toast(err.detail || "Failed to unlink");
+      return;
+    }
+    toast("User unlinked");
+    fetchData();
+  };
+
   if (loading) {
     return (
       <div className="page-inner">
@@ -185,18 +268,52 @@ export default function ClientDetailPage() {
     { key: "title", label: "Title", render: (r) => <span className="text-sm">{r.title ?? "—"}</span> },
     { key: "role", label: "Role", render: (r) => <Badge variant="neutral">{r.role}</Badge> },
     {
+      key: "user",
+      label: "Linked user",
+      render: (r) => {
+        if (r.user_id) {
+          return (
+            <span className="text-sm">
+              {r.user_name ?? r.user_email ?? r.user_id.slice(0, 8)}
+            </span>
+          );
+        }
+        return <span className="muted text-sm">—</span>;
+      },
+    },
+    {
       key: "actions",
       label: "",
-      style: { width: "40px", textAlign: "right" },
+      style: { width: "160px", textAlign: "right" },
       render: (r) => (
-        <button
-          type="button"
-          className="btn btn-sm btn-ghost"
-          onClick={() => handleDeleteContact(r.id)}
-          style={{ color: "var(--danger)" }}
-        >
-          Remove
-        </button>
+        <span style={{ display: "flex", gap: "0.35rem", justifyContent: "flex-end" }}>
+          {r.user_id ? (
+            <button
+              type="button"
+              className="btn btn-sm btn-ghost"
+              onClick={() => handleUnlinkUser(r.id)}
+              style={{ color: "var(--danger)" }}
+            >
+              Unlink
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="btn btn-sm btn-secondary"
+              onClick={() => openLinkUser(r.id)}
+            >
+              Link User
+            </button>
+          )}
+          <button
+            type="button"
+            className="btn btn-sm btn-ghost"
+            onClick={() => handleDeleteContact(r.id)}
+            style={{ color: "var(--danger)" }}
+          >
+            Remove
+          </button>
+        </span>
       ),
     },
   ];
@@ -354,6 +471,83 @@ export default function ClientDetailPage() {
           {contactErr ? <p id="contact-form-err" className="err text-sm" role="alert">{contactErr}</p> : null}
         </form>
       </Dialog>
+
+      <Dialog
+        open={showLinkUser}
+        onClose={() => setShowLinkUser(false)}
+        title="Link user to contact"
+        actions={
+          <>
+            <button type="button" className="btn btn-ghost" onClick={() => setShowLinkUser(false)}>Cancel</button>
+            <button
+              type="submit"
+              form="link-user-form"
+              className="btn btn-primary"
+              disabled={!selectedUser}
+            >
+              Link
+            </button>
+          </>
+        }
+      >
+        <form id="link-user-form" onSubmit={handleLinkUser} className="stack" style={{ gap: "0.65rem" }}>
+          <label className="field">
+            <span className="label">Search by email or name</span>
+            <input
+              className="input"
+              value={selectedUser ? `${selectedUser.email}${selectedUser.display_name ? ` (${selectedUser.display_name})` : ""}` : userSearchQuery}
+              onChange={(e) => {
+                setSelectedUser(null);
+                setUserSearchQuery(e.target.value);
+              }}
+              placeholder="Type to search for a user…"
+              autoFocus
+              autoComplete="off"
+            />
+          </label>
+
+          {selectedUser ? (
+            <div style={{ padding: "0.35rem 0", color: "var(--muted)", fontSize: "0.85rem" }}>
+              Selected: <strong>{selectedUser.email}</strong>
+              {selectedUser.display_name ? ` (${selectedUser.display_name})` : ""}
+            </div>
+          ) : userSearchPending ? (
+            <p className="muted text-sm">Searching…</p>
+          ) : userSearchQuery && userResults.length === 0 ? (
+            <p className="muted text-sm">No matching users found.</p>
+          ) : userResults.length > 0 ? (
+            <div style={{ maxHeight: "14rem", overflowY: "auto", border: "1px solid var(--border)", borderRadius: 6 }}>
+              {userResults.map((u) => (
+                <button
+                  key={u.id}
+                  type="button"
+                  className="btn btn-ghost"
+                  style={{
+                    display: "block",
+                    width: "100%",
+                    textAlign: "left",
+                    padding: "0.5rem",
+                    borderRadius: 0,
+                    borderBottom: "1px solid var(--border)",
+                  }}
+                  onClick={() => {
+                    setSelectedUser(u);
+                    setUserResults([]);
+                  }}
+                >
+                  <div style={{ fontWeight: 600 }}>{u.email}</div>
+                  {u.display_name ? (
+                    <div style={{ fontSize: "0.78rem", color: "var(--muted)" }}>{u.display_name}</div>
+                  ) : null}
+                </button>
+              ))}
+            </div>
+          ) : null}
+
+          {linkUserErr ? <p className="err text-sm">{linkUserErr}</p> : null}
+        </form>
+      </Dialog>
+
       <ToastContainer />
     </div>
   );

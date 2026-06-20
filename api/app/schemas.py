@@ -44,6 +44,8 @@ class MeResponse(BaseModel):
     avatar_url: str | None = None
     is_superuser: bool
     auth: str = "local"
+    client_contact_id: uuid.UUID | None = None
+    client_name: str | None = None
 
     model_config = {"from_attributes": True}
 
@@ -690,6 +692,7 @@ class ClientContactUpdate(BaseModel):
     role: str | None = Field(default=None, max_length=30)
     is_primary: bool | None = None
     notes: str | None = Field(default=None, max_length=16000)
+    user_id: uuid.UUID | None = None
 
 
 class ClientContactOut(BaseModel):
@@ -697,6 +700,8 @@ class ClientContactOut(BaseModel):
     client_id: uuid.UUID
     prospect_id: uuid.UUID | None = None
     user_id: uuid.UUID | None = None
+    user_email: str | None = None
+    user_name: str | None = None
     name: str
     email: str
     phone: str | None = None
@@ -734,6 +739,18 @@ class ProjectClientOut(BaseModel):
 
 class ProjectClientListResponse(BaseModel):
     items: list[ProjectClientOut]
+
+
+class ProjectClientSearchHit(BaseModel):
+    client_id: uuid.UUID
+    client_name: str
+    client_slug: str
+    contact_name: str | None = None
+    contact_email: str | None = None
+
+
+class ProjectClientSearchResponse(BaseModel):
+    items: list[ProjectClientSearchHit]
 
 
 class ClientSummary(BaseModel):
@@ -775,6 +792,24 @@ class ClientAccessOut(BaseModel):
 
 class ClientAccessListResponse(BaseModel):
     items: list[ClientAccessOut]
+
+
+class ProjectClientContactOut(BaseModel):
+    id: uuid.UUID
+    client_id: uuid.UUID
+    client_name: str | None = None
+    name: str
+    email: str
+    phone: str | None = None
+    title: str | None = None
+    role: str
+    is_primary: bool
+
+    model_config = {"from_attributes": True}
+
+
+class ProjectClientContactListResponse(BaseModel):
+    items: list[ProjectClientContactOut]
 
 
 class MyStatsOut(BaseModel):

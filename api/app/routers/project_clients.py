@@ -3,20 +3,23 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.db import get_db
 from app.deps import get_current_user
 from app.models.client import Client
+from app.models.client_contact import ClientContact
 from app.models.project_client import ProjectClient
 from app.models.user import User
 from app.schemas import (
     ProjectClientLinkRequest,
     ProjectClientListResponse,
     ProjectClientOut,
+    ProjectClientSearchHit,
+    ProjectClientSearchResponse,
 )
 from app.services.project_access import MemberRole, require_project_access, require_role
 
@@ -54,6 +57,52 @@ async def list_linked_clients(
             for r in rows
         ]
     )
+
+
+@router.get("/search", response_model=ProjectClientSearchResponse)
+async def search_linkable_clients(
+    project_id: uuid.UUID,
+    q: Annotated[str, Query(min_length=1, max_length=200)],
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    acc = await require_project_access(db, user, project_id)
+    require_role(acc, MemberRole.maintainer)
+    term = f"%{q.strip()}%"
+    already = select(ProjectClient.client_id).where(
+        ProjectClient.project_id == project_id
+    )
+    rows = await db.execute(
+        select(Client, ClientContact)
+        .outerjoin(ClientContact, ClientContact.client_id == Client.id)
+        .where(
+            ~Client.id.in_(already),
+            or_(
+                Client.name.ilike(term),
+                ClientContact.name.ilike(term),
+                ClientContact.email.ilike(term),
+            ),
+        )
+        .order_by(Client.name)
+        .limit(20)
+    )
+    pairs = rows.all()
+    seen: set[uuid.UUID] = set()
+    items: list[ProjectClientSearchHit] = []
+    for client, contact in pairs:
+        if client.id in seen:
+            continue
+        seen.add(client.id)
+        items.append(
+            ProjectClientSearchHit(
+                client_id=client.id,
+                client_name=client.name,
+                client_slug=client.slug,
+                contact_name=contact.name if contact else None,
+                contact_email=contact.email if contact else None,
+            )
+        )
+    return ProjectClientSearchResponse(items=items)
 
 
 @router.post("", response_model=ProjectClientOut, status_code=status.HTTP_201_CREATED)

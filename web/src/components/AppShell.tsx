@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { ClientRedirect } from "@/components/ClientRedirect";
 import { CmdkPalette } from "@/components/CmdkPalette";
 import { SignOutButton } from "@/components/SignOutButton";
 import { SkipLink } from "@/components/SkipLink";
@@ -8,25 +9,40 @@ import { fetchMe } from "@/shared/server/session";
 
 export async function AppShell({ children }: { children: ReactNode }) {
   const me = await fetchMe();
+  const isClientOnly = !!(me && me.client_contact_id && !me.is_superuser);
 
   return (
     <div className="app-frame">
+      <ClientRedirect me={me} />
       <SkipLink />
       <header className="app-header">
         <div className="app-header-inner">
-          <Link href="/" className="brand">
+          <Link href={isClientOnly ? "/client/dashboard" : "/"} className="brand">
             <span className="brand-mark" aria-hidden />
             <span className="brand-text">tools-project</span>
           </Link>
           <nav className="nav-links" aria-label="Primary">
-            <Link href="/">Home</Link>
-            {me ? (
+            {!me ? (
               <>
+                <Link href="/">Home</Link>
+                <Link href="/client/login">Client Portal</Link>
+                <Link href="/login" className="nav-cta">Sign in</Link>
+              </>
+            ) : isClientOnly ? (
+              <>
+                <Link href="/client/dashboard">Client Portal</Link>
+              </>
+            ) : (
+              <>
+                <Link href="/">Home</Link>
                 <Link href="/today">Today</Link>
                 <Link href="/projects">Projects</Link>
                 <Link href="/inbox">Inbox</Link>
                 <Link href="/prospects">Prospects</Link>
                 <Link href="/clients">Clients</Link>
+                {me.client_contact_id ? (
+                  <Link href="/client/dashboard">Client Portal</Link>
+                ) : null}
                 <Link href="/reports">Reports</Link>
                 {me.is_superuser ? (
                   <Link href="/admin/users">Admin</Link>
@@ -45,10 +61,6 @@ export async function AppShell({ children }: { children: ReactNode }) {
                   ⌘K
                 </span>
               </>
-            ) : (
-              <Link href="/login" className="nav-cta">
-                Sign in
-              </Link>
             )}
           </nav>
           {me ? (

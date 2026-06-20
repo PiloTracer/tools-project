@@ -1,14 +1,18 @@
 from __future__ import annotations
 
+import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from sqlalchemy.orm import selectinload
+
 from app.config import get_settings
 from app.db import get_db
 from app.deps import get_current_user
+from app.models.client_contact import ClientContact
 from app.models.user import User
 from app.schemas import LocalLoginRequest, MeResponse, TokenResponse
 from app.services.auth_local import create_local_access_token, verify_password, decode_local_token
@@ -68,6 +72,7 @@ async def local_login(
 async def auth_me(
     request: Request,
     user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
 ):
     auth_kind = "oauth"
     if get_settings().auth_local_enabled:
@@ -77,6 +82,19 @@ async def auth_me(
             token = auth_header[7:].strip()
         if token and decode_local_token(token):
             auth_kind = "local"
+
+    client_contact_id: uuid.UUID | None = None
+    client_name: str | None = None
+    contact = await db.scalar(
+        select(ClientContact)
+        .options(selectinload(ClientContact.client))
+        .where(ClientContact.user_id == user.id)
+        .limit(1)
+    )
+    if contact is not None:
+        client_contact_id = contact.id
+        client_name = contact.client.name if contact.client else None
+
     return MeResponse(
         id=user.id,
         email=user.email,
@@ -84,4 +102,6 @@ async def auth_me(
         avatar_url=user.avatar_url,
         is_superuser=user.is_superuser,
         auth=auth_kind,
+        client_contact_id=client_contact_id,
+        client_name=client_name,
     )

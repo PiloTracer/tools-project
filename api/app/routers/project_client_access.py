@@ -11,6 +11,7 @@ from sqlalchemy.orm import selectinload
 from app.db import get_db
 from app.deps import get_current_user
 from app.models.client_contact import ClientContact
+from app.models.project_client import ProjectClient
 from app.models.project_client_access import ProjectClientAccess, CLIENT_ROLES
 from app.models.user import User
 from app.schemas import (
@@ -18,6 +19,8 @@ from app.schemas import (
     ClientAccessListResponse,
     ClientAccessOut,
     ClientAccessUpdate,
+    ProjectClientContactListResponse,
+    ProjectClientContactOut,
 )
 from app.services.project_access import MemberRole, require_project_access, require_role
 
@@ -62,6 +65,45 @@ async def list_client_access(
                 can_create_tasks=r.can_create_tasks,
                 created_by=r.created_by,
                 created_at=r.created_at,
+            )
+            for r in rows
+        ]
+    )
+
+
+@router.get("/contacts", response_model=ProjectClientContactListResponse)
+async def list_project_client_contacts(
+    project_id: uuid.UUID,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    acc = await require_project_access(db, user, project_id)
+    require_role(acc, MemberRole.maintainer)
+    linked = await db.scalars(
+        select(ProjectClient).where(ProjectClient.project_id == project_id)
+    )
+    linked_ids = [r.client_id for r in linked.all()]
+    if not linked_ids:
+        return ProjectClientContactListResponse(items=[])
+    contacts = await db.scalars(
+        select(ClientContact)
+        .options(selectinload(ClientContact.client))
+        .where(ClientContact.client_id.in_(linked_ids))
+        .order_by(ClientContact.name)
+    )
+    rows = list(contacts.all())
+    return ProjectClientContactListResponse(
+        items=[
+            ProjectClientContactOut(
+                id=r.id,
+                client_id=r.client_id,
+                client_name=r.client.name if r.client else None,
+                name=r.name,
+                email=r.email,
+                phone=r.phone,
+                title=r.title,
+                role=r.role,
+                is_primary=r.is_primary,
             )
             for r in rows
         ]
