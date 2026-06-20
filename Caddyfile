@@ -1,0 +1,10 @@
+{$PUBLIC_HOST} {
+	@api path /v1/* /healthz /docs /openapi.json
+	handle @api {
+		reverse_proxy api:8300
+	}
+
+	handle {
+		reverse_proxy web:3000
+	}
+}
