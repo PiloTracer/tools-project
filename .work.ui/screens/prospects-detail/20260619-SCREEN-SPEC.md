@@ -1,6 +1,6 @@
 # Prospects detail — Screen SPEC
 
-**Status:** Draft
+**Status:** Approved
 **Slug:** prospects-detail
 **Path:** `.work.ui/screens/prospects-detail/20260619-SCREEN-SPEC.md`
 

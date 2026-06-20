@@ -1,6 +1,6 @@
 # Clients list — Screen SPEC
 
-**Status:** Draft
+**Status:** Approved
 **Slug:** clients-list
 **Path:** `.work.ui/screens/clients-list/20260619-SCREEN-SPEC.md`
 

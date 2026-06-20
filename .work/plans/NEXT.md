@@ -6,7 +6,7 @@
 
 **Schema:** declarative **`sql/`** only — no Alembic. On API startup: `schema_changes.sql` → `schema_indexes.sql` → bootstrap → `schema_backfill.sql` → `schema_inserts.sql`.
 
-**Latest (repo):** **2026-06-19** — Production deployment stack verified (Caddy + prd Dockerfiles + fail-fast secrets); 3 blockers fixed (dead COPY path, Caddy PUBLIC_HOST env, DDL-race across uvicorn workers). 3 UI screen SPECs pass `@ui-screen-spec review` — pending human approval. Batch I (GitHub) + Batch J (CRM) complete. UI design foundation complete; all CRM screens delivered. **Still deferred:** optional Inbox `c` shortcut; `commit_subject_refs` (I10f).
+**Latest (repo):** **2026-06-19** — Production deployment stack verified (Caddy + prd Dockerfiles + fail-fast secrets); 3 blockers fixed (dead COPY path, Caddy PUBLIC_HOST env, DDL-race across uvicorn workers). 4 UI screen SPECs Approved (prospects-list + prospects-detail + clients-list + clients-detail); prospects-list amendment 01 created. Client task/ticket scoping implemented per SPEC FR-5 (company contacts). Web lint gate clean: `npm run check` exit 0 (0 errors + 0 warnings) after fixing `ProspectPreview.tsx` setState-in-effect + 9 `no-img-element` warnings. Batch I (GitHub) + Batch J (CRM) complete. UI design foundation complete; all CRM screens delivered. **Still deferred:** optional Inbox `c` shortcut; `commit_subject_refs` (I10f).
 
 ### Status at a glance (visual)
 
@@ -19,7 +19,7 @@ Phase 3 (I)     ████████████████████  6/
 Matrix (G+H+P)  ████████████████████  14/14 Done
 
 Open: Optional Inbox "c" shortcut; commit_subject_refs (I10f)
-Active: 3 UI screen SPECs pass review — pending human approval (Draft→Approved)
+Active: none — all session follow-ups done; web lint gate clean
 ```
 
 ---

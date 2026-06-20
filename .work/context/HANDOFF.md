@@ -2,12 +2,12 @@
 
 **Date:** 2026-06-18
 
-**Closed:** 2026-06-19 — Production deployment verification + 3 blocker fixes; UI screen SPEC review fixes (3 Drafts pass checklist)
+**Closed:** 2026-06-19 — Production stack verified + 3 blockers fixed; 3 UI SPECs approved + amendment; client company-contact scoping implemented (SPEC FR-5); TicketDiscussion ESLint fixed
 **Updated:** 2026-06-19
 
 Treat prior closed sessions as historical only; see "What this cycle produced" below.
 
-**Repository state:** GitHub integration (Batch I) completed. CRM pipeline: 50-company seed across all 9 stages, deterministic IDs (no duplicate seeding). Backward stage transitions allowed. Prospects table: all 6 columns sortable (fixed JSX sort bug in DataTable). Tasks table: all 6 columns sortable, inline editing for Priority, Due, and Assignee (with search-select). Task detail page: Assignee now editable with search-select picker. Hydration warnings suppressed for all Date.toLocaleString() calls. Production deployment stack verified (Caddy + prd Dockerfiles + fail-fast secrets); 3 blockers fixed (dead COPY path, Caddy PUBLIC_HOST env, DDL-race across uvicorn workers). 3 UI screen SPECs pass `@ui-screen-spec review` checklist — pending human approval (Draft→Approved).
+**Repository state:** GitHub integration (Batch I) completed. CRM (Batch J) M1–M4 complete. UI design foundation complete; all CRM screens delivered. Production deployment stack verified (Caddy + prd Dockerfiles + fail-fast secrets); 3 blockers fixed (dead COPY path, Caddy PUBLIC_HOST env, DDL-race across uvicorn workers). 4 UI screen SPECs now Approved (prospects-list + prospects-detail + clients-list + clients-detail); prospects-list amendment 01 created (Button/Input→native allowed). Client task/ticket scoping implemented per SPEC FR-5 (company contacts, not just self) — compile-verified, runtime visibility test pending. Web lint gate clean: `npm run check` exit 0 (0 errors + 0 warnings) after fixing `ProspectPreview.tsx` setState-in-effect error + 9 `no-img-element` warnings across 8 files. `npm run build` exit 0.
 
 ## Start here (new session)
 
@@ -52,15 +52,20 @@ Treat prior closed sessions as historical only; see "What this cycle produced" b
 - Standalone auth: bootstrap admin created, 50 prospects + 2 demo projects seeded.
 - Fail-fast guards: empty env → exit 1 with clear message.
 
+### Follow-up session (2026-06-19)
+
+- `docker compose -f docker-compose.dev.yml --profile dev run --rm --no-deps api python -m compileall -q app` — **COMPILE_OK** (exit 0); validates `project_access.py`, `tasks.py`, `tickets.py`, `client_portal.py` company-scoping edits. `ruff` not installed in dev image (placeholder per `.cursorrules`).
+- `docker compose -f docker-compose.dev.yml --profile dev run --rm --no-deps web npm run check` — **exit 0** (PASS, 0 errors + 0 warnings). Fixed: `ProspectPreview.tsx` `react-hooks/set-state-in-effect` error (restructured to render-time state reset + effect cleanup) and 8 `no-img-element` warnings across 7 files (eslint-disable-next-line, matching existing blob-URL-thumbnail convention).
+- `npm run build` — **BUILD_OK** (exit 0).
+
 ---
 
 ## Recommended next work
 
-1. **Approve 3 UI screen SPECs** (prospects-detail, clients-list, clients-detail) — pass `@ui-screen-spec review`, pending human approval (Draft→Approved).
-2. **Create amendment for prospects-list Approved SPEC** — Button/Input marked `done` should be `native allowed` per CATALOG.md § Missing (can't edit Approved in place).
-3. **Client task/ticket scope by company contacts:** Currently filtered by the signed-in contact's user_id; SPEC also mentions "their client company contacts".
-4. **`next/image` migration:** Suppress or fix pre-existing ESLint warning in `TicketDiscussion.tsx`.
-5. **Add `tsconfig.tsbuildinfo` to `.gitignore`:** Build artifact currently untracked and showing in `git status`.
+1. **Runtime-verify client company-contact scoping** — implemented per SPEC FR-5 (`tasks.py`, `tickets.py`, `client_portal.py`); compile-verified; runtime visibility test not run (requires a 2nd seeded client contact with a linked user account in the same company + a task assigned to them).
+2. **App logger cosmetic gap** — `cli_schema`/`SQL_SCHEMA_APPLY=false` markers don't emit at INFO before uvicorn starts (function works, logs silent).
+3. **Optional Inbox `c` quick-capture shortcut** (H1 carryover).
+4. **`commit_subject_refs` normalized cross-link table + watcher hooks** (Batch I10f, optional).
 
 ---
 
@@ -133,6 +138,11 @@ Treat prior closed sessions as historical only; see "What this cycle produced" b
 | `.work.ui/screens/prospects-detail/20260619-SCREEN-SPEC.md` | Fixed: §3 states (added empty/partial/permission-denied), §8 catalog (Button/Input→native allowed), §12 UIS registry (UIS-01..09), §13 extractedRules provenance, §7 feature SPEC link |
 | `.work.ui/screens/clients-list/20260619-SCREEN-SPEC.md` | Fixed: §3 states, §8 catalog, §12 UIS registry, §13 extractedRules + `(binding)` label, §7 API paths (`/api/`→`/v1/`) |
 | `.work.ui/screens/clients-detail/20260619-SCREEN-SPEC.md` | Fixed: §3 states, §10 PII (`contact_email`→`contact_id`), §8 catalog, §12 UIS registry, §13 extractedRules + exampleIds (D1+D2), §7 API paths, §4 regionMap |
+| `.work.ui/screens/{prospects-detail,clients-list,clients-detail}/20260619-SCREEN-SPEC.md` | Status flipped Draft→**Approved** 2026-06-19 (human-approved after passing `@ui-screen-spec review`) |
+| `.work.ui/screens/prospects-list/20260619-SCREEN-SPEC-amendment-01.md` | Amendment to Approved prospects-list SPEC: §8 Button/Input `done`→`native allowed` per CATALOG.md § Missing |
+| `api/app/services/project_access.py` | New `client_company_user_ids(db, acc)` helper — user ids of all contacts in the signed-in contact's client company (SPEC FR-5) |
+| `api/app/routers/tasks.py`, `tickets.py`, `client_portal.py` | Client participant task/ticket visibility now scopes by **company contacts** (`assignee_id.in_(peer_ids)`) instead of just `user.id` — implements SPEC FR-5 |
+| `web/src/app/projects/[id]/tickets/[ticketId]/TicketDiscussion.tsx` | Added `eslint-disable-next-line @next/next/no-img-element` to reply attachment `<img>` (matches existing pattern) — eliminates the `no-img-element` warning in this file |
 
 ## Where to read more
 
@@ -152,8 +162,8 @@ Treat prior closed sessions as historical only; see "What this cycle produced" b
 - Foundation complete: yes · Screen-spec-ready: yes
 - Implementation complete: yes (all CRM screens delivered)
 - All verifiers: PASS · All UIS concepts: PASS
-- CATALOG.md populated (14 components); prospects-list SPEC Approved
-- 3 screen SPECs reviewed + fixed (prospects-detail, clients-list, clients-detail) — pass `@ui-screen-spec review` checklist, pending human approval
+- CATALOG.md populated (14 components); prospects-list SPEC Approved (+ amendment 01: Button/Input→native allowed)
+- 3 screen SPECs reviewed, fixed, and **Approved** 2026-06-19 (prospects-detail, clients-list, clients-detail) — all pass `@ui-screen-spec review`
 - NEXT_UI: `.work.ui/plans/NEXT_UI.md`
 
 ## Agent notes

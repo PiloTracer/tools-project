@@ -1,6 +1,6 @@
 # Clients detail — Screen SPEC
 
-**Status:** Draft
+**Status:** Approved
 **Slug:** clients-detail
 **Path:** `.work.ui/screens/clients-detail/20260619-SCREEN-SPEC.md`
 
