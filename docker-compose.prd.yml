@@ -7,7 +7,7 @@
 #   docker compose -f docker-compose.prd.yml --env-file .env.prd up -d --build
 #
 # Services (API/Web ports exposed on 127.0.0.1 for host Nginx reverse proxy):
-#   → Web:  127.0.0.1:3000  (container :3000)
+#   → Web:  127.0.0.1:${WEB_DEV_HOST_PORT:-18513}  (container :3000)
 #   → API:  127.0.0.1:8300  (container :8300)
 #   → Docs: http://127.0.0.1:8300/docs
 
@@ -105,7 +105,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     ports:
-      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:${WEB_DEV_HOST_PORT:-18513}:3000"
     networks:
       - internal
 
