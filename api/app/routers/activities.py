@@ -16,6 +16,7 @@ from app.db import get_db, session_factory
 from app.deps import get_current_user
 from app.models.activity import Activity
 from app.models.attachment import Attachment
+from app.models.commit_subject_ref import CommitSubjectRef
 from app.models.github_commit import GithubCommit
 from app.models.github_link import GithubLink
 from app.models.mention import Mention
@@ -40,9 +41,10 @@ async def _validate_github_ref(
     db: AsyncSession,
     project_id: uuid.UUID,
     ref: dict | None,
-) -> None:
+) -> uuid.UUID | None:
+    """Validate github_ref and return the commit UUID, or None."""
     if not ref:
-        return
+        return None
     commit_id = ref.get("commit_id")
     sha = ref.get("sha")
     if not commit_id or not sha:
@@ -69,6 +71,7 @@ async def _validate_github_ref(
             status.HTTP_400_BAD_REQUEST,
             detail="Referenced commit does not belong to this project",
         )
+    return commit_uuid
 
 async def _validate_subject(
     db: AsyncSession,
@@ -285,7 +288,7 @@ async def create_activity(
     st = body.subject_type.strip().lower()
     await _validate_subject(db, project_id, st, body.subject_id)
     github_ref = (body.meta_json or {}).get("github_ref")
-    await _validate_github_ref(db, project_id, github_ref)
+    commit_ref_id = await _validate_github_ref(db, project_id, github_ref)
     kind_val = body.kind.strip().lower()
     if kind_val not in ACTIVITY_KINDS:
         raise HTTPException(
@@ -339,6 +342,27 @@ async def create_activity(
     )
     db.add(row)
     await db.flush()
+
+    # Create commit_subject_ref row if github_ref was present
+    if commit_ref_id is not None:
+        existing_ref = await db.scalar(
+            select(CommitSubjectRef).where(
+                CommitSubjectRef.github_commit_id == commit_ref_id,
+                CommitSubjectRef.subject_type == st,
+                CommitSubjectRef.subject_id == body.subject_id,
+            )
+        )
+        if existing_ref is None:
+            db.add(
+                CommitSubjectRef(
+                    github_commit_id=commit_ref_id,
+                    subject_type=st,
+                    subject_id=body.subject_id,
+                    created_by=user.id,
+                )
+            )
+            await db.flush()
+
     await _validate_and_link_ticket_attachments(
         db,
         project_id=project_id,

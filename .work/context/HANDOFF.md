@@ -2,12 +2,14 @@
 
 **Date:** 2026-06-18
 
-**Closed:** 2026-06-19 — Production stack verified + 3 blockers fixed; 3 UI SPECs approved + amendment; client company-contact scoping implemented (SPEC FR-5); TicketDiscussion ESLint fixed
-**Updated:** 2026-06-19
+**Closed:** 2026-06-20 — FR-5 runtime-verified; app logger cosmetic gap fixed; commit_subject_refs + watcher hooks (I10f) implemented
+**Updated:** 2026-06-20
+
+**Open:** (none — session closed)
 
 Treat prior closed sessions as historical only; see "What this cycle produced" below.
 
-**Repository state:** GitHub integration (Batch I) completed. CRM (Batch J) M1–M4 complete. UI design foundation complete; all CRM screens delivered. Production deployment stack verified (Caddy + prd Dockerfiles + fail-fast secrets); 3 blockers fixed (dead COPY path, Caddy PUBLIC_HOST env, DDL-race across uvicorn workers). 4 UI screen SPECs now Approved (prospects-list + prospects-detail + clients-list + clients-detail); prospects-list amendment 01 created (Button/Input→native allowed). Client task/ticket scoping implemented per SPEC FR-5 (company contacts, not just self) — compile-verified, runtime visibility test pending. Web lint gate clean: `npm run check` exit 0 (0 errors + 0 warnings) after fixing `ProspectPreview.tsx` setState-in-effect error + 9 `no-img-element` warnings across 8 files. `npm run build` exit 0.
+****Repository state:** All follow-ups complete. SPEC FR-5 runtime-verified (Alice sees Bob's company-scoped tasks). App logger cosmetic gap fixed (`logging.basicConfig` in `main.py`). `commit_subject_refs` normalized cross-link table + watcher hooks (I10f) implemented. Inbox `c` shortcut confirmed already implemented. Batch I (GitHub) + Batch J (CRM) complete. UI design foundation complete; all CRM screens delivered.
 
 ## Start here (new session)
 
@@ -62,10 +64,7 @@ Treat prior closed sessions as historical only; see "What this cycle produced" b
 
 ## Recommended next work
 
-1. **Runtime-verify client company-contact scoping** — implemented per SPEC FR-5 (`tasks.py`, `tickets.py`, `client_portal.py`); compile-verified; runtime visibility test not run (requires a 2nd seeded client contact with a linked user account in the same company + a task assigned to them).
-2. **App logger cosmetic gap** — `cli_schema`/`SQL_SCHEMA_APPLY=false` markers don't emit at INFO before uvicorn starts (function works, logs silent).
-3. **Optional Inbox `c` quick-capture shortcut** (H1 carryover).
-4. **`commit_subject_refs` normalized cross-link table + watcher hooks** (Batch I10f, optional).
+All previously listed follow-ups are now complete. The project has no open blocking work.
 
 ---
 
@@ -143,6 +142,20 @@ Treat prior closed sessions as historical only; see "What this cycle produced" b
 | `api/app/services/project_access.py` | New `client_company_user_ids(db, acc)` helper — user ids of all contacts in the signed-in contact's client company (SPEC FR-5) |
 | `api/app/routers/tasks.py`, `tickets.py`, `client_portal.py` | Client participant task/ticket visibility now scopes by **company contacts** (`assignee_id.in_(peer_ids)`) instead of just `user.id` — implements SPEC FR-5 |
 | `web/src/app/projects/[id]/tickets/[ticketId]/TicketDiscussion.tsx` | Added `eslint-disable-next-line @next/next/no-img-element` to reply attachment `<img>` (matches existing pattern) — eliminates the `no-img-element` warning in this file |
+
+## What this cycle produced (2026-06-20)
+
+| Artifact | Description |
+|----------|-------------|
+| `api/app/main.py` | Added `logging.basicConfig(level=logging.INFO)` — startup SQL markers now visible |
+| `sql/schema_changes.sql` | Added `commit_subject_refs` DDL |
+| `sql/schema_indexes.sql` | Added indexes + unique constraint for `commit_subject_refs` |
+| `api/app/models/commit_subject_ref.py` | SQLAlchemy model for `CommitSubjectRef` |
+| `api/app/models/__init__.py` | Registered `CommitSubjectRef` |
+| `api/app/schemas.py` | Added `CommitSubjectRefCreate`, `CommitSubjectRefOut`, `CommitSubjectRefListResponse` |
+| `api/app/routers/commit_refs.py` | New router: GET/POST/DELETE `/v1/projects/{id}/github/refs` |
+| `api/app/routers/activities.py` | Auto-create `CommitSubjectRef` when `github_ref` present in activity |
+| Runtime verification | SPEC FR-5 cross-visibility verified with Alice + Bob (Umbrella Corp) |
 
 ## Where to read more
 

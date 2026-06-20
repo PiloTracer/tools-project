@@ -84,3 +84,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_project_clients_project_client ON project_c
 CREATE INDEX IF NOT EXISTS ix_project_clients_client_id ON project_clients (client_id);
 CREATE INDEX IF NOT EXISTS ix_project_client_access_project_id ON project_client_access (project_id);
 CREATE INDEX IF NOT EXISTS ix_project_client_access_contact_id ON project_client_access (client_contact_id);
+
+-- I10f: commit_subject_refs
+CREATE INDEX IF NOT EXISTS ix_commit_subject_refs_github_commit_id ON commit_subject_refs (github_commit_id);
+CREATE INDEX IF NOT EXISTS ix_commit_subject_refs_subject ON commit_subject_refs (subject_type, subject_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_commit_subject_refs_commit_subject
+    ON commit_subject_refs (github_commit_id, subject_type, subject_id);

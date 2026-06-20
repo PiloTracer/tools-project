@@ -6,7 +6,7 @@
 
 **Schema:** declarative **`sql/`** only — no Alembic. On API startup: `schema_changes.sql` → `schema_indexes.sql` → bootstrap → `schema_backfill.sql` → `schema_inserts.sql`.
 
-**Latest (repo):** **2026-06-19** — Production deployment stack verified (Caddy + prd Dockerfiles + fail-fast secrets); 3 blockers fixed (dead COPY path, Caddy PUBLIC_HOST env, DDL-race across uvicorn workers). 4 UI screen SPECs Approved (prospects-list + prospects-detail + clients-list + clients-detail); prospects-list amendment 01 created. Client task/ticket scoping implemented per SPEC FR-5 (company contacts). Web lint gate clean: `npm run check` exit 0 (0 errors + 0 warnings) after fixing `ProspectPreview.tsx` setState-in-effect + 9 `no-img-element` warnings. Batch I (GitHub) + Batch J (CRM) complete. UI design foundation complete; all CRM screens delivered. **Still deferred:** optional Inbox `c` shortcut; `commit_subject_refs` (I10f).
+****Latest (repo):** **2026-06-20** — All follow-ups complete. SPEC FR-5 runtime-verified. App logger cosmetic gap fixed. `commit_subject_refs` + watcher hooks (I10f) implemented. Inbox `c` shortcut confirmed already present. Batch I (GitHub) + Batch J (CRM) complete. UI design foundation complete; all CRM screens delivered.
 
 ### Status at a glance (visual)
 
@@ -18,7 +18,7 @@ Phase 3 (I)     ████████████████████  6/
 ────────────────────────────────────────────────
 Matrix (G+H+P)  ████████████████████  14/14 Done
 
-Open: Optional Inbox "c" shortcut; commit_subject_refs (I10f)
+Open: none — all follow-ups resolved
 Active: none — all session follow-ups done; web lint gate clean
 ```
 
@@ -217,7 +217,7 @@ GET    /v1/projects/{project_id}/github/commits   ?link_id=&limit=
 | **I10c** | Poller + upsert + `github_commit` activity rows | **Done** — **httpx** sync + **lifespan** background loop + manual **`POST …/sync`**; `activities` rows with `kind=github_commit` written only for **new** commits. |
 | **I10d** | `GET …/github/commits` + GitHub page UI | **Done** — **API + `CommitSummary`** (`html_url` required) **done**; **Next.js** **`/projects/[id]/github`** + table UI **done**; `github_commit` activity cards render with rich SHA/repo/preview. |
 | **I10e** | **`github_ref`** validation + picker | **Done** — backend validation in `activities.py`; `CommitPicker` component with search; integrated into activity composer + reply forms. |
-| **I10f** | (Optional) `commit_subject_refs` + watcher hooks | **Not started**. |
+| **I10f** | (Optional) `commit_subject_refs` + watcher hooks | **Done** — table + model + router + auto-create on activity `github_ref`. |
 | **I10g** | Plan §3 polish carryovers | **Done** — optional Inbox **`c`** shortcut still deferred. |
 
 ### I11 — Acceptance (Batch I) vs **`20260515-full-project.md`** §11

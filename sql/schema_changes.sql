@@ -274,3 +274,13 @@ CREATE TABLE IF NOT EXISTS project_client_access (
     created_by UUID NOT NULL REFERENCES users (id),
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- I10f: commit_subject_refs (normalized cross-link table)
+CREATE TABLE IF NOT EXISTS commit_subject_refs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    github_commit_id UUID NOT NULL REFERENCES github_commits (id) ON DELETE CASCADE,
+    subject_type VARCHAR(40) NOT NULL,
+    subject_id UUID NOT NULL,
+    created_by UUID NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);

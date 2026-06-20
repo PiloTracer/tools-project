@@ -1,6 +1,7 @@
 from app.models.activity import Activity
 from app.models.attachment import Attachment
 from app.models.client import Client
+from app.models.commit_subject_ref import CommitSubjectRef
 from app.models.client_contact import ClientContact
 from app.models.component import Component
 from app.models.github_commit import GithubCommit
@@ -22,6 +23,7 @@ __all__ = [
     "Activity",
     "Attachment",
     "Client",
+    "CommitSubjectRef",
     "ClientContact",
     "Component",
     "GithubCommit",

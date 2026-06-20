@@ -1,6 +1,9 @@
 import asyncio
+import logging
 import os
 from contextlib import asynccontextmanager
+
+logging.basicConfig(level=logging.INFO)
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -18,6 +21,7 @@ from app.routers import (
     client_contacts,
     client_portal,
     clients,
+    commit_refs,
     components,
     github,
     inbox,
@@ -101,6 +105,7 @@ app.include_router(clients.router)
 app.include_router(client_contacts.router)
 app.include_router(client_portal.router)
 app.include_router(github.router)
+app.include_router(commit_refs.router)
 app.include_router(stats.router)
 app.include_router(reports.router)
 

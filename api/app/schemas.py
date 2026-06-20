@@ -526,6 +526,27 @@ class GithubCommitListResponse(BaseModel):
     items: list[CommitSummary]
 
 
+class CommitSubjectRefCreate(BaseModel):
+    github_commit_id: uuid.UUID
+    subject_type: str = Field(pattern=r"^(task|ticket|activity)$")
+    subject_id: uuid.UUID
+
+
+class CommitSubjectRefOut(BaseModel):
+    id: uuid.UUID
+    github_commit_id: uuid.UUID
+    subject_type: str
+    subject_id: uuid.UUID
+    created_by: uuid.UUID
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class CommitSubjectRefListResponse(BaseModel):
+    items: list[CommitSubjectRefOut]
+
+
 class GithubRefMeta(BaseModel):
     """Use inside activity / task `meta_json` under key `github_ref` (optional future validation)."""
 
