@@ -331,6 +331,17 @@ cmd_build_only() {
   printf 'Images rebuilt.\n\n'
 }
 
+cmd_rebuild() {
+  validate_config
+  printf 'Force rebuilding images (no cache, pull base images)…\n'
+  if runs_menu_quiet; then
+    quiet_dc build --no-cache --pull
+  else
+    dc build --no-cache --pull
+  fi
+  printf 'Images rebuilt from scratch.\n\n'
+}
+
 cmd_cleanup_stack() {
   validate_config
   printf 'Cleaning up stack (containers, networks, orphans) for project %s…\n' "$COMPOSE_PROJECT_NAME"
@@ -582,6 +593,7 @@ show_menu() {
   11) Destroy stack + volumes (DANGEROUS)  — docker compose down -v (this project only)
   12) Drop all DB tables (DANGEROUS)      — Postgres: DROP SCHEMA public CASCADE (project DB only)
   13) Rebuild DDL from SQL                — sql/schema_*.sql + bootstrap + seeds (mirrors API startup)
+  14) Force rebuild images (no cache)      — docker compose build --no-cache --pull
   0) Exit
 EOF
   printf '\n'
@@ -647,6 +659,7 @@ main() {
           11) cmd_nuke ;;
           12) cmd_drop_tables ;;
           13) cmd_rebuild_schema ;;
+          14) cmd_rebuild ;;
           0) printf 'Bye.\n'; exit 0 ;;
           *) printf 'Invalid option.\n\n' ;;
         esac
@@ -674,6 +687,7 @@ main() {
           11) cmd_nuke ;;
           12) cmd_drop_tables ;;
           13) cmd_rebuild_schema ;;
+          14) cmd_rebuild ;;
           0) printf 'Bye.\n'; exit 0 ;;
           *) printf 'Invalid option.\n\n' ;;
         esac
@@ -703,6 +717,7 @@ main() {
           11) cmd_nuke ;;
           12) cmd_drop_tables ;;
           13) cmd_rebuild_schema ;;
+          14) cmd_rebuild ;;
           0) printf 'Bye.\n'; exit 0 ;;
           *) printf 'Invalid option.\n\n' ;;
         esac
