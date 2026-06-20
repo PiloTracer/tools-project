@@ -60,15 +60,29 @@ export function ProspectPreview({
 }) {
   const [data, setData] = useState<ProspectDetail | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [prevId, setPrevId] = useState(prospectId);
+
+  // Reset state when prospectId changes — adjust during render (avoids setState-in-effect cascade).
+  if (prospectId !== prevId) {
+    setPrevId(prospectId);
+    setData(null);
+    setErr(null);
+  }
 
   useEffect(() => {
     if (!prospectId) return;
-    setData(null);
-    setErr(null);
+    let active = true;
     fetch(`/api/prospects/${prospectId}`)
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
-      .then((j) => setData(j as ProspectDetail))
-      .catch((e) => setErr(e.message));
+      .then((j) => {
+        if (active) setData(j as ProspectDetail);
+      })
+      .catch((e) => {
+        if (active) setErr(e.message);
+      });
+    return () => {
+      active = false;
+    };
   }, [prospectId]);
 
   if (!prospectId) return null;

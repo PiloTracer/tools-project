@@ -303,6 +303,7 @@ export function TicketDiscussion({
                             {cids.length > 0 ? (
                               <div className="stack" style={{ gap: "0.4rem", marginTop: "0.35rem" }}>
                                 {cids.map((id) => (
+                                  // eslint-disable-next-line @next/next/no-img-element
                                   <img key={id} src={`/api/attachments/${id}`} alt="" style={{ maxWidth: "min(100%, 600px)", height: "auto", borderRadius: 6 }} />
                                 ))}
                               </div>

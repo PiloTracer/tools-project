@@ -135,6 +135,7 @@ export function ProjectSettingsForm({
             {pending.map((p) => (
               <div key={p.key} style={{ position: "relative" }}>
                 {p.url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
                   <img src={p.url} alt="" style={{ width: 72, height: 72, objectFit: "cover", borderRadius: 6, border: "1px solid var(--border)" }} />
                 ) : (
                   <div className="text-sm muted" style={{ width: 120, minHeight: 72, padding: "0.35rem", borderRadius: 6, border: "1px solid var(--border)", wordBreak: "break-all" }} title={p.file.name}>
