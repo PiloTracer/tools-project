@@ -231,7 +231,7 @@ export function ClientSettingsForm({
     accessGrants.some((a) => a.client_contact_id === contactId);
 
   return (
-    <div>
+    <><div>
       <h2 style={{ marginTop: 0 }}>Clients</h2>
 
       {linkedClients.length > 0 ? (
@@ -580,5 +580,6 @@ export function ClientSettingsForm({
     >
       <p className="text-sm">Revoke this client contact access to the project? This action cannot be undone.</p>
     </Dialog>
+    </>
   );
 }
