@@ -70,11 +70,11 @@ export function ProspectBoard({
     for (const p of prospects) {
       if (seen.has(p.id)) continue;
       seen.add(p.id);
-      if (map[p.pipeline_stage]) {
-        map[p.pipeline_stage].push(p);
-      } else {
-        map.target.push(p);
-      }
+      const col = map[p.pipeline_stage] ? p.pipeline_stage : "target";
+      map[col].push(p);
+    }
+    for (const stage of PIPELINE_STAGES) {
+      map[stage].sort((a, b) => a.company_name.localeCompare(b.company_name));
     }
     return map;
   }, [prospects]);
