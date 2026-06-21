@@ -7,7 +7,7 @@ import Link from "next/link";
 import { Badge, stageBadgeVariant } from "@/components/Badge";
 import { Dialog } from "@/components/Dialog";
 import { DropdownMenu, DropdownItem } from "@/components/DropdownMenu";
-import { toast, ToastContainer } from "@/components/Toast";
+import { toast } from "@/components/Toast";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
 
 const PIPELINE_STAGES = [
@@ -330,7 +330,6 @@ export default function ProspectDetailPage() {
       >
         <p className="text-sm">Are you sure you want to delete <strong>{prospect.company_name}</strong>? This action cannot be undone.</p>
       </Dialog>
-      <ToastContainer />
     </div>
   );
 }

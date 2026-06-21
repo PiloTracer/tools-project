@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { usePendingImages } from "@/shared/client/use-pending-images";
+import { toast } from "@/components/Toast";
 
 async function _searchUsers(prefix: string): Promise<{ label: string; insert: string }[]> {
   const r = await fetch(`/api/me/users/search?q=${encodeURIComponent(prefix)}&limit=8`);
@@ -51,7 +52,6 @@ export function TaskDiscussion({
   const { pending, addFiles, remove, clear } = usePendingImages();
   const [body, setBody] = useState("");
   const [isInternal, setIsInternal] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [replyToId, setReplyToId] = useState<string | null>(null);
 
@@ -92,7 +92,6 @@ export function TaskDiscussion({
     e.preventDefault();
     const caption = body.trim();
     if (!caption && pending.length === 0) return;
-    setMsg(null);
     setBusy(true);
     try {
       const uploadedIds = pending.length ? await uploadPending() : [];
@@ -118,9 +117,9 @@ export function TaskDiscussion({
       if (!r.ok) {
         try {
           const j = JSON.parse(t) as { detail?: string };
-          setMsg(j.detail ?? t);
+          toast(j.detail ?? t, "error");
         } catch {
-          setMsg(t || `Error ${r.status}`);
+          toast(t || `Error ${r.status}`, "error");
         }
         setBusy(false);
         return;
@@ -129,9 +128,10 @@ export function TaskDiscussion({
       setIsInternal(false);
       setReplyToId(null);
       clear();
+      toast("Comment posted");
       router.refresh();
     } catch (err) {
-      setMsg(err instanceof Error ? err.message : "Upload failed");
+      toast(err instanceof Error ? err.message : "Upload failed", "error");
     }
     setBusy(false);
   }
@@ -315,7 +315,6 @@ export function TaskDiscussion({
               Internal note (staff only)
             </label>
           </div>
-          {msg ? <p className="err text-sm">{msg}</p> : null}
         </form>
       ) : (
         <p className="muted text-sm">Viewers cannot post comments.</p>

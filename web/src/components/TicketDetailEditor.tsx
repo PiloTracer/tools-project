@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { usePendingImages } from "@/shared/client/use-pending-images";
+import { toast } from "@/components/Toast";
 
 const TICKET_STATUSES = ["open", "in_progress", "waiting_customer", "resolved", "closed"];
 const PRIORITIES = ["low", "normal", "high", "critical"];
@@ -40,7 +41,6 @@ export function TicketDetailEditor({
   const [queueSlug, setQueueSlug] = useState(ticket.queue_slug);
   const [requesterEmail, setRequesterEmail] = useState(ticket.requester_email ?? "");
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
 
   if (!editing) {
     return (
@@ -105,7 +105,6 @@ export function TicketDetailEditor({
 
   async function handleSave() {
     setBusy(true);
-    setMsg(null);
     try {
       let descVal = description.trim() || null;
       if (pending.length) {
@@ -163,17 +162,18 @@ export function TicketDetailEditor({
         const text = await r.text();
         try {
           const j = JSON.parse(text) as { detail?: string };
-          setMsg(j.detail ?? text);
+          toast(j.detail ?? text, "error");
         } catch {
-          setMsg(text || `Error ${r.status}`);
+          toast(text || `Error ${r.status}`, "error");
         }
         setBusy(false);
         return;
       }
       setEditing(false);
+      toast("Ticket saved");
       router.refresh();
     } catch (err) {
-      setMsg(err instanceof Error ? err.message : "Upload failed");
+      toast(err instanceof Error ? err.message : "Upload failed", "error");
     }
     setBusy(false);
   }
@@ -185,7 +185,6 @@ export function TicketDetailEditor({
     setPriority(ticket.priority);
     setQueueSlug(ticket.queue_slug);
     setRequesterEmail(ticket.requester_email ?? "");
-    setMsg(null);
     setEditing(false);
   }
 
@@ -305,7 +304,6 @@ export function TicketDetailEditor({
             Cancel
           </button>
         </div>
-        {msg ? <p className="err text-sm">{msg}</p> : null}
       </div>
     </div>
   );

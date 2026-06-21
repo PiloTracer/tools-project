@@ -8,6 +8,7 @@ import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { SubjectPicker } from "@/components/SubjectPicker";
 import { SubjectPreview } from "@/components/SubjectPreview";
 import { usePendingImages } from "@/shared/client/use-pending-images";
+import { toast } from "@/components/Toast";
 
 async function _searchUsers(prefix: string): Promise<{ label: string; insert: string }[]> {
   const r = await fetch(`/api/me/users/search?q=${encodeURIComponent(prefix)}&limit=8`);
@@ -58,7 +59,6 @@ export function ActivityComposer({
   const [subjectLabel, setSubjectLabel] = useState<string | null>(null);
   const [body, setBody] = useState("");
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
   const [showCommitPicker, setShowCommitPicker] = useState(false);
   const [showSubjectPicker, setShowSubjectPicker] = useState(false);
 
@@ -104,7 +104,6 @@ export function ActivityComposer({
     e.preventDefault();
     const caption = body.trim();
     if (!caption && pending.length === 0) return;
-    setMsg(null);
     setBusy(true);
     try {
       const uploadedIds = pending.length ? await uploadPending() : [];
@@ -112,7 +111,7 @@ export function ActivityComposer({
       let resolvedSubjectType = "project";
       if (subjectType !== "project") {
         if (!subjectId) {
-          setMsg("Select a task or ticket to link this post to.");
+          toast("Select a task or ticket to link this post to.", "error");
           setBusy(false);
           return;
         }
@@ -137,9 +136,9 @@ export function ActivityComposer({
       if (!r.ok) {
         try {
           const j = JSON.parse(text) as { detail?: string };
-          setMsg(j.detail ?? text);
+          toast(j.detail ?? text, "error");
         } catch {
-          setMsg(text || `Error ${r.status}`);
+          toast(text || `Error ${r.status}`, "error");
         }
         setBusy(false);
         return;
@@ -149,9 +148,10 @@ export function ActivityComposer({
       setSubjectId(null);
       setSubjectLabel(null);
       clear();
+      toast("Note posted");
       router.refresh();
     } catch (err) {
-      setMsg(err instanceof Error ? err.message : "Upload failed");
+      toast(err instanceof Error ? err.message : "Upload failed", "error");
     }
     setBusy(false);
   }
@@ -280,7 +280,6 @@ export function ActivityComposer({
           onClose={() => setShowCommitPicker(false)}
         />
       ) : null}
-      {msg ? <p className="err text-sm">{msg}</p> : null}
     </form>
   );
 }
@@ -342,7 +341,6 @@ export function ActivityFeed({
   const [replyToId, setReplyToId] = useState<string | null>(null);
   const [replyBody, setReplyBody] = useState("");
   const [replyBusy, setReplyBusy] = useState(false);
-  const [replyMsg, setReplyMsg] = useState<string | null>(null);
   const [replyCommitPicker, setReplyCommitPicker] = useState<string | null>(null);
   const [previewSubject, setPreviewSubject] = useState<{ subjectType: string; subjectId: string } | null>(null);
 
@@ -353,7 +351,6 @@ export function ActivityFeed({
     const caption = replyBody.trim();
     if (!caption && replyPending.length === 0) return;
     setReplyBusy(true);
-    setReplyMsg(null);
     try {
       const uploadedIds: string[] = [];
       for (const p of replyPending) {
@@ -393,9 +390,9 @@ export function ActivityFeed({
       if (!r.ok) {
         try {
           const j = JSON.parse(text) as { detail?: string };
-          setReplyMsg(j.detail ?? text);
+          toast(j.detail ?? text, "error");
         } catch {
-          setReplyMsg(text || `Error ${r.status}`);
+          toast(text || `Error ${r.status}`, "error");
         }
         setReplyBusy(false);
         return;
@@ -403,9 +400,10 @@ export function ActivityFeed({
       setReplyBody("");
       setReplyToId(null);
       clearReplyPending();
+      toast("Reply posted");
       router.refresh();
     } catch (err) {
-      setReplyMsg(err instanceof Error ? err.message : "Upload failed");
+      toast(err instanceof Error ? err.message : "Upload failed", "error");
     }
     setReplyBusy(false);
   }
@@ -494,7 +492,6 @@ export function ActivityFeed({
                       onClick={() => {
                         setReplyToId(replyToId === a.id ? null : a.id);
                         setReplyBody("");
-                        setReplyMsg(null);
                       }}
                     >
                       {replyToId === a.id ? "Cancel reply" : "Reply"}
@@ -583,7 +580,6 @@ export function ActivityFeed({
                         onClose={() => setReplyCommitPicker(null)}
                       />
                     ) : null}
-                    {replyMsg ? <p className="err text-sm">{replyMsg}</p> : null}
                   </form>
                 ) : null}
                 {childReplies.length > 0 ? (

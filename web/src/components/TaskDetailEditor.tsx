@@ -6,6 +6,7 @@ import { useState } from "react";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { AssigneePicker } from "@/components/AssigneePicker";
 import { usePendingImages } from "@/shared/client/use-pending-images";
+import { toast } from "@/components/Toast";
 
 const TASK_STATUSES = ["todo", "in_progress", "blocked", "done", "cancelled"];
 const PRIORITIES = ["low", "normal", "high", "critical"];
@@ -43,7 +44,6 @@ export function TaskDetailEditor({
   const [assigneeId, setAssigneeId] = useState(task.assignee_id ?? "");
   const [dueAt, setDueAt] = useState(task.due_at ? task.due_at.slice(0, 16) : "");
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
 
   const assigneeLabel = (uid: string | null) => {
     if (!uid) return "—";
@@ -112,7 +112,6 @@ export function TaskDetailEditor({
 
   async function handleSave() {
     setBusy(true);
-    setMsg(null);
     try {
       let descVal = description.trim() || null;
       if (pending.length) {
@@ -171,17 +170,18 @@ export function TaskDetailEditor({
         const text = await r.text();
         try {
           const j = JSON.parse(text) as { detail?: string };
-          setMsg(j.detail ?? text);
+          toast(j.detail ?? text, "error");
         } catch {
-          setMsg(text || `Error ${r.status}`);
+          toast(text || `Error ${r.status}`, "error");
         }
         setBusy(false);
         return;
       }
       setEditing(false);
+      toast("Task saved");
       router.refresh();
     } catch (err) {
-      setMsg(err instanceof Error ? err.message : "Upload failed");
+      toast(err instanceof Error ? err.message : "Upload failed", "error");
     }
     setBusy(false);
   }
@@ -193,7 +193,6 @@ export function TaskDetailEditor({
     setPriority(task.priority);
     setAssigneeId(task.assignee_id ?? "");
     setDueAt(task.due_at ? task.due_at.slice(0, 16) : "");
-    setMsg(null);
     setEditing(false);
   }
 
@@ -310,7 +309,6 @@ export function TaskDetailEditor({
             Cancel
           </button>
         </div>
-        {msg ? <p className="err text-sm">{msg}</p> : null}
       </div>
     </div>
   );

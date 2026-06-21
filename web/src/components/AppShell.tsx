@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 
 import { ClientRedirect } from "@/components/ClientRedirect";
 import { CmdkPalette } from "@/components/CmdkPalette";
+import { ToastContainer } from "@/components/Toast";
 import { SignOutButton } from "@/components/SignOutButton";
 import { SkipLink } from "@/components/SkipLink";
 import { fetchMe } from "@/shared/server/session";
@@ -85,6 +86,7 @@ export async function AppShell({ children }: { children: ReactNode }) {
       </header>
       <div id="main-content" className="app-body">{children}</div>
       <CmdkPalette />
+      <ToastContainer />
     </div>
   );
 }

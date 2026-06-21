@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import { toast } from "@/components/Toast";
+
 type MemberRow = {
   user_id: string;
   email: string;
@@ -18,7 +20,6 @@ export function MemberList({
 }) {
   const [members, setMembers] = useState<MemberRow[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
-  const [msg, setMsg] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const r = await fetch(`/api/projects/${projectId}/members`);
@@ -36,21 +37,21 @@ export function MemberList({
   async function remove(userId: string) {
     if (!confirm("Remove this member from the project?")) return;
     setBusy(userId);
-    setMsg(null);
     const r = await fetch(`/api/projects/${projectId}/members/${userId}`, {
       method: "DELETE",
     });
     setBusy(null);
     if (r.ok) {
       setMembers((prev) => prev.filter((m) => m.user_id !== userId));
+      toast("Member removed");
     } else {
       const text = await r.text();
       try {
         const j = JSON.parse(text) as Record<string, unknown>;
         const d = j.detail;
-        setMsg(Array.isArray(d) ? d.map((e: Record<string, unknown>) => e.msg ?? e.type).join("; ") : (typeof d === "string" ? d : text));
+        toast(Array.isArray(d) ? d.map((e: Record<string, unknown>) => e.msg ?? e.type).join("; ") : (typeof d === "string" ? d : text), "error");
       } catch {
-        setMsg(text || `Error ${r.status}`);
+        toast(text || `Error ${r.status}`, "error");
       }
     }
   }
@@ -65,9 +66,6 @@ export function MemberList({
 
   return (
     <div className="card wide">
-      {msg && (
-        <p style={{ color: "var(--err)", fontSize: "0.875rem", marginTop: 0 }}>{msg}</p>
-      )}
       <table style={{ width: "100%", borderCollapse: "collapse" }}>
         <thead>
           <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border)" }}>

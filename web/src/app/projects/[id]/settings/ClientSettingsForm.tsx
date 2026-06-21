@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 
 import { Badge } from "@/components/Badge";
 import { Dialog } from "@/components/Dialog";
+import { toast } from "@/components/Toast";
 
 type LinkedClientRow = {
   id: string;
@@ -70,7 +71,6 @@ export function ClientSettingsForm({
   const [editViewTasks, setEditViewTasks] = useState(true);
   const [editViewTickets, setEditViewTickets] = useState(false);
   const [editCreateTasks, setEditCreateTasks] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchHit[]>([]);
   const [searchPending, setSearchPending] = useState(false);
@@ -92,10 +92,6 @@ export function ClientSettingsForm({
   }, [fetchData]);
 
   const openGrantAccess = async () => {
-    setMsg(null);
-    setSelectedContactId("");
-    setSelectedRole("view");
-    setCanCreateTasks(false);
     setContactsLoading(true);
     setShowGrantAccess(true);
     try {
@@ -116,7 +112,6 @@ export function ClientSettingsForm({
     setSearchQuery("");
     setSearchResults([]);
     setSelectedClient(null);
-    setMsg(null);
     setShowLinkClient(true);
   };
 
@@ -171,7 +166,6 @@ export function ClientSettingsForm({
   const handleLinkClient = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedClient) return;
-    setMsg(null);
     const r = await fetch(`/api/projects/${projectId}/clients`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -179,9 +173,10 @@ export function ClientSettingsForm({
     });
     if (!r.ok) {
       const err = await r.json().catch(() => ({ detail: "Failed to link" }));
-      setMsg(err.detail);
+      toast(err.detail, "error");
       return;
     }
+    toast("Client linked");
     setSelectedClient(null);
     setSearchQuery("");
     setSearchResults([]);
@@ -191,20 +186,31 @@ export function ClientSettingsForm({
   };
 
   const handleUnlink = async (clientId: string) => {
-    await fetch(`/api/projects/${projectId}/clients?client_id=${clientId}`, { method: "DELETE" });
+    const r = await fetch(`/api/projects/${projectId}/clients?client_id=${clientId}`, { method: "DELETE" });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({ detail: "Failed to unlink" }));
+      toast(err.detail, "error");
+      return;
+    }
+    toast("Client unlinked");
     fetchData();
     router.refresh();
   };
 
   const handleRevokeAccess = async (accessId: string) => {
-    await fetch(`/api/projects/${projectId}/client-access/${accessId}`, { method: "DELETE" });
+    const r = await fetch(`/api/projects/${projectId}/client-access/${accessId}`, { method: "DELETE" });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({ detail: "Failed to revoke access" }));
+      toast(err.detail, "error");
+      return;
+    }
+    toast("Access revoked");
     fetchData();
   };
 
   const handleGrantAccess = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedContactId) return;
-    setMsg(null);
     const r = await fetch(`/api/projects/${projectId}/client-access`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -216,9 +222,10 @@ export function ClientSettingsForm({
     });
     if (!r.ok) {
       const err = await r.json().catch(() => ({ detail: "Failed to grant access" }));
-      setMsg(err.detail);
+      toast(err.detail, "error");
       return;
     }
+    toast("Access granted");
     setShowGrantAccess(false);
     fetchData();
   };
@@ -331,7 +338,6 @@ export function ClientSettingsForm({
             </div>
           ) : null}
 
-          {msg ? <p className="err text-sm">{msg}</p> : null}
         </form>
       </Dialog>
 
@@ -359,7 +365,7 @@ export function ClientSettingsForm({
                 <td style={{ color: "var(--muted)", fontSize: "0.88rem" }}>{a.client_name ?? "—"}</td>
                 <td><Badge variant="neutral">{a.role}</Badge></td>
                 <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
-                  <button className="btn btn-sm btn-ghost" onClick={() => { setEditAccess(a); setEditRole(a.role); setEditViewTasks(a.can_view_tasks); setEditViewTickets(a.can_view_tickets); setEditCreateTasks(a.can_create_tasks); setMsg(null); }}>
+                  <button className="btn btn-sm btn-ghost" onClick={() => { setEditAccess(a); setEditRole(a.role); setEditViewTasks(a.can_view_tasks); setEditViewTickets(a.can_view_tickets); setEditCreateTasks(a.can_create_tasks); }}>
                     Edit
                   </button>
                   <button className="btn btn-sm btn-ghost" style={{ color: "var(--danger)" }} onClick={() => handleRevokeAccess(a.id)}>
@@ -474,7 +480,6 @@ export function ClientSettingsForm({
             </>
           )}
 
-          {msg ? <p className="err text-sm">{msg}</p> : null}
         </form>
       </Dialog>
 
@@ -492,7 +497,6 @@ export function ClientSettingsForm({
         <form id="edit-access-form" onSubmit={async (e) => {
           e.preventDefault();
           if (!editAccess) return;
-          setMsg(null);
           const r = await fetch(`/api/projects/${projectId}/client-access/${editAccess.id}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
@@ -505,9 +509,10 @@ export function ClientSettingsForm({
           });
           if (!r.ok) {
             const err = await r.json().catch(() => ({ detail: "Failed to update" }));
-            setMsg(err.detail);
+            toast(err.detail, "error");
             return;
           }
+          toast("Access updated");
           setEditAccess(null);
           fetchData();
         }} className="stack" style={{ gap: "0.65rem" }}>
@@ -533,7 +538,6 @@ export function ClientSettingsForm({
             <input type="checkbox" checked={editCreateTasks} onChange={(e) => setEditCreateTasks(e.target.checked)} />
             <span className="text-sm">Can create tasks</span>
           </label>
-          {msg ? <p className="err text-sm">{msg}</p> : null}
         </form>
       </Dialog>
     </div>

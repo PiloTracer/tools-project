@@ -7,7 +7,7 @@ import Link from "next/link";
 import { Badge } from "@/components/Badge";
 import { DataTable, type Column } from "@/components/DataTable";
 import { Dialog } from "@/components/Dialog";
-import { toast, ToastContainer } from "@/components/Toast";
+import { toast } from "@/components/Toast";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
 
 type ClientDetail = {
@@ -548,7 +548,6 @@ export default function ClientDetailPage() {
         </form>
       </Dialog>
 
-      <ToastContainer />
     </div>
   );
 }

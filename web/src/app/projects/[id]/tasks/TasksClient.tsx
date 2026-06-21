@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { KanbanBoard } from "@/components/KanbanBoard";
 import { AssigneePicker } from "@/components/AssigneePicker";
+import { toast } from "@/components/Toast";
 
 export type TaskRow = {
   id: string;
@@ -31,15 +32,12 @@ export function NewTaskForm({
   const [status, setStatus] = useState("todo");
   const [priority, setPriority] = useState("normal");
   const [componentId, setComponentId] = useState("");
-  const [msg, setMsg] = useState<string | null>(null);
-
   if (!canEdit) {
     return <p className="muted text-sm">Viewers cannot create tasks.</p>;
   }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setMsg(null);
     const body: Record<string, unknown> = {
       title: title.trim(),
       status,
@@ -58,12 +56,13 @@ export function NewTaskForm({
     if (!r.ok) {
       try {
         const j = JSON.parse(text) as { detail?: string };
-        setMsg(j.detail ?? text);
+        toast(j.detail ?? text, "error");
       } catch {
-        setMsg(text || `Error ${r.status}`);
+        toast(text || `Error ${r.status}`, "error");
       }
       return;
     }
+    toast("Task created");
     setTitle("");
     router.refresh();
   }
@@ -118,7 +117,6 @@ export function NewTaskForm({
           Add task
         </button>
       </div>
-      {msg ? <p className="err text-sm">{msg}</p> : null}
     </form>
   );
 }

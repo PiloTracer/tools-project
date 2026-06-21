@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { usePendingImages } from "@/shared/client/use-pending-images";
+import { toast } from "@/components/Toast";
 
 export function ProjectSettingsForm({
   projectId,
@@ -27,8 +28,6 @@ export function ProjectSettingsForm({
   const [description, setDescription] = useState(initialDescription);
   const [status, setStatus] = useState(initialStatus);
   const [projectKey, setProjectKey] = useState(initialProjectKey);
-  const [msg, setMsg] = useState<string | null>(null);
-
   if (!canEdit) {
     return (
       <p className="muted text-sm">
@@ -39,7 +38,6 @@ export function ProjectSettingsForm({
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setMsg(null);
 
     let descVal = description.trim() || null;
     if (pending.length) {
@@ -53,8 +51,8 @@ export function ProjectSettingsForm({
         });
         const ut = await ur.text();
         if (!ur.ok) {
-          try { const j = JSON.parse(ut) as { detail?: string }; setMsg(j.detail ?? ut); }
-          catch { setMsg(ut || `Upload failed (${ur.status})`); }
+          try { const j = JSON.parse(ut) as { detail?: string }; toast(j.detail ?? ut, "error"); }
+          catch { toast(ut || `Upload failed (${ur.status})`, "error"); }
           return;
         }
         const row = JSON.parse(ut) as { id: string };
@@ -87,12 +85,13 @@ export function ProjectSettingsForm({
     if (!r.ok) {
       try {
         const j = JSON.parse(text) as { detail?: string };
-        setMsg(j.detail ?? text);
+        toast(j.detail ?? text, "error");
       } catch {
-        setMsg(text || `Error ${r.status}`);
+        toast(text || `Error ${r.status}`, "error");
       }
       return;
     }
+    toast("Settings saved");
     router.refresh();
   }
 
@@ -168,7 +167,6 @@ export function ProjectSettingsForm({
       <button type="submit" className="btn btn-primary">
         Save settings
       </button>
-      {msg ? <p className="err text-sm">{msg}</p> : null}
     </form>
   );
 }

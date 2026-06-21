@@ -8,7 +8,7 @@ import { DataTable, type Column } from "@/components/DataTable";
 import { Dialog } from "@/components/Dialog";
 import { DropdownMenu, DropdownItem } from "@/components/DropdownMenu";
 import { Chip } from "@/components/Chip";
-import { toast, ToastContainer } from "@/components/Toast";
+import { toast } from "@/components/Toast";
 import { PipelineFunnel, type PipelineStageRow } from "@/components/PipelineFunnel";
 import { useDownload } from "@/components/useDownload";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
@@ -549,7 +549,6 @@ export default function ProspectsPage() {
       >
         <p className="text-sm">Are you sure you want to delete <strong>{showDelete?.company_name}</strong>? This action cannot be undone.</p>
       </Dialog>
-      <ToastContainer />
     </div>
   );
 }

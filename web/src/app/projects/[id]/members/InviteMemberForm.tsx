@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
 
+import { toast } from "@/components/Toast";
+
 type UserHit = {
   id: string;
   email: string;
@@ -22,7 +24,6 @@ export function InviteMemberForm({
   const [searchPending, setSearchPending] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserHit | null>(null);
   const [role, setRole] = useState("contributor");
-  const [msg, setMsg] = useState<string | null>(null);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -62,7 +63,6 @@ export function InviteMemberForm({
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!selectedUser) return;
-    setMsg(null);
     const r = await fetch(`/api/projects/${projectId}/members`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -73,12 +73,13 @@ export function InviteMemberForm({
       try {
         const j = JSON.parse(text) as Record<string, unknown>;
         const d = j.detail;
-        setMsg(Array.isArray(d) ? d.map((e: Record<string, unknown>) => e.msg ?? e.type).join("; ") : (typeof d === "string" ? d : text));
+        toast(Array.isArray(d) ? d.map((e: Record<string, unknown>) => e.msg ?? e.type).join("; ") : (typeof d === "string" ? d : text), "error");
       } catch {
-        setMsg(text || `Error ${r.status}`);
+        toast(text || `Error ${r.status}`, "error");
       }
       return;
     }
+    toast("Member added");
     setSelectedUser(null);
     setSearchQuery("");
     router.refresh();
@@ -173,7 +174,6 @@ export function InviteMemberForm({
           Add member
         </button>
       </div>
-      {msg ? <p className="err text-sm">{msg}</p> : null}
     </form>
   );
 }

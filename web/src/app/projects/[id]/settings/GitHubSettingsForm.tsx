@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { toast } from "@/components/Toast";
+
 type LinkRow = {
   id: string;
   owner: string;
@@ -23,14 +25,6 @@ export function GitHubSettingsForm({
   const [links, setLinks] = useState<LinkRow[]>(initialLinks);
   const [repoUrl, setRepoUrl] = useState("");
   const [pat, setPat] = useState("");
-  const [msg, setMsg] = useState<string | null>(null);
-
-  function flashMsg(m: string) {
-    setMsg(m);
-    if (!m.includes("Error") && !m.includes("denied") && !m.includes("not found")) {
-      setTimeout(() => setMsg(null), 4000);
-    }
-  }
 
   if (!canEdit) {
     return (
@@ -54,7 +48,6 @@ export function GitHubSettingsForm({
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
-    setMsg(null);
     const body = {
       github_repo_url: repoUrl.trim(),
       github_token: pat.trim(),
@@ -68,9 +61,9 @@ export function GitHubSettingsForm({
     if (!r.ok) {
       try {
         const j = JSON.parse(text) as { detail?: string };
-        setMsg(j.detail ?? text);
+        toast(j.detail ?? text, "error");
       } catch {
-        setMsg(text || `Error ${r.status}`);
+        toast(text || `Error ${r.status}`, "error");
       }
       return;
     }
@@ -83,12 +76,11 @@ export function GitHubSettingsForm({
     if (newLink) {
       setLinks((prev) => [newLink!, ...prev]);
     }
-    flashMsg("Repository linked successfully.");
+    toast("Repository linked");
     router.refresh();
   }
 
   async function handleRemove(linkId: string) {
-    setMsg(null);
     const r = await fetch(
       `/api/projects/${projectId}/github/links?link_id=${linkId}`,
       { method: "DELETE" },
@@ -97,14 +89,14 @@ export function GitHubSettingsForm({
       const text = await r.text();
       try {
         const j = JSON.parse(text) as { detail?: string };
-        setMsg(j.detail ?? text);
+        toast(j.detail ?? text, "error");
       } catch {
-        setMsg(text || `Error ${r.status}`);
+        toast(text || `Error ${r.status}`, "error");
       }
       return;
     }
     setLinks((prev) => prev.filter((l) => l.id !== linkId));
-    flashMsg("Repository removed.");
+    toast("Repository removed");
     router.refresh();
   }
 
@@ -186,16 +178,6 @@ export function GitHubSettingsForm({
         <button type="submit" className="btn btn-primary">
           Link repository
         </button>
-        {msg ? (
-          <p
-            className="text-sm"
-            style={{
-              color: msg.includes("successfully") ? "var(--success, #1a7f37)" : "var(--danger, #c33)",
-            }}
-          >
-            {msg}
-          </p>
-        ) : null}
       </form>
     </div>
   );

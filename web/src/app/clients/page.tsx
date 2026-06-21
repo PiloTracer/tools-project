@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { DataTable, type Column } from "@/components/DataTable";
 import { Dialog } from "@/components/Dialog";
-import { toast, ToastContainer } from "@/components/Toast";
+import { toast } from "@/components/Toast";
 import { useDownload } from "@/components/useDownload";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
 
@@ -185,7 +185,6 @@ export default function ClientsPage() {
           {formErr ? <p id="client-form-err" className="err text-sm" role="alert">{formErr}</p> : null}
         </form>
       </Dialog>
-      <ToastContainer />
     </div>
   );
 }

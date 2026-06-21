@@ -26,9 +26,10 @@ export function ToastContainer() {
   const [items, setItems] = useState<typeof toastQueue>([]);
 
   useEffect(() => {
-    listeners.push(() => setItems([...toastQueue]));
+    const listener = () => setItems([...toastQueue]);
+    listeners.push(listener);
     return () => {
-      listeners = listeners.filter((l) => l !== (() => setItems([...toastQueue])));
+      listeners = listeners.filter((l) => l !== listener);
     };
   }, []);
 

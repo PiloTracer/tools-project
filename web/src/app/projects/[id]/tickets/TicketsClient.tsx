@@ -6,6 +6,7 @@ import { useState } from "react";
 
 import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { usePendingImages } from "@/shared/client/use-pending-images";
+import { toast } from "@/components/Toast";
 
 export type TicketQueueRow = {
   id: string;
@@ -142,7 +143,6 @@ export function NewTicketForm({
   const [description, setDescription] = useState("");
   const [queue, setQueue] = useState("default");
   const [requesterEmail, setRequesterEmail] = useState("");
-  const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   if (!canEdit) {
@@ -151,7 +151,6 @@ export function NewTicketForm({
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setMsg(null);
     setBusy(true);
     const baseDesc = description.trim();
     const body: Record<string, unknown> = {
@@ -174,9 +173,9 @@ export function NewTicketForm({
       setBusy(false);
       try {
         const j = JSON.parse(text) as { detail?: string };
-        setMsg(j.detail ?? text);
+        toast(j.detail ?? text, "error");
       } catch {
-        setMsg(text || `Error ${r.status}`);
+        toast(text || `Error ${r.status}`, "error");
       }
       return;
     }
@@ -185,7 +184,7 @@ export function NewTicketForm({
       created = JSON.parse(text) as { id: string };
     } catch {
       setBusy(false);
-      setMsg("Invalid response from server");
+      toast("Invalid response from server", "error");
       return;
     }
     const uploadedIds: string[] = [];
@@ -201,9 +200,9 @@ export function NewTicketForm({
         setBusy(false);
         try {
           const j = JSON.parse(ut) as { detail?: string };
-          setMsg(j.detail ?? ut);
+          toast(j.detail ?? ut, "error");
         } catch {
-          setMsg(ut || `Upload failed (${ur.status})`);
+          toast(ut || `Upload failed (${ur.status})`, "error");
         }
         return;
       }
@@ -212,7 +211,7 @@ export function NewTicketForm({
         uploadedIds.push(row.id);
       } catch {
         setBusy(false);
-        setMsg("Invalid upload response");
+        toast("Invalid upload response", "error");
         return;
       }
     }
@@ -235,10 +234,11 @@ export function NewTicketForm({
       if (!pr.ok) {
         const pt = await pr.text();
         setBusy(false);
-        setMsg(pt || "Ticket created but linking images to description failed");
+        toast(pt || "Ticket created but linking images to description failed", "error");
         return;
       }
     }
+    toast("Ticket created");
     setBusy(false);
     setTitle("");
     setDescription("");
@@ -307,7 +307,6 @@ export function NewTicketForm({
           {busy ? "Saving…" : "Open ticket"}
         </button>
       </div>
-      {msg ? <p className="err text-sm">{msg}</p> : null}
     </form>
   );
 }

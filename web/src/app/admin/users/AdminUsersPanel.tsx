@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { toast } from "@/components/Toast";
+
 type UserRow = {
   id: string;
   email: string;
@@ -21,7 +23,6 @@ export function AdminUsersPanel({
 }) {
   const router = useRouter();
   const [users, setUsers] = useState(initialUsers);
-  const [createMsg, setCreateMsg] = useState<string | null>(null);
 
   async function refreshList() {
     const r = await fetch("/api/admin/users", { cache: "no-store" });
@@ -34,7 +35,6 @@ export function AdminUsersPanel({
 
   async function createUser(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setCreateMsg(null);
     const fd = new FormData(e.currentTarget);
     const body = {
       email: String(fd.get("email") || "").trim(),
@@ -51,13 +51,14 @@ export function AdminUsersPanel({
     if (!r.ok) {
       try {
         const j = JSON.parse(text) as { detail?: string };
-        setCreateMsg(j.detail ?? text);
+        toast(j.detail ?? text, "error");
       } catch {
-        setCreateMsg(text || `Error ${r.status}`);
+        toast(text || `Error ${r.status}`, "error");
       }
       return;
     }
     (e.target as HTMLFormElement).reset();
+    toast("User created");
     await refreshList();
   }
 
@@ -79,7 +80,7 @@ export function AdminUsersPanel({
     });
     if (!r.ok) {
       const text = await r.text();
-      alert(text);
+      toast(text, "error");
       return;
     }
     await refreshList();
@@ -110,7 +111,6 @@ export function AdminUsersPanel({
             Create user
           </button>
         </form>
-        {createMsg ? <p className="err text-sm">{createMsg}</p> : null}
       </section>
 
       <section className="card wide">

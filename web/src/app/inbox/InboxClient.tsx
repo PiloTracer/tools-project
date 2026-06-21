@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { MarkdownEditor } from "@/components/MarkdownEditor";
+import { toast } from "@/components/Toast";
 
 type InboxItem = {
   id: string;
@@ -27,7 +28,6 @@ export function InboxClient({
 }) {
   const router = useRouter();
   const [body, setBody] = useState("");
-  const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [busyItem, setBusyItem] = useState<string | null>(null);
 
@@ -35,7 +35,6 @@ export function InboxClient({
     e.preventDefault();
     const c = body.trim();
     if (!c) return;
-    setMsg(null);
     setBusy(true);
     try {
       const r = await fetch("/api/inbox", {
@@ -47,13 +46,14 @@ export function InboxClient({
         const t = await r.text();
         try {
           const j = JSON.parse(t) as { detail?: string };
-          setMsg(j.detail ?? t);
+          toast(j.detail ?? t, "error");
         } catch {
-          setMsg(t);
+          toast(t, "error");
         }
         return;
       }
       setBody("");
+      toast("Captured");
       router.refresh();
     } finally {
       setBusy(false);
@@ -69,13 +69,14 @@ export function InboxClient({
     });
     setBusyItem(null);
     if (r.ok) {
+      toast("Triaged");
       router.refresh();
     } else {
       const t = await r.text();
       try {
-        setMsg(JSON.parse(t).detail ?? t);
+        toast(JSON.parse(t).detail ?? t, "error");
       } catch {
-        setMsg(t || "Triage failed");
+        toast(t || "Triage failed", "error");
       }
     }
   }
@@ -104,7 +105,6 @@ export function InboxClient({
             </button>
           </div>
         </form>
-        {msg ? <p className="err text-sm">{msg}</p> : null}
       </div>
 
       <div className="card wide stack">

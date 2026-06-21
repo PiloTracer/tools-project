@@ -3,19 +3,19 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { toast } from "@/components/Toast";
+
 export function ClientTaskCreateForm({ projectId }: { projectId: string }) {
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     const t = title.trim();
     if (!t) return;
     setBusy(true);
-    setMsg(null);
     const r = await fetch(`/api/me/client/projects/${projectId}/tasks`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -25,15 +25,16 @@ export function ClientTaskCreateForm({ projectId }: { projectId: string }) {
     if (r.ok) {
       setTitle("");
       setDescription("");
+      toast("Task created");
       router.refresh();
     } else {
       const text = await r.text();
       try {
         const j = JSON.parse(text) as Record<string, unknown>;
         const d = j.detail;
-        setMsg(Array.isArray(d) ? d.map((e: Record<string, unknown>) => e.msg ?? e.type).join("; ") : (typeof d === "string" ? d : text));
+        toast(Array.isArray(d) ? d.map((e: Record<string, unknown>) => e.msg ?? e.type).join("; ") : (typeof d === "string" ? d : text), "error");
       } catch {
-        setMsg(text || `Error ${r.status}`);
+        toast(text || `Error ${r.status}`, "error");
       }
     }
   }
@@ -63,7 +64,6 @@ export function ClientTaskCreateForm({ projectId }: { projectId: string }) {
             {busy ? "Creating…" : "Create task"}
           </button>
         </div>
-        {msg && <p className="err text-sm" style={{ margin: 0 }}>{msg}</p>}
       </form>
     </section>
   );
