@@ -5,8 +5,8 @@ import uuid
 from datetime import datetime, timezone
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
-from sqlalchemy import func, select
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -30,6 +30,7 @@ from app.schemas import (
     ProjectMemberPatch,
     ProjectOut,
     ProjectUpdate,
+    UserSearchResult,
 )
 from app.services.project_access import (
     MemberRole,
@@ -249,6 +250,35 @@ async def list_members(
     )
     rows = list(result.all())
     return ProjectMemberListResponse(items=[_member_out(m) for m in rows])
+
+
+@router.get("/{project_id}/members/search-users", response_model=list[UserSearchResult])
+async def search_invitable_users(
+    project_id: uuid.UUID,
+    q: Annotated[str, Query(min_length=1, max_length=200)],
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    await require_project_access(db, user, project_id)
+    term = f"%{q.strip()}%"
+    already = select(ProjectMember.user_id).where(
+        ProjectMember.project_id == project_id
+    )
+    result = await db.execute(
+        select(User.id, User.email, User.display_name)
+        .where(User.is_active.is_(True))
+        .where(~User.id.in_(already))
+        .where(
+            or_(
+                User.email.ilike(term),
+                User.display_name.ilike(term),
+            )
+        )
+        .order_by(User.email.asc())
+        .limit(20)
+    )
+    rows = result.all()
+    return [UserSearchResult(id=uid, email=email, display_name=name) for uid, email, name in rows]
 
 
 @router.post(

@@ -166,7 +166,7 @@ async def project_tasks_report(
     db: Annotated[AsyncSession, Depends(get_db)],
     status: str | None = None,
 ):
-    await require_project_access(db, user.id, project_id)
+    await require_project_access(db, user, project_id)
     project = await db.get(Project, project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -209,7 +209,7 @@ async def project_tickets_report(
     status: str | None = None,
     queue_slug: str | None = None,
 ):
-    await require_project_access(db, user.id, project_id)
+    await require_project_access(db, user, project_id)
     project = await db.get(Project, project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")

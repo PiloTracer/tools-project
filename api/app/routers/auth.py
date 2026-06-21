@@ -7,8 +7,6 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from sqlalchemy.orm import selectinload
-
 from app.config import get_settings
 from app.db import get_db
 from app.deps import get_current_user
@@ -87,7 +85,6 @@ async def auth_me(
     client_name: str | None = None
     contact = await db.scalar(
         select(ClientContact)
-        .options(selectinload(ClientContact.client))
         .where(ClientContact.user_id == user.id)
         .limit(1)
     )

@@ -64,6 +64,12 @@ export function ClientSettingsForm({
   const [contactsLoading, setContactsLoading] = useState(false);
   const [selectedContactId, setSelectedContactId] = useState("");
   const [selectedRole, setSelectedRole] = useState("view");
+  const [canCreateTasks, setCanCreateTasks] = useState(false);
+  const [editAccess, setEditAccess] = useState<AccessRow | null>(null);
+  const [editRole, setEditRole] = useState("view");
+  const [editViewTasks, setEditViewTasks] = useState(true);
+  const [editViewTickets, setEditViewTickets] = useState(false);
+  const [editCreateTasks, setEditCreateTasks] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchHit[]>([]);
@@ -89,6 +95,7 @@ export function ClientSettingsForm({
     setMsg(null);
     setSelectedContactId("");
     setSelectedRole("view");
+    setCanCreateTasks(false);
     setContactsLoading(true);
     setShowGrantAccess(true);
     try {
@@ -204,6 +211,7 @@ export function ClientSettingsForm({
       body: JSON.stringify({
         client_contact_id: selectedContactId,
         role: selectedRole,
+        can_create_tasks: canCreateTasks,
       }),
     });
     if (!r.ok) {
@@ -350,7 +358,10 @@ export function ClientSettingsForm({
                 </td>
                 <td style={{ color: "var(--muted)", fontSize: "0.88rem" }}>{a.client_name ?? "—"}</td>
                 <td><Badge variant="neutral">{a.role}</Badge></td>
-                <td style={{ textAlign: "right" }}>
+                <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                  <button className="btn btn-sm btn-ghost" onClick={() => { setEditAccess(a); setEditRole(a.role); setEditViewTasks(a.can_view_tasks); setEditViewTickets(a.can_view_tickets); setEditCreateTasks(a.can_create_tasks); setMsg(null); }}>
+                    Edit
+                  </button>
                   <button className="btn btn-sm btn-ghost" style={{ color: "var(--danger)" }} onClick={() => handleRevokeAccess(a.id)}>
                     Revoke
                   </button>
@@ -439,20 +450,89 @@ export function ClientSettingsForm({
           )}
 
           {selectedContactId && (
-            <label className="field">
-              <span className="label">Role</span>
-              <select
-                className="input"
-                value={selectedRole}
-                onChange={(e) => setSelectedRole(e.target.value)}
-              >
-                {CLIENT_ROLES.map((r) => (
-                  <option key={r} value={r}>{r}</option>
-                ))}
-              </select>
-            </label>
+            <>
+              <label className="field">
+                <span className="label">Role</span>
+                <select
+                  className="input"
+                  value={selectedRole}
+                  onChange={(e) => setSelectedRole(e.target.value)}
+                >
+                  {CLIENT_ROLES.map((r) => (
+                    <option key={r} value={r}>{r}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="row" style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                <input
+                  type="checkbox"
+                  checked={canCreateTasks}
+                  onChange={(e) => setCanCreateTasks(e.target.checked)}
+                />
+                <span className="text-sm">Can create tasks</span>
+              </label>
+            </>
           )}
 
+          {msg ? <p className="err text-sm">{msg}</p> : null}
+        </form>
+      </Dialog>
+
+      <Dialog
+        open={editAccess !== null}
+        onClose={() => setEditAccess(null)}
+        title="Edit client access"
+        actions={
+          <>
+            <button type="button" className="btn btn-ghost" onClick={() => setEditAccess(null)}>Cancel</button>
+            <button type="submit" form="edit-access-form" className="btn btn-primary">Save</button>
+          </>
+        }
+      >
+        <form id="edit-access-form" onSubmit={async (e) => {
+          e.preventDefault();
+          if (!editAccess) return;
+          setMsg(null);
+          const r = await fetch(`/api/projects/${projectId}/client-access/${editAccess.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              role: editRole,
+              can_view_tasks: editViewTasks,
+              can_view_tickets: editViewTickets,
+              can_create_tasks: editCreateTasks,
+            }),
+          });
+          if (!r.ok) {
+            const err = await r.json().catch(() => ({ detail: "Failed to update" }));
+            setMsg(err.detail);
+            return;
+          }
+          setEditAccess(null);
+          fetchData();
+        }} className="stack" style={{ gap: "0.65rem" }}>
+          <p className="text-sm muted" style={{ margin: 0 }}>
+            Contact: <strong>{editAccess?.contact_name ?? editAccess?.contact_email ?? "—"}</strong>
+            {editAccess?.client_name ? ` (${editAccess.client_name})` : ""}
+          </p>
+          <label className="field">
+            <span className="label">Role</span>
+            <select className="input" value={editRole} onChange={(e) => setEditRole(e.target.value)}>
+              {CLIENT_ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+            </select>
+          </label>
+          <label className="row" style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+            <input type="checkbox" checked={editViewTasks} onChange={(e) => setEditViewTasks(e.target.checked)} />
+            <span className="text-sm">Can view tasks</span>
+          </label>
+          <label className="row" style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+            <input type="checkbox" checked={editViewTickets} onChange={(e) => setEditViewTickets(e.target.checked)} />
+            <span className="text-sm">Can view tickets</span>
+          </label>
+          <label className="row" style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+            <input type="checkbox" checked={editCreateTasks} onChange={(e) => setEditCreateTasks(e.target.checked)} />
+            <span className="text-sm">Can create tasks</span>
+          </label>
           {msg ? <p className="err text-sm">{msg}</p> : null}
         </form>
       </Dialog>

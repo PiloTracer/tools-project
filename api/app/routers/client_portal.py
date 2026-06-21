@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -13,6 +14,7 @@ from sqlalchemy.orm import selectinload
 from app.db import get_db
 from app.deps import get_current_user
 from app.models.activity import Activity
+from app.models.component import Component
 from app.models.task import Task
 from app.models.ticket import Ticket
 from app.routers.activities import _enrich_subject_titles
@@ -20,7 +22,6 @@ from app.models.client_contact import ClientContact
 from app.models.project import Project
 from app.models.project_client import ProjectClient
 from app.models.project_client_access import ProjectClientAccess
-from app.models.task import Task
 from app.models.user import User
 from app.schemas import (
     ActivityListResponse,
@@ -28,9 +29,15 @@ from app.schemas import (
     ClientSummary,
     ProjectListResponse,
     ProjectOut,
+    TASK_STATUSES,
+    TaskCreate,
     TaskListResponse,
     TaskOut,
+    TicketListResponse,
+    TicketOut,
 )
+from app.services.activity_writer import write_activity
+from app.services.ref_alloc import allocate_ref
 
 router = APIRouter(prefix="/v1/me/client", tags=["client-portal"])
 
@@ -185,3 +192,102 @@ async def list_client_project_tasks(
     )
     rows = list((await db.scalars(stmt)).all())
     return TaskListResponse(items=[TaskOut.model_validate(r) for r in rows])
+
+
+@router.post("/projects/{project_id}/tasks", response_model=TaskOut, status_code=status.HTTP_201_CREATED)
+async def create_client_project_task(
+    project_id: uuid.UUID,
+    body: TaskCreate,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Client participants can create tasks in accessible projects (if permitted)."""
+    contact = await _require_client_contact(db, user)
+    project, acc = await _require_client_project_access(db, contact, project_id)
+    if not acc.can_create_tasks:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to create tasks in this project",
+        )
+    if body.component_id is not None:
+        comp = await db.get(Component, body.component_id)
+        if comp is None or comp.project_id != project_id:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                detail="component_id must belong to this project",
+            )
+    if body.parent_task_id is not None:
+        parent = await db.get(Task, body.parent_task_id)
+        if parent is None or parent.project_id != project_id:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                detail="parent_task_id must belong to this project",
+            )
+    status_val = body.status.strip()
+    if status_val not in TASK_STATUSES:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid status: {status_val}. Use one of {sorted(TASK_STATUSES)}",
+        )
+    ref = await allocate_ref(db, project_id, "task")
+    closed_at = datetime.now(timezone.utc) if status_val in {"done", "cancelled"} else None
+    row = Task(
+        project_id=project_id,
+        component_id=body.component_id,
+        ref=ref,
+        title=body.title.strip(),
+        description=body.description.strip() if body.description else None,
+        status=status_val,
+        priority=body.priority.strip(),
+        assignee_id=body.assignee_id,
+        reporter_id=user.id,
+        due_at=body.due_at,
+        parent_task_id=body.parent_task_id,
+        is_todo=body.is_todo,
+        closed_at=closed_at,
+    )
+    db.add(row)
+    await db.flush()
+    await write_activity(
+        db=db,
+        project_id=project_id,
+        subject_type="task",
+        subject_id=row.id,
+        kind="status_change",
+        actor_id=user.id,
+        body=f"Created task **{ref}: {body.title.strip()}**",
+    )
+    await db.commit()
+    await db.refresh(row)
+    return TaskOut.model_validate(row)
+
+
+@router.get("/projects/{project_id}/tickets", response_model=TicketListResponse)
+async def list_client_project_tickets(
+    project_id: uuid.UUID,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Tickets assigned to the current client contact or their client company contacts."""
+    contact = await _require_client_contact(db, user)
+    project, acc = await _require_client_project_access(db, contact, project_id)
+    if not acc.can_view_tickets:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to view tickets in this project",
+        )
+    peer_rows = await db.scalars(
+        select(ClientContact.user_id).where(
+            ClientContact.client_id == contact.client_id,
+            ClientContact.user_id.is_not(None),
+        )
+    )
+    peer_ids = [u for u in peer_rows.all() if u is not None]
+    stmt = (
+        select(Ticket)
+        .where(Ticket.project_id == project_id)
+        .where(Ticket.assignee_id.in_(peer_ids))
+        .order_by(Ticket.created_at.asc())
+    )
+    rows = list((await db.scalars(stmt)).all())
+    return TicketListResponse(items=[TicketOut.model_validate(r) for r in rows])

@@ -2,6 +2,8 @@ import Link from "next/link";
 import { apiServerFetch, fetchMe } from "@/shared/server/session";
 import { redirect, notFound } from "next/navigation";
 
+import { ClientTaskCreateForm } from "./ClientTaskCreateForm";
+
 type ProjectRow = {
   id: string;
   name: string;
@@ -28,6 +30,14 @@ type TaskRow = {
   due_at: string | null;
 };
 
+type TicketRow = {
+  id: string;
+  ref: string;
+  title: string;
+  status: string;
+  priority: string;
+};
+
 export default async function ClientProjectPage({
   params,
 }: {
@@ -40,10 +50,11 @@ export default async function ClientProjectPage({
 
   const { id } = await params;
 
-  const [projectRes, activitiesRes, tasksRes] = await Promise.all([
+  const [projectRes, activitiesRes, tasksRes, ticketsRes] = await Promise.all([
     apiServerFetch(`/v1/me/client/projects/${id}`),
     apiServerFetch(`/v1/me/client/projects/${id}/activities?limit=20`),
     apiServerFetch(`/v1/me/client/projects/${id}/tasks`),
+    apiServerFetch(`/v1/me/client/projects/${id}/tickets`),
   ]);
 
   if (projectRes.status === 404) {
@@ -63,6 +74,10 @@ export default async function ClientProjectPage({
     ? (await activitiesRes.json()).items
     : [];
   const tasks: TaskRow[] = tasksRes.ok ? (await tasksRes.json()).items : [];
+  const tickets: TicketRow[] = ticketsRes.ok ? (await ticketsRes.json()).items : [];
+
+  const role = project.membership_role ?? "view";
+  const canContribute = role === "contribute" || role === "decision_maker";
 
   return (
     <div className="page-inner stack-lg">
@@ -72,8 +87,12 @@ export default async function ClientProjectPage({
         {project.description ? (
           <p className="muted">{project.description}</p>
         ) : null}
-        <p className="muted text-sm">Role: {project.membership_role || "view"}</p>
+        <p className="muted text-sm">Role: {role}</p>
       </div>
+
+      {canContribute && (
+        <ClientTaskCreateForm projectId={id} />
+      )}
 
       <section className="card stack">
         <h2>Your tasks</h2>
@@ -95,6 +114,24 @@ export default async function ClientProjectPage({
           </ul>
         )}
       </section>
+
+      {canContribute && tickets.length > 0 && (
+        <section className="card stack">
+          <h2>Tickets</h2>
+          <ul className="stack-sm" style={{ listStyle: "none", padding: 0 }}>
+            {tickets.map((ticket) => (
+              <li key={ticket.id} className="card">
+                <strong>
+                  {ticket.ref}: {ticket.title}
+                </strong>
+                <p className="muted text-sm">
+                  {ticket.status} · {ticket.priority}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section className="card stack">
         <h2>Activity</h2>

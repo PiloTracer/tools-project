@@ -129,6 +129,17 @@ async def create_client_access(
         raise HTTPException(
             status.HTTP_404_NOT_FOUND, detail="Client contact not found"
         )
+    linked = await db.scalar(
+        select(ProjectClient).where(
+            ProjectClient.project_id == project_id,
+            ProjectClient.client_id == contact.client_id,
+        )
+    )
+    if linked is None:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail="Contact's client is not linked to this project",
+        )
     existing = await db.scalar(
         select(ProjectClientAccess).where(
             ProjectClientAccess.project_id == project_id,

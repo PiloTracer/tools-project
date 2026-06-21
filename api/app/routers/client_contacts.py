@@ -105,9 +105,13 @@ async def search_linkable_users(
 ):
     await _resolve_client(db, client_id)
     term = f"%{q.strip()}%"
+    already_linked = select(ClientContact.user_id).where(
+        ClientContact.user_id.is_not(None)
+    )
     result = await db.execute(
         select(User.id, User.email, User.display_name)
         .where(User.is_active.is_(True))
+        .where(~User.id.in_(already_linked))
         .where(
             or_(
                 User.email.ilike(term),
@@ -165,6 +169,18 @@ async def update_contact(
         linked = await db.get(User, body.user_id)
         if linked is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail="User not found")
+        if row.user_id != body.user_id:
+            clash = await db.scalar(
+                select(ClientContact).where(
+                    ClientContact.user_id == body.user_id,
+                    ClientContact.id != row.id,
+                )
+            )
+            if clash is not None:
+                raise HTTPException(
+                    status.HTTP_409_CONFLICT,
+                    detail="This user is already linked to another contact",
+                )
         row.user_id = body.user_id
     elif "user_id" in body.model_dump(exclude_unset=True):
         row.user_id = None
