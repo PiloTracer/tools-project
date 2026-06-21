@@ -82,7 +82,7 @@ export function InviteMemberForm({
     toast("Member added");
     setSelectedUser(null);
     setSearchQuery("");
-    router.refresh();
+    router.replace(`/projects/${projectId}/members?r=${Date.now()}`, { scroll: false });
   }
 
   return (

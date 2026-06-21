@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 
 import { Dialog } from "@/components/Dialog";
 import { toast } from "@/components/Toast";
@@ -13,13 +14,23 @@ type MemberRow = {
   role: string;
 };
 
-export function MemberList({
+export function MemberList(props: { projectId: string; canManage: boolean }) {
+  return (
+    <Suspense fallback={<div className="card wide"><p className="muted">Loading members…</p></div>}>
+      <MemberListInner {...props} />
+    </Suspense>
+  );
+}
+
+function MemberListInner({
   projectId,
   canManage,
 }: {
   projectId: string;
   canManage: boolean;
 }) {
+  const searchParams = useSearchParams();
+  const refreshKey = searchParams.get("r") ?? "";
   const [members, setMembers] = useState<MemberRow[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [removeTarget, setRemoveTarget] = useState<MemberRow | null>(null);
@@ -27,7 +38,7 @@ export function MemberList({
   const load = useCallback(async () => {
     const r = await apiRequest<{ items: MemberRow[] }>(`/api/projects/${projectId}/members`);
     if (r.ok) setMembers(r.data.items);
-  }, [projectId]);
+  }, [projectId, refreshKey]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect

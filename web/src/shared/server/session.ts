@@ -23,12 +23,16 @@ export async function getBearerFromCookies(): Promise<string | null> {
 export async function fetchMe(): Promise<MeResponse | null> {
   const token = await getBearerFromCookies();
   if (!token) return null;
-  const r = await fetch(`${apiBase()}/v1/auth/me`, {
-    headers: { Authorization: `Bearer ${token}` },
-    cache: "no-store",
-  });
-  if (!r.ok) return null;
-  return (await r.json()) as MeResponse;
+  try {
+    const r = await fetch(`${apiBase()}/v1/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    });
+    if (!r.ok) return null;
+    return (await r.json()) as MeResponse;
+  } catch {
+    return null;
+  }
 }
 
 export async function apiServerFetch(
