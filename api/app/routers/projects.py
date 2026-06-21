@@ -389,6 +389,11 @@ async def remove_member(
             status.HTTP_403_FORBIDDEN,
             detail="Only owners and maintainers can remove members",
         )
+    if member_user_id == user.id and not user.is_superuser:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail="You cannot remove yourself from the project",
+        )
     row = await db.scalar(
         select(ProjectMember).where(
             ProjectMember.project_id == project_id,
