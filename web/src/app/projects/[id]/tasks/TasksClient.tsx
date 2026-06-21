@@ -5,7 +5,9 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { KanbanBoard } from "@/components/KanbanBoard";
 import { AssigneePicker } from "@/components/AssigneePicker";
+import { Dialog } from "@/components/Dialog";
 import { toast } from "@/components/Toast";
+import { apiRequest } from "@/shared/client/api";
 
 export type TaskRow = {
   id: string;
@@ -134,8 +136,15 @@ export function TaskTable({
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<"ref" | "title" | "status" | "priority" | "due_at" | "assignee_id">("title");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [lastClickedId, setLastClickedId] = useState<string | null>(null);
+  const [batchAction, setBatchAction] = useState<"status" | "priority" | "assignee" | null>(null);
+  const [batchValue, setBatchValue] = useState("");
+  const [showBatchDelete, setShowBatchDelete] = useState(false);
+  const [batchBusy, setBatchBusy] = useState(false);
 
   const sorted = useMemo(() => {
     const out = [...tasks];
@@ -173,40 +182,43 @@ export function TaskTable({
           style={{ padding: 0, fontWeight: 600, color: "var(--text)" }}
           onClick={() => toggleSort(key)}
         >
-          {label}
-          {arrow}
+          {label}{arrow}
         </button>
       </th>
     );
   }
 
   async function removeTask(taskId: string) {
-    if (!confirm("Delete this task?")) return;
     setBusy(taskId);
-    await fetch(`/api/tasks/${taskId}`, { method: "DELETE" });
+    const r = await apiRequest(`/api/tasks/${taskId}`, { method: "DELETE" });
     setBusy(null);
+    if (!r.ok) { toast(r.error, "error"); return; }
+    setDeleteId(null);
+    setSelectedIds((prev) => { const next = new Set(prev); next.delete(taskId); return next; });
     router.refresh();
   }
 
   async function setStatus(taskId: string, next: string) {
     setBusy(taskId);
-    await fetch(`/api/tasks/${taskId}/transition`, {
+    const r = await apiRequest(`/api/tasks/${taskId}/transition`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: next }),
     });
     setBusy(null);
+    if (!r.ok) { toast(r.error, "error"); return; }
     router.refresh();
   }
 
   async function updateTask(taskId: string, patch: Record<string, unknown>) {
     setBusy(taskId);
-    await fetch(`/api/tasks/${taskId}`, {
+    const r = await apiRequest(`/api/tasks/${taskId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(patch),
     });
     setBusy(null);
+    if (!r.ok) { toast(r.error, "error"); return; }
     router.refresh();
   }
 
@@ -216,11 +228,220 @@ export function TaskTable({
     return m ? m.email : `${uid.slice(0, 8)}…`;
   }
 
+  function toggleSelect(id: string, shiftKey: boolean) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (shiftKey && lastClickedId) {
+        const idx1 = sorted.findIndex((t) => t.id === lastClickedId);
+        const idx2 = sorted.findIndex((t) => t.id === id);
+        if (idx1 !== -1 && idx2 !== -1) {
+          const [start, end] = idx1 < idx2 ? [idx1, idx2] : [idx2, idx1];
+          for (let i = start; i <= end; i++) {
+            next.add(sorted[i].id);
+          }
+        }
+      } else if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+    setLastClickedId(id);
+  }
+
+  function selectAll() {
+    if (selectedIds.size === sorted.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(sorted.map((t) => t.id)));
+    }
+  }
+
+  function clearSelection() {
+    setSelectedIds(new Set());
+    setBatchAction(null);
+    setBatchValue("");
+  }
+
+  async function executeBatchStatus() {
+    if (selectedIds.size === 0 || !batchValue) return;
+    setBatchBusy(true);
+    const r = await apiRequest(`/api/tasks/batch`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: Array.from(selectedIds), status: batchValue }),
+    });
+    setBatchBusy(false);
+    if (!r.ok) { toast(r.error, "error"); return; }
+    toast(`Updated ${selectedIds.size} tasks`);
+    clearSelection();
+    router.refresh();
+  }
+
+  async function executeBatchPriority() {
+    if (selectedIds.size === 0 || !batchValue) return;
+    setBatchBusy(true);
+    const r = await apiRequest(`/api/tasks/batch`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: Array.from(selectedIds), priority: batchValue }),
+    });
+    setBatchBusy(false);
+    if (!r.ok) { toast(r.error, "error"); return; }
+    toast(`Updated ${selectedIds.size} tasks`);
+    clearSelection();
+    router.refresh();
+  }
+
+  async function executeBatchAssignee() {
+    if (selectedIds.size === 0) return;
+    const uid = batchValue || null;
+    setBatchBusy(true);
+    const r = await apiRequest(`/api/tasks/batch`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: Array.from(selectedIds), assignee_id: uid }),
+    });
+    setBatchBusy(false);
+    if (!r.ok) { toast(r.error, "error"); return; }
+    toast(`Updated ${selectedIds.size} tasks`);
+    clearSelection();
+    router.refresh();
+  }
+
+  async function executeBatchDelete() {
+    if (selectedIds.size === 0) return;
+    setBatchBusy(true);
+    let ok = true;
+    for (const id of selectedIds) {
+      const r = await apiRequest(`/api/tasks/${id}`, { method: "DELETE" });
+      if (!r.ok) { toast(r.error, "error"); ok = false; break; }
+    }
+    setBatchBusy(false);
+    if (ok) {
+      toast(`Deleted ${selectedIds.size} tasks`);
+      setShowBatchDelete(false);
+      clearSelection();
+      router.refresh();
+    }
+  }
+
   return (
     <div style={{ overflowX: "auto" }}>
+      {selectedIds.size > 0 ? (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "0.5rem",
+            padding: "0.5rem 0.75rem",
+            marginBottom: "0.5rem",
+            background: "var(--surface-elevated)",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--radius-sm)",
+            flexWrap: "wrap",
+          }}
+        >
+          <span className="text-sm" style={{ fontWeight: 600, marginRight: "0.5rem" }}>
+            {selectedIds.size} selected
+          </span>
+
+          <select
+            className="input text-sm"
+            style={{ padding: "0.25rem", minHeight: 0, maxWidth: 120 }}
+            value={batchAction === "status" ? batchValue : ""}
+            onChange={(e) => { setBatchAction("status"); setBatchValue(e.target.value); }}
+            disabled={batchBusy}
+          >
+            <option value="">Set status…</option>
+            <option value="todo">todo</option>
+            <option value="in_progress">in_progress</option>
+            <option value="blocked">blocked</option>
+            <option value="done">done</option>
+            <option value="cancelled">cancelled</option>
+          </select>
+
+          <select
+            className="input text-sm"
+            style={{ padding: "0.25rem", minHeight: 0, maxWidth: 120 }}
+            value={batchAction === "priority" ? batchValue : ""}
+            onChange={(e) => { setBatchAction("priority"); setBatchValue(e.target.value); }}
+            disabled={batchBusy}
+          >
+            <option value="">Set priority…</option>
+            <option value="low">low</option>
+            <option value="normal">normal</option>
+            <option value="high">high</option>
+            <option value="urgent">urgent</option>
+          </select>
+
+          <div style={{ position: "relative", display: "inline-block" }}>
+            <select
+              className="input text-sm"
+              style={{ padding: "0.25rem", minHeight: 0, maxWidth: 140 }}
+              value={batchAction === "assignee" ? batchValue : ""}
+              onChange={(e) => { setBatchAction("assignee"); setBatchValue(e.target.value); }}
+              disabled={batchBusy}
+            >
+              <option value="">Assign to…</option>
+              <option value="">— Unassigned</option>
+              {members.map((m) => (
+                <option key={m.user_id} value={m.user_id}>{m.email}</option>
+              ))}
+            </select>
+          </div>
+
+          <button
+            type="button"
+            className="btn btn-sm btn-ghost"
+            style={{ color: "var(--danger)" }}
+            disabled={batchBusy}
+            onClick={() => setShowBatchDelete(true)}
+          >
+            Delete {selectedIds.size}
+          </button>
+
+          <button
+            type="button"
+            className="btn btn-sm btn-ghost"
+            onClick={clearSelection}
+            disabled={batchBusy}
+          >
+            Clear
+          </button>
+
+          {batchAction === "status" && batchValue ? (
+            <button type="button" className="btn btn-sm btn-primary" disabled={batchBusy} onClick={executeBatchStatus}>
+              {batchBusy ? "…" : "Apply"}
+            </button>
+          ) : null}
+          {batchAction === "priority" && batchValue ? (
+            <button type="button" className="btn btn-sm btn-primary" disabled={batchBusy} onClick={executeBatchPriority}>
+              {batchBusy ? "…" : "Apply"}
+            </button>
+          ) : null}
+          {batchAction === "assignee" ? (
+            <button type="button" className="btn btn-sm btn-primary" disabled={batchBusy} onClick={executeBatchAssignee}>
+              {batchBusy ? "…" : "Apply"}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
       <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "560px" }}>
         <thead>
           <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border)" }}>
+            {canEdit ? (
+              <th style={{ padding: "0.5rem 0", width: "2rem" }}>
+                <input
+                  type="checkbox"
+                  checked={selectedIds.size === sorted.length && sorted.length > 0}
+                  onChange={selectAll}
+                  style={{ cursor: "pointer" }}
+                />
+              </th>
+            ) : null}
             {thLabel("ref", "Ref")}
             {thLabel("title", "Title")}
             {thLabel("status", "Status")}
@@ -232,7 +453,27 @@ export function TaskTable({
         </thead>
         <tbody>
           {sorted.map((t) => (
-            <tr key={t.id} style={{ borderBottom: "1px solid var(--border)" }}>
+            <tr
+              key={t.id}
+              style={{
+                borderBottom: "1px solid var(--border)",
+                background: selectedIds.has(t.id) ? "var(--surface-elevated)" : undefined,
+              }}
+            >
+              {canEdit ? (
+                <td style={{ padding: "0.4rem 0" }}>
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.has(t.id)}
+                    onChange={() => {}}
+                    onClick={(e) => {
+                      const shift = (e.nativeEvent as MouseEvent).shiftKey;
+                      toggleSelect(t.id, shift);
+                    }}
+                    style={{ cursor: "pointer" }}
+                  />
+                </td>
+              ) : null}
               <td className="muted text-sm" style={{ padding: "0.4rem 0", fontFamily: "var(--font-mono, monospace)", fontSize: "0.8rem" }}>
                 {t.ref || "—"}
               </td>
@@ -311,7 +552,7 @@ export function TaskTable({
                     type="button"
                     className="btn btn-ghost text-sm"
                     disabled={busy === t.id}
-                    onClick={() => removeTask(t.id)}
+                    onClick={() => setDeleteId(t.id)}
                   >
                     Delete
                   </button>
@@ -321,6 +562,28 @@ export function TaskTable({
           ))}
         </tbody>
       </table>
+
+      <Dialog open={deleteId !== null} onClose={() => setDeleteId(null)} title="Delete task"
+        actions={
+          <>
+            <button type="button" className="btn btn-ghost" onClick={() => setDeleteId(null)}>Cancel</button>
+            <button type="button" className="btn btn-primary" style={{ background: "var(--danger)", color: "var(--text)", boxShadow: "none" }} onClick={() => deleteId && removeTask(deleteId)}>Delete</button>
+          </>
+        }
+      >
+        <p className="text-sm">Delete this task? This action cannot be undone.</p>
+      </Dialog>
+
+      <Dialog open={showBatchDelete} onClose={() => !batchBusy && setShowBatchDelete(false)} title={`Delete ${selectedIds.size} tasks`}
+        actions={
+          <>
+            <button type="button" className="btn btn-ghost" onClick={() => setShowBatchDelete(false)} disabled={batchBusy}>Cancel</button>
+            <button type="button" className="btn btn-primary" style={{ background: "var(--danger)", color: "var(--text)", boxShadow: "none" }} disabled={batchBusy} onClick={executeBatchDelete}>Delete {selectedIds.size}</button>
+          </>
+        }
+      >
+        <p className="text-sm">Delete {selectedIds.size} selected tasks? This action cannot be undone.</p>
+      </Dialog>
     </div>
   );
 }
@@ -340,11 +603,12 @@ export function TasksView({
   const [view, setView] = useState<"board" | "table">("board");
 
   async function onStatusChange(taskId: string, newStatus: string) {
-    await fetch(`/api/tasks/${taskId}/transition`, {
+    const r = await apiRequest(`/api/tasks/${taskId}/transition`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: newStatus }),
     });
+    if (!r.ok) { toast(r.error, "error"); return; }
     router.refresh();
   }
 

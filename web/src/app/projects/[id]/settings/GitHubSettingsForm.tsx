@@ -3,7 +3,9 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { Dialog } from "@/components/Dialog";
 import { toast } from "@/components/Toast";
+import { apiRequest } from "@/shared/client/api";
 
 type LinkRow = {
   id: string;
@@ -25,6 +27,7 @@ export function GitHubSettingsForm({
   const [links, setLinks] = useState<LinkRow[]>(initialLinks);
   const [repoUrl, setRepoUrl] = useState("");
   const [pat, setPat] = useState("");
+  const [removeLinkId, setRemoveLinkId] = useState<string | null>(null);
 
   if (!canEdit) {
     return (
@@ -81,21 +84,13 @@ export function GitHubSettingsForm({
   }
 
   async function handleRemove(linkId: string) {
-    const r = await fetch(
+    const r = await apiRequest(
       `/api/projects/${projectId}/github/links?link_id=${linkId}`,
       { method: "DELETE" },
     );
-    if (!r.ok) {
-      const text = await r.text();
-      try {
-        const j = JSON.parse(text) as { detail?: string };
-        toast(j.detail ?? text, "error");
-      } catch {
-        toast(text || `Error ${r.status}`, "error");
-      }
-      return;
-    }
+    if (!r.ok) { toast(r.error, "error"); return; }
     setLinks((prev) => prev.filter((l) => l.id !== linkId));
+    setRemoveLinkId(null);
     toast("Repository removed");
     router.refresh();
   }
@@ -134,7 +129,7 @@ export function GitHubSettingsForm({
                   <button
                     className="btn btn-ghost"
                     style={{ color: "var(--danger, #c33)", fontSize: "0.85rem" }}
-                    onClick={() => handleRemove(l.id)}
+                    onClick={() => setRemoveLinkId(l.id)}
                   >
                     Remove
                   </button>
@@ -179,6 +174,27 @@ export function GitHubSettingsForm({
           Link repository
         </button>
       </form>
+
+      <Dialog
+        open={removeLinkId !== null}
+        onClose={() => setRemoveLinkId(null)}
+        title="Remove repository"
+        actions={
+          <>
+            <button type="button" className="btn btn-ghost" onClick={() => setRemoveLinkId(null)}>Cancel</button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              style={{ background: "var(--danger)", color: "var(--text)", boxShadow: "none" }}
+              onClick={() => removeLinkId && handleRemove(removeLinkId)}
+            >
+              Remove
+            </button>
+          </>
+        }
+      >
+        <p className="text-sm">Remove this GitHub repository link? Commit data will no longer sync.</p>
+      </Dialog>
     </div>
   );
 }

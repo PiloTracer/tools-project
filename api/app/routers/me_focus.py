@@ -11,8 +11,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db import get_db
 from app.deps import get_current_user
 from app.models.activity import Activity
+from app.models.client import Client
 from app.models.mention import Mention
 from app.models.project import Project
+from app.models.project_member import ProjectMember
+from app.models.prospect import Prospect
 from app.models.task import Task
 from app.models.ticket import Ticket
 from app.models.user import User
@@ -24,6 +27,7 @@ from app.schemas import (
     TaskOut,
     TodayResponse,
     TodayTaskBundle,
+    UnifiedSearchHit,
     UserSearchResult,
     WatchCreate,
     WatchDelete,
@@ -291,6 +295,108 @@ async def search_refs(
             results.append(RefSearchResult(
                 id=str(tid), ref=ref, title=title,
                 project_id=str(pid), project_name=pname, kind="ticket",
+            ))
+
+    return results
+
+
+@router.get("/search")
+async def unified_search(
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    q: str = Query(default="", min_length=1),
+    limit: int = Query(default=15, ge=1, le=50),
+):
+    """Unified search across projects, tasks, tickets, clients, and prospects."""
+    term = q.strip()
+    results: list[UnifiedSearchHit] = []
+
+    # Get projects the user can access
+    member_subq = select(ProjectMember.project_id).where(ProjectMember.user_id == user.id)
+
+    # Projects
+    if len(results) < limit:
+        stmt = (
+            select(Project.id, Project.name, Project.slug)
+            .where(Project.id.in_(member_subq))
+            .where(Project.name.ilike(f"%{term}%"))
+            .order_by(Project.updated_at.desc())
+            .limit(limit - len(results))
+        )
+        rows = (await db.execute(stmt)).all()
+        for pid, name, slug in rows:
+            results.append(UnifiedSearchHit(
+                id=str(pid), label=name,
+                subtitle=f"Project — {slug}",
+                href=f"/projects/{pid}", kind="project",
+            ))
+
+    # Tasks (only in accessible projects)
+    if len(results) < limit:
+        stmt = (
+            select(Task.id, Task.title, Task.ref, Task.project_id, Project.name)
+            .join(Project, Task.project_id == Project.id)
+            .where(Task.project_id.in_(member_subq))
+            .where((Task.title.ilike(f"%{term}%")) | (Task.ref.ilike(f"{term}%")))
+            .order_by(Task.updated_at.desc())
+            .limit(limit - len(results))
+        )
+        rows = (await db.execute(stmt)).all()
+        for tid, title, ref, pid, pname in rows:
+            results.append(UnifiedSearchHit(
+                id=str(tid), label=title,
+                subtitle=f"[{ref or '—'}] {pname}",
+                href=f"/projects/{pid}/tasks/{tid}",
+                kind="task",
+            ))
+
+    # Tickets (only in accessible projects)
+    if len(results) < limit:
+        stmt = (
+            select(Ticket.id, Ticket.title, Ticket.ref, Ticket.project_id, Project.name)
+            .join(Project, Ticket.project_id == Project.id)
+            .where(Ticket.project_id.in_(member_subq))
+            .where((Ticket.title.ilike(f"%{term}%")) | (Ticket.ref.ilike(f"{term}%")))
+            .order_by(Ticket.updated_at.desc())
+            .limit(limit - len(results))
+        )
+        rows = (await db.execute(stmt)).all()
+        for tid, title, ref, pid, pname in rows:
+            results.append(UnifiedSearchHit(
+                id=str(tid), label=title,
+                subtitle=f"[{ref or '—'}] {pname}",
+                href=f"/projects/{pid}/tickets/{tid}",
+                kind="ticket",
+            ))
+
+    # Clients (all authenticated users can search)
+    if len(results) < limit:
+        stmt = (
+            select(Client.id, Client.name, Client.slug)
+            .where(Client.name.ilike(f"%{term}%"))
+            .order_by(Client.name.asc())
+            .limit(limit - len(results))
+        )
+        rows = (await db.execute(stmt)).all()
+        for cid, name, slug in rows:
+            results.append(UnifiedSearchHit(
+                id=str(cid), label=name, subtitle=f"Client — {slug}",
+                href=f"/clients/{cid}", kind="client",
+            ))
+
+    # Prospects (all authenticated users can search)
+    if len(results) < limit:
+        stmt = (
+            select(Prospect.id, Prospect.company_name, Prospect.pipeline_stage)
+            .where(Prospect.company_name.ilike(f"%{term}%"))
+            .order_by(Prospect.updated_at.desc())
+            .limit(limit - len(results))
+        )
+        rows = (await db.execute(stmt)).all()
+        for pid, company, stage in rows:
+            results.append(UnifiedSearchHit(
+                id=str(pid), label=company, subtitle=f"Prospect — {stage}",
+                href=f"/prospects/{pid}", kind="prospect",
             ))
 
     return results

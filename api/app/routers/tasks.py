@@ -15,6 +15,7 @@ from app.models.task import Task
 from app.models.user import User
 from app.schemas import (
     TASK_STATUSES,
+    TaskBatchUpdate,
     TaskCreate,
     TaskListResponse,
     TaskOut,
@@ -313,3 +314,62 @@ async def delete_task(
     await db.delete(row)
     await db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@detail_router.post("/batch", response_model=list[TaskOut])
+async def batch_update_tasks(
+    body: TaskBatchUpdate,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Batch update multiple tasks — status, priority, assignee, or due_at."""
+    rows = list((await db.scalars(
+        select(Task).where(Task.id.in_(body.ids))
+    )).all())
+
+    if not rows:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="No tasks found")
+
+    # Verify access to all tasks
+    project_ids = {r.project_id for r in rows}
+    for pid in project_ids:
+        acc = await require_project_access(db, user, pid)
+        if not can_edit_tasks(acc):
+            raise HTTPException(
+                status.HTTP_403_FORBIDDEN,
+                detail=f"You do not have permission to edit tasks in project {pid}",
+            )
+
+    updated: list[Task] = []
+    now = datetime.now(timezone.utc)
+    for row in rows:
+        changed = False
+        if body.status is not None:
+            status_val = body.status.strip()
+            if status_val not in TASK_STATUSES:
+                raise HTTPException(
+                    status.HTTP_400_BAD_REQUEST,
+                    detail=f"Invalid status: {status_val}. Use one of {sorted(TASK_STATUSES)}",
+                )
+            row.status = status_val
+            if status_val in {"done", "cancelled"}:
+                row.closed_at = now
+            else:
+                row.closed_at = None
+            changed = True
+        if body.priority is not None:
+            row.priority = body.priority.strip()
+            changed = True
+        if body.assignee_id is not None:
+            row.assignee_id = body.assignee_id
+            changed = True
+        if body.due_at is not None:
+            row.due_at = body.due_at
+            changed = True
+        if changed:
+            updated.append(row)
+
+    await db.commit()
+    for row in updated:
+        await db.refresh(row)
+    return [TaskOut.model_validate(r) for r in updated]

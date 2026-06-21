@@ -3,8 +3,10 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { Dialog } from "@/components/Dialog";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { toast } from "@/components/Toast";
+import { apiRequest } from "@/shared/client/api";
 
 type InboxItem = {
   id: string;
@@ -30,6 +32,7 @@ export function InboxClient({
   const [body, setBody] = useState("");
   const [busy, setBusy] = useState(false);
   const [busyItem, setBusyItem] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<InboxItem | null>(null);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -83,8 +86,10 @@ export function InboxClient({
 
   async function removeItem(itemId: string) {
     setBusyItem(itemId);
-    await fetch(`/api/inbox/${itemId}`, { method: "DELETE" });
+    const r = await apiRequest(`/api/inbox/${itemId}`, { method: "DELETE" });
     setBusyItem(null);
+    if (!r.ok) { toast(r.error, "error"); return; }
+    setDeleteTarget(null);
     router.refresh();
   }
 
@@ -170,7 +175,7 @@ export function InboxClient({
                       type="button"
                       className="btn btn-ghost text-sm"
                       disabled={busyItem === item.id}
-                      onClick={() => removeItem(item.id)}
+                      onClick={() => setDeleteTarget(item)}
                     >
                       Delete
                     </button>
@@ -181,6 +186,27 @@ export function InboxClient({
           </ul>
         )}
       </div>
+
+      <Dialog
+        open={deleteTarget !== null}
+        onClose={() => setDeleteTarget(null)}
+        title="Delete inbox item"
+        actions={
+          <>
+            <button type="button" className="btn btn-ghost" onClick={() => setDeleteTarget(null)}>Cancel</button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              style={{ background: "var(--danger)", color: "var(--text)", boxShadow: "none" }}
+              onClick={() => deleteTarget && removeItem(deleteTarget.id)}
+            >
+              Delete
+            </button>
+          </>
+        }
+      >
+        <p className="text-sm">Delete this inbox item? This action cannot be undone.</p>
+      </Dialog>
     </>
   );
 }

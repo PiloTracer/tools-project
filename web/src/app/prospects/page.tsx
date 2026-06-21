@@ -13,6 +13,7 @@ import { PipelineFunnel, type PipelineStageRow } from "@/components/PipelineFunn
 import { useDownload } from "@/components/useDownload";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { ProspectBoard } from "@/components/ProspectBoard";
+import { apiRequest } from "@/shared/client/api";
 
 const PIPELINE_STAGES = [
   "target", "connected", "engaged", "call_scheduled", "call_done",
@@ -218,7 +219,8 @@ export default function ProspectsPage() {
   const handleDelete = async () => {
     if (!showDelete) return;
     const name = showDelete.company_name;
-    await fetch(`/api/prospects/${showDelete.id}`, { method: "DELETE" });
+    const r = await apiRequest(`/api/prospects/${showDelete.id}`, { method: "DELETE" });
+    if (!r.ok) { toast(r.error, "error"); return; }
     setShowDelete(null);
     toast(`Deleted prospect ${name}`);
     fetchRows({ stage: filterStage || undefined, source: filterSource || undefined });

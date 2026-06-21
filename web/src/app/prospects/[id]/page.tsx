@@ -9,6 +9,7 @@ import { Dialog } from "@/components/Dialog";
 import { DropdownMenu, DropdownItem } from "@/components/DropdownMenu";
 import { toast } from "@/components/Toast";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
+import { apiRequest } from "@/shared/client/api";
 
 const PIPELINE_STAGES = [
   "target", "connected", "engaged", "call_scheduled", "call_done",
@@ -132,7 +133,8 @@ export default function ProspectDetailPage() {
   };
 
   const handleDelete = async () => {
-    await fetch(`/api/prospects/${id}`, { method: "DELETE" });
+    const r = await apiRequest(`/api/prospects/${id}`, { method: "DELETE" });
+    if (!r.ok) { toast(r.error, "error"); return; }
     toast("Prospect deleted");
     router.push("/prospects");
   };

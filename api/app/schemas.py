@@ -442,6 +442,30 @@ class UserSearchResult(BaseModel):
     display_name: str | None = None
 
 
+class UnifiedSearchHit(BaseModel):
+    id: str
+    label: str
+    subtitle: str
+    href: str
+    kind: str  # "project", "task", "ticket", "client", "prospect"
+
+
+class TaskBatchUpdate(BaseModel):
+    ids: list[uuid.UUID] = Field(min_length=1, max_length=100)
+    status: str | None = Field(default=None, max_length=40)
+    priority: str | None = Field(default=None, max_length=20)
+    assignee_id: uuid.UUID | None = None
+    due_at: datetime | None = None
+
+
+class TicketBatchUpdate(BaseModel):
+    ids: list[uuid.UUID] = Field(min_length=1, max_length=100)
+    status: str | None = Field(default=None, max_length=40)
+    priority: str | None = Field(default=None, max_length=20)
+    assignee_id: uuid.UUID | None = None
+    queue_slug: str | None = Field(default=None, max_length=80)
+
+
 class RefSearchResult(BaseModel):
     id: str
     ref: str | None = None

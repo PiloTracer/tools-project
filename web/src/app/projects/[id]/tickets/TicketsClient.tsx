@@ -4,9 +4,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { Dialog } from "@/components/Dialog";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { usePendingImages } from "@/shared/client/use-pending-images";
 import { toast } from "@/components/Toast";
+import { apiRequest } from "@/shared/client/api";
 
 export type TicketQueueRow = {
   id: string;
@@ -324,102 +326,315 @@ export function TicketTable({
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [lastClickedId, setLastClickedId] = useState<string | null>(null);
+  const [batchAction, setBatchAction] = useState<"status" | "priority" | null>(null);
+  const [batchValue, setBatchValue] = useState("");
+  const [showBatchDelete, setShowBatchDelete] = useState(false);
+  const [batchBusy, setBatchBusy] = useState(false);
 
   async function setStatus(id: string, status: string) {
     setBusy(id);
-    await fetch(`/api/tickets/${id}/transition`, {
+    const r = await apiRequest(`/api/tickets/${id}/transition`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status }),
     });
     setBusy(null);
+    if (!r.ok) { toast(r.error, "error"); return; }
     router.refresh();
   }
 
   async function remove(id: string) {
-    if (!confirm("Delete this ticket?")) return;
     setBusy(id);
-    await fetch(`/api/tickets/${id}`, { method: "DELETE" });
+    const r = await apiRequest(`/api/tickets/${id}`, { method: "DELETE" });
     setBusy(null);
+    if (!r.ok) { toast(r.error, "error"); return; }
+    setDeleteId(null);
+    setSelectedIds((prev) => { const next = new Set(prev); next.delete(id); return next; });
     router.refresh();
   }
 
+  function toggleSelect(id: string, shiftKey: boolean) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (shiftKey && lastClickedId) {
+        const idx1 = tickets.findIndex((t) => t.id === lastClickedId);
+        const idx2 = tickets.findIndex((t) => t.id === id);
+        if (idx1 !== -1 && idx2 !== -1) {
+          const [start, end] = idx1 < idx2 ? [idx1, idx2] : [idx2, idx1];
+          for (let i = start; i <= end; i++) {
+            next.add(tickets[i].id);
+          }
+        }
+      } else if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+    setLastClickedId(id);
+  }
+
+  function selectAll() {
+    if (selectedIds.size === tickets.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(tickets.map((t) => t.id)));
+    }
+  }
+
+  function clearSelection() {
+    setSelectedIds(new Set());
+    setBatchAction(null);
+    setBatchValue("");
+  }
+
+  async function executeBatchStatus() {
+    if (selectedIds.size === 0 || !batchValue) return;
+    setBatchBusy(true);
+    const r = await apiRequest(`/api/tickets/batch`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: Array.from(selectedIds), status: batchValue }),
+    });
+    setBatchBusy(false);
+    if (!r.ok) { toast(r.error, "error"); return; }
+    toast(`Updated ${selectedIds.size} tickets`);
+    clearSelection();
+    router.refresh();
+  }
+
+  async function executeBatchPriority() {
+    if (selectedIds.size === 0 || !batchValue) return;
+    setBatchBusy(true);
+    const r = await apiRequest(`/api/tickets/batch`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: Array.from(selectedIds), priority: batchValue }),
+    });
+    setBatchBusy(false);
+    if (!r.ok) { toast(r.error, "error"); return; }
+    toast(`Updated ${selectedIds.size} tickets`);
+    clearSelection();
+    router.refresh();
+  }
+
+  async function executeBatchDelete() {
+    if (selectedIds.size === 0) return;
+    setBatchBusy(true);
+    let ok = true;
+    for (const id of selectedIds) {
+      const r = await apiRequest(`/api/tickets/${id}`, { method: "DELETE" });
+      if (!r.ok) { toast(r.error, "error"); ok = false; break; }
+    }
+    setBatchBusy(false);
+    if (ok) {
+      toast(`Deleted ${selectedIds.size} tickets`);
+      setShowBatchDelete(false);
+      clearSelection();
+      router.refresh();
+    }
+  }
+
   return (
-    <table style={{ width: "100%", borderCollapse: "collapse" }}>
-      <thead>
-        <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border)" }}>
-          <th style={{ padding: "0.5rem 0" }}>Age</th>
-          <th style={{ padding: "0.5rem 0" }}>Ref</th>
-          <th style={{ padding: "0.5rem 0" }}>Title</th>
-          <th>Queue</th>
-          <th>Status</th>
-          <th>Priority</th>
-          {canEdit ? <th /> : null}
-          {canDelete ? <th /> : null}
-        </tr>
-      </thead>
-      <tbody>
-        {tickets.map((t) => (
-          <tr key={t.id} style={{ borderBottom: "1px solid var(--border)" }}>
-            <td className="text-sm" style={{ padding: "0.35rem 0", whiteSpace: "nowrap" }}>
-              <StaleAge row={t} />
-            </td>
-            <td className="muted text-sm" style={{ padding: "0.35rem 0", fontFamily: "var(--font-mono, monospace)", fontSize: "0.8rem" }}>
-              {t.ref || "—"}
-            </td>
-            <td style={{ padding: "0.35rem 0" }}>
-              <Link href={`/projects/${projectId}/tickets/${t.id}`}>{t.title}</Link>
-              {t.description ? (
-                <div className="muted text-sm" style={{ marginTop: "0.2rem", maxWidth: "36rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {t.description}
-                </div>
-              ) : null}
-            </td>
-            <td>
-              <span className="pill">{t.queue_slug}</span>
-            </td>
-            <td>
-              {canEdit ? (
-                <select
-                  className="input text-sm"
-                  style={{ padding: "0.25rem", minHeight: 0 }}
-                  value={t.status}
-                  disabled={busy === t.id}
-                  onChange={(e) => setStatus(t.id, e.target.value)}
-                >
-                  <option value="open">open</option>
-                  <option value="in_progress">in_progress</option>
-                  <option value="waiting_customer">waiting_customer</option>
-                  <option value="resolved">resolved</option>
-                  <option value="closed">closed</option>
-                </select>
-              ) : (
-                t.status
-              )}
-            </td>
-            <td>{t.priority}</td>
+    <>
+      {selectedIds.size > 0 ? (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "0.5rem",
+            padding: "0.5rem 0.75rem",
+            marginBottom: "0.5rem",
+            background: "var(--surface-elevated)",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--radius-sm)",
+            flexWrap: "wrap",
+          }}
+        >
+          <span className="text-sm" style={{ fontWeight: 600, marginRight: "0.5rem" }}>
+            {selectedIds.size} selected
+          </span>
+
+          <select
+            className="input text-sm"
+            style={{ padding: "0.25rem", minHeight: 0, maxWidth: 140 }}
+            value={batchAction === "status" ? batchValue : ""}
+            onChange={(e) => { setBatchAction("status"); setBatchValue(e.target.value); }}
+            disabled={batchBusy}
+          >
+            <option value="">Set status…</option>
+            <option value="open">open</option>
+            <option value="in_progress">in_progress</option>
+            <option value="waiting_customer">waiting_customer</option>
+            <option value="resolved">resolved</option>
+            <option value="closed">closed</option>
+          </select>
+
+          <select
+            className="input text-sm"
+            style={{ padding: "0.25rem", minHeight: 0, maxWidth: 120 }}
+            value={batchAction === "priority" ? batchValue : ""}
+            onChange={(e) => { setBatchAction("priority"); setBatchValue(e.target.value); }}
+            disabled={batchBusy}
+          >
+            <option value="">Set priority…</option>
+            <option value="low">low</option>
+            <option value="normal">normal</option>
+            <option value="high">high</option>
+            <option value="critical">critical</option>
+          </select>
+
+          <button
+            type="button"
+            className="btn btn-sm btn-ghost"
+            style={{ color: "var(--danger)" }}
+            disabled={batchBusy}
+            onClick={() => setShowBatchDelete(true)}
+          >
+            Delete {selectedIds.size}
+          </button>
+
+          <button
+            type="button"
+            className="btn btn-sm btn-ghost"
+            onClick={clearSelection}
+            disabled={batchBusy}
+          >
+            Clear
+          </button>
+
+          {batchAction === "status" && batchValue ? (
+            <button type="button" className="btn btn-sm btn-primary" disabled={batchBusy} onClick={executeBatchStatus}>
+              {batchBusy ? "…" : "Apply"}
+            </button>
+          ) : null}
+          {batchAction === "priority" && batchValue ? (
+            <button type="button" className="btn btn-sm btn-primary" disabled={batchBusy} onClick={executeBatchPriority}>
+              {batchBusy ? "…" : "Apply"}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <thead>
+          <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border)" }}>
             {canEdit ? (
-              <td>
-                <Link href={`/projects/${projectId}/tickets/${t.id}`} className="btn btn-ghost text-sm">
-                  Open
-                </Link>
-              </td>
+              <th style={{ padding: "0.5rem 0", width: "2rem" }}>
+                <input
+                  type="checkbox"
+                  checked={selectedIds.size === tickets.length && tickets.length > 0}
+                  onChange={selectAll}
+                  style={{ cursor: "pointer" }}
+                />
+              </th>
             ) : null}
-            {canDelete ? (
-              <td>
-                <button
-                  type="button"
-                  className="btn btn-ghost text-sm"
-                  disabled={busy === t.id}
-                  onClick={() => remove(t.id)}
-                >
-                  Delete
-                </button>
-              </td>
-            ) : null}
+            <th style={{ padding: "0.5rem 0" }}>Age</th>
+            <th style={{ padding: "0.5rem 0" }}>Ref</th>
+            <th style={{ padding: "0.5rem 0" }}>Title</th>
+            <th>Queue</th>
+            <th>Status</th>
+            <th>Priority</th>
+            {canEdit ? <th /> : null}
+            {canDelete ? <th /> : null}
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {tickets.map((t) => (
+            <tr
+              key={t.id}
+              style={{
+                borderBottom: "1px solid var(--border)",
+                background: selectedIds.has(t.id) ? "var(--surface-elevated)" : undefined,
+              }}
+            >
+              {canEdit ? (
+                <td style={{ padding: "0.35rem 0" }}>
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.has(t.id)}
+                    onChange={() => {}}
+                    onClick={(e) => {
+                      const shift = (e.nativeEvent as MouseEvent).shiftKey;
+                      toggleSelect(t.id, shift);
+                    }}
+                    style={{ cursor: "pointer" }}
+                  />
+                </td>
+              ) : null}
+              <td className="text-sm" style={{ padding: "0.35rem 0", whiteSpace: "nowrap" }}>
+                <StaleAge row={t} />
+              </td>
+              <td className="muted text-sm" style={{ padding: "0.35rem 0", fontFamily: "var(--font-mono, monospace)", fontSize: "0.8rem" }}>
+                {t.ref || "—"}
+              </td>
+              <td style={{ padding: "0.35rem 0" }}>
+                <Link href={`/projects/${projectId}/tickets/${t.id}`}>{t.title}</Link>
+                {t.description ? (
+                  <div className="muted text-sm" style={{ marginTop: "0.2rem", maxWidth: "36rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {t.description}
+                  </div>
+                ) : null}
+              </td>
+              <td><span className="pill">{t.queue_slug}</span></td>
+              <td>
+                {canEdit ? (
+                  <select
+                    className="input text-sm"
+                    style={{ padding: "0.25rem", minHeight: 0 }}
+                    value={t.status}
+                    disabled={busy === t.id}
+                    onChange={(e) => setStatus(t.id, e.target.value)}
+                  >
+                    <option value="open">open</option>
+                    <option value="in_progress">in_progress</option>
+                    <option value="waiting_customer">waiting_customer</option>
+                    <option value="resolved">resolved</option>
+                    <option value="closed">closed</option>
+                  </select>
+                ) : t.status}
+              </td>
+              <td>{t.priority}</td>
+              {canEdit ? (
+                <td>
+                  <Link href={`/projects/${projectId}/tickets/${t.id}`} className="btn btn-ghost text-sm">Open</Link>
+                </td>
+              ) : null}
+              {canDelete ? (
+                <td>
+                  <button type="button" className="btn btn-ghost text-sm" disabled={busy === t.id} onClick={() => setDeleteId(t.id)}>Delete</button>
+                </td>
+              ) : null}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <Dialog open={deleteId !== null} onClose={() => setDeleteId(null)} title="Delete ticket"
+        actions={
+          <>
+            <button type="button" className="btn btn-ghost" onClick={() => setDeleteId(null)}>Cancel</button>
+            <button type="button" className="btn btn-primary" style={{ background: "var(--danger)", color: "var(--text)", boxShadow: "none" }} onClick={() => deleteId && remove(deleteId)}>Delete</button>
+          </>
+        }
+      >
+        <p className="text-sm">Delete this ticket? This action cannot be undone.</p>
+      </Dialog>
+
+      <Dialog open={showBatchDelete} onClose={() => !batchBusy && setShowBatchDelete(false)} title={`Delete ${selectedIds.size} tickets`}
+        actions={
+          <>
+            <button type="button" className="btn btn-ghost" onClick={() => setShowBatchDelete(false)} disabled={batchBusy}>Cancel</button>
+            <button type="button" className="btn btn-primary" style={{ background: "var(--danger)", color: "var(--text)", boxShadow: "none" }} disabled={batchBusy} onClick={executeBatchDelete}>Delete {selectedIds.size}</button>
+          </>
+        }
+      >
+        <p className="text-sm">Delete {selectedIds.size} selected tickets? This action cannot be undone.</p>
+      </Dialog>
+    </>
   );
 }

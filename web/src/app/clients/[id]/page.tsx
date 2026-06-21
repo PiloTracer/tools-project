@@ -9,6 +9,7 @@ import { DataTable, type Column } from "@/components/DataTable";
 import { Dialog } from "@/components/Dialog";
 import { toast } from "@/components/Toast";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
+import { apiRequest } from "@/shared/client/api";
 
 type ClientDetail = {
   id: string;
@@ -62,6 +63,7 @@ export default function ClientDetailPage() {
   const [editErr, setEditErr] = useState<string | null>(null);
 
   const [showDelete, setShowDelete] = useState(false);
+  const [deleteContactId, setDeleteContactId] = useState<string | null>(null);
 
   const [showAddContact, setShowAddContact] = useState(false);
   const [contactName, setContactName] = useState("");
@@ -151,7 +153,8 @@ export default function ClientDetailPage() {
   };
 
   const handleDelete = async () => {
-    await fetch(`/api/clients/${id}`, { method: "DELETE" });
+    const r = await apiRequest(`/api/clients/${id}`, { method: "DELETE" });
+    if (!r.ok) { toast(r.error, "error"); return; }
     toast("Client deleted");
     router.push("/clients");
   };
@@ -179,7 +182,9 @@ export default function ClientDetailPage() {
   };
 
   const handleDeleteContact = async (contactId: string) => {
-    await fetch(`/api/clients/${id}/contacts/${contactId}`, { method: "DELETE" });
+    const r = await apiRequest(`/api/clients/${id}/contacts/${contactId}`, { method: "DELETE" });
+    if (!r.ok) { toast(r.error, "error"); return; }
+    setDeleteContactId(null);
     toast("Contact removed");
     fetchData();
   };
@@ -308,7 +313,7 @@ export default function ClientDetailPage() {
           <button
             type="button"
             className="btn btn-sm btn-ghost"
-            onClick={() => handleDeleteContact(r.id)}
+            onClick={() => setDeleteContactId(r.id)}
             style={{ color: "var(--danger)" }}
           >
             Remove
@@ -546,6 +551,27 @@ export default function ClientDetailPage() {
 
           {linkUserErr ? <p className="err text-sm">{linkUserErr}</p> : null}
         </form>
+      </Dialog>
+
+      <Dialog
+        open={deleteContactId !== null}
+        onClose={() => setDeleteContactId(null)}
+        title="Remove contact"
+        actions={
+          <>
+            <button type="button" className="btn btn-ghost" onClick={() => setDeleteContactId(null)}>Cancel</button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              style={{ background: "var(--danger)", color: "var(--text)", boxShadow: "none" }}
+              onClick={() => deleteContactId && handleDeleteContact(deleteContactId)}
+            >
+              Remove
+            </button>
+          </>
+        }
+      >
+        <p className="text-sm">Remove this contact? This action cannot be undone.</p>
       </Dialog>
 
     </div>

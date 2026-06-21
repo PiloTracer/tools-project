@@ -69,10 +69,23 @@ export function CmdkPalette({
     }
     searchTimer.current = setTimeout(async () => {
       const q = v.trim();
+      let res: SearchResult[];
       if (serverSearch) {
-        const res = await serverSearch(q);
-        setResults(res.slice(0, 20));
+        res = await serverSearch(q);
+      } else {
+        try {
+          const r = await fetch(`/api/me/search?q=${encodeURIComponent(q)}&limit=20`);
+          if (r.ok) {
+            const data = (await r.json()) as { id: string; label: string; subtitle: string; href: string; kind: string }[];
+            res = data.map((d) => ({ id: d.id, label: d.label, subtitle: d.subtitle, href: d.href }));
+          } else {
+            res = [];
+          }
+        } catch {
+          res = [];
+        }
       }
+      setResults(res.slice(0, 20));
       setSelectedIdx(0);
     }, 200);
   }

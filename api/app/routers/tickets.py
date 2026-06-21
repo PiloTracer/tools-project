@@ -14,6 +14,7 @@ from app.models.ticket import Ticket
 from app.models.user import User
 from app.schemas import (
     TICKET_STATUSES,
+    TicketBatchUpdate,
     TicketCreate,
     TicketListResponse,
     TicketOut,
@@ -248,3 +249,65 @@ async def delete_ticket(
     await db.delete(row)
     await db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@detail_router.post("/batch", response_model=list[TicketOut])
+async def batch_update_tickets(
+    body: TicketBatchUpdate,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Batch update multiple tickets — status, priority, assignee, or queue_slug."""
+    rows = list((await db.scalars(
+        select(Ticket).where(Ticket.id.in_(body.ids))
+    )).all())
+
+    if not rows:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="No tickets found")
+
+    # Verify access to all tickets
+    project_ids = {r.project_id for r in rows}
+    for pid in project_ids:
+        acc = await require_project_access(db, user, pid)
+        if not can_mutate_tasks(acc.role):
+            raise HTTPException(
+                status.HTTP_403_FORBIDDEN,
+                detail=f"You do not have permission to edit tickets in project {pid}",
+            )
+
+    updated: list[Ticket] = []
+    for row in rows:
+        changed = False
+        if body.status is not None:
+            status_val = body.status.strip()
+            if status_val not in TICKET_STATUSES:
+                raise HTTPException(
+                    status.HTTP_400_BAD_REQUEST,
+                    detail=f"Invalid status: {status_val}. Use one of {sorted(TICKET_STATUSES)}",
+                )
+            row.status = status_val
+            now = datetime.now(timezone.utc)
+            if status_val in {"resolved", "closed"}:
+                if row.resolved_at is None:
+                    row.resolved_at = now
+                if row.closed_at is None:
+                    row.closed_at = now
+            elif status_val == "in_progress" and row.first_response_at is None:
+                row.first_response_at = now
+            changed = True
+        if body.priority is not None:
+            row.priority = body.priority.strip()
+            changed = True
+        if body.assignee_id is not None:
+            row.assignee_id = body.assignee_id
+            changed = True
+        if body.queue_slug is not None:
+            row.queue_slug = body.queue_slug.strip() or "default"
+            changed = True
+        if changed:
+            updated.append(row)
+
+    await db.commit()
+    for row in updated:
+        await db.refresh(row)
+    return [TicketOut.model_validate(r) for r in updated]

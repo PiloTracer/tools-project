@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import { Dialog } from "@/components/Dialog";
 import { toast } from "@/components/Toast";
+import { apiRequest } from "@/shared/client/api";
 
 type MemberRow = {
   user_id: string;
@@ -20,13 +22,11 @@ export function MemberList({
 }) {
   const [members, setMembers] = useState<MemberRow[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
+  const [removeTarget, setRemoveTarget] = useState<MemberRow | null>(null);
 
   const load = useCallback(async () => {
-    const r = await fetch(`/api/projects/${projectId}/members`);
-    if (r.ok) {
-      const data = (await r.json()) as { items: MemberRow[] };
-      setMembers(data.items);
-    }
+    const r = await apiRequest<{ items: MemberRow[] }>(`/api/projects/${projectId}/members`);
+    if (r.ok) setMembers(r.data.items);
   }, [projectId]);
 
   useEffect(() => {
@@ -35,25 +35,15 @@ export function MemberList({
   }, [load]);
 
   async function remove(userId: string) {
-    if (!confirm("Remove this member from the project?")) return;
     setBusy(userId);
-    const r = await fetch(`/api/projects/${projectId}/members/${userId}`, {
+    const r = await apiRequest(`/api/projects/${projectId}/members/${userId}`, {
       method: "DELETE",
     });
     setBusy(null);
-    if (r.ok) {
-      setMembers((prev) => prev.filter((m) => m.user_id !== userId));
-      toast("Member removed");
-    } else {
-      const text = await r.text();
-      try {
-        const j = JSON.parse(text) as Record<string, unknown>;
-        const d = j.detail;
-        toast(Array.isArray(d) ? d.map((e: Record<string, unknown>) => e.msg ?? e.type).join("; ") : (typeof d === "string" ? d : text), "error");
-      } catch {
-        toast(text || `Error ${r.status}`, "error");
-      }
-    }
+    if (!r.ok) { toast(r.error, "error"); return; }
+    setMembers((prev) => prev.filter((m) => m.user_id !== userId));
+    setRemoveTarget(null);
+    toast("Member removed");
   }
 
   if (members.length === 0) {
@@ -89,7 +79,7 @@ export function MemberList({
                     type="button"
                     className="btn btn-ghost text-sm"
                     disabled={busy === m.user_id}
-                    onClick={() => remove(m.user_id)}
+                    onClick={() => setRemoveTarget(m)}
                     style={{ color: "var(--err)" }}
                   >
                     {busy === m.user_id ? "…" : "Remove"}
@@ -100,6 +90,29 @@ export function MemberList({
           ))}
         </tbody>
       </table>
+
+      <Dialog
+        open={removeTarget !== null}
+        onClose={() => setRemoveTarget(null)}
+        title="Remove member"
+        actions={
+          <>
+            <button type="button" className="btn btn-ghost" onClick={() => setRemoveTarget(null)}>Cancel</button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              style={{ background: "var(--danger)", color: "var(--text)", boxShadow: "none" }}
+              onClick={() => removeTarget && remove(removeTarget.user_id)}
+            >
+              Remove
+            </button>
+          </>
+        }
+      >
+        <p className="text-sm">
+          Remove <strong>{removeTarget?.email}</strong> from the project? This action cannot be undone.
+        </p>
+      </Dialog>
     </div>
   );
 }

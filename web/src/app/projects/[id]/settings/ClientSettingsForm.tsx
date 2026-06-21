@@ -6,6 +6,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { Badge } from "@/components/Badge";
 import { Dialog } from "@/components/Dialog";
 import { toast } from "@/components/Toast";
+import { apiRequest } from "@/shared/client/api";
 
 type LinkedClientRow = {
   id: string;
@@ -76,6 +77,8 @@ export function ClientSettingsForm({
   const [searchPending, setSearchPending] = useState(false);
   const [selectedClient, setSelectedClient] = useState<SearchHit | null>(null);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [unlinkClientId, setUnlinkClientId] = useState<string | null>(null);
+  const [revokeAccessId, setRevokeAccessId] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     const [lc, ag] = await Promise.all([
@@ -186,25 +189,19 @@ export function ClientSettingsForm({
   };
 
   const handleUnlink = async (clientId: string) => {
-    const r = await fetch(`/api/projects/${projectId}/clients?client_id=${clientId}`, { method: "DELETE" });
-    if (!r.ok) {
-      const err = await r.json().catch(() => ({ detail: "Failed to unlink" }));
-      toast(err.detail, "error");
-      return;
-    }
+    const r = await apiRequest(`/api/projects/${projectId}/clients?client_id=${clientId}`, { method: "DELETE" });
+    if (!r.ok) { toast(r.error, "error"); return; }
     toast("Client unlinked");
+    setUnlinkClientId(null);
     fetchData();
     router.refresh();
   };
 
   const handleRevokeAccess = async (accessId: string) => {
-    const r = await fetch(`/api/projects/${projectId}/client-access/${accessId}`, { method: "DELETE" });
-    if (!r.ok) {
-      const err = await r.json().catch(() => ({ detail: "Failed to revoke access" }));
-      toast(err.detail, "error");
-      return;
-    }
+    const r = await apiRequest(`/api/projects/${projectId}/client-access/${accessId}`, { method: "DELETE" });
+    if (!r.ok) { toast(r.error, "error"); return; }
     toast("Access revoked");
+    setRevokeAccessId(null);
     fetchData();
   };
 
@@ -254,7 +251,7 @@ export function ClientSettingsForm({
                   {c.client_slug}
                 </td>
                 <td style={{ textAlign: "right" }}>
-                  <button className="btn btn-sm btn-ghost" style={{ color: "var(--danger)" }} onClick={() => handleUnlink(c.client_id)}>
+                  <button className="btn btn-sm btn-ghost" style={{ color: "var(--danger)" }} onClick={() => setUnlinkClientId(c.client_id)}>
                     Unlink
                   </button>
                 </td>
@@ -368,7 +365,7 @@ export function ClientSettingsForm({
                   <button className="btn btn-sm btn-ghost" onClick={() => { setEditAccess(a); setEditRole(a.role); setEditViewTasks(a.can_view_tasks); setEditViewTickets(a.can_view_tickets); setEditCreateTasks(a.can_create_tasks); }}>
                     Edit
                   </button>
-                  <button className="btn btn-sm btn-ghost" style={{ color: "var(--danger)" }} onClick={() => handleRevokeAccess(a.id)}>
+                  <button className="btn btn-sm btn-ghost" style={{ color: "var(--danger)" }} onClick={() => setRevokeAccessId(a.id)}>
                     Revoke
                   </button>
                 </td>
@@ -541,5 +538,47 @@ export function ClientSettingsForm({
         </form>
       </Dialog>
     </div>
+
+    <Dialog
+      open={unlinkClientId !== null}
+      onClose={() => setUnlinkClientId(null)}
+      title="Unlink client"
+      actions={
+        <>
+          <button type="button" className="btn btn-ghost" onClick={() => setUnlinkClientId(null)}>Cancel</button>
+          <button
+            type="button"
+            className="btn btn-primary"
+            style={{ background: "var(--danger)", color: "var(--text)", boxShadow: "none" }}
+            onClick={() => unlinkClientId && handleUnlink(unlinkClientId)}
+          >
+            Unlink
+          </button>
+        </>
+      }
+    >
+      <p className="text-sm">Unlink this client from the project? Any related access grants will also be lost.</p>
+    </Dialog>
+
+    <Dialog
+      open={revokeAccessId !== null}
+      onClose={() => setRevokeAccessId(null)}
+      title="Revoke access"
+      actions={
+        <>
+          <button type="button" className="btn btn-ghost" onClick={() => setRevokeAccessId(null)}>Cancel</button>
+          <button
+            type="button"
+            className="btn btn-primary"
+            style={{ background: "var(--danger)", color: "var(--text)", boxShadow: "none" }}
+            onClick={() => revokeAccessId && handleRevokeAccess(revokeAccessId)}
+          >
+            Revoke
+          </button>
+        </>
+      }
+    >
+      <p className="text-sm">Revoke this client contact access to the project? This action cannot be undone.</p>
+    </Dialog>
   );
 }
