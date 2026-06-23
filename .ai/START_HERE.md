@@ -30,9 +30,11 @@
        │
        ├── "I just opened the project / I'm lost" ─────────► §2  Resume / orient
        │
-       ├── "I'm lost / how do I…?"                  ─────────► §2  Resume / orient · `@process-router`
-       │
-       ├── "I want to start a coding task"          ─────────► §3  Implement
+        ├── "I'm lost / how do I…?"                  ─────────► §2  Resume / orient · `@process-router`
+        │
+        ├── "I don't know which skill to use"        ─────────► `@ai-director - <describe what you want>` · `@x-director - <describe what you want>` (cross-framework)
+        │
+        ├── "I want to start a coding task"          ─────────► §3  Implement
        │
        ├── "I need to plan something new"           ─────────► §4  Plan
        │
@@ -241,6 +243,7 @@ Use **`@process-router - <question>`** for anything not listed - it routes to th
 | Unmapped code / feature catalog gaps? | `@plan-verify coverage` · `@plan-repair repair - from coverage` |
 | Tests/lint/type-check failed? | §6 above · re-run task gate per `.cursorrules` |
 | Close session safely? | `@session-control close` · `@session-control close commit` · `@session-control close commit push` |
+| Free-text request / don't know the skill? | `@ai-director - <describe what you want>` (Agent OS) · `@x-director - <describe what you want>` (spans frameworks) |
 | Foundation vs master plan? | `plan-foundation` = P0–P6 + **plan-master-ready** · `plan-master` = full plan + **implementation-ready** |
 | Read everything? | Don't - §7 reading order; stop when answered |
 

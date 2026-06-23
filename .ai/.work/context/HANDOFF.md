@@ -4,11 +4,11 @@
 
 ## Session status
 
-**Closed:** 2026-06-01 — Added `.work/analysis/` and `.work/scripts/` to framework directory structure; updated `.work/README.md`, `DIRECTORY_MAP`, and bootstrap.
+**Closed:** 2026-06-23 — Strengthened `@ai-director` and `@x-director` free-text intake contracts; wired directors into `.cursorrules`, `START_HERE.md`, `PROCESS_ROUTER.md`, `README.md`, and `context/README.md`; corrected self-hosted path references in `.cursorrules`.
 
-**Updated:** 2026-06-01
+**Updated:** 2026-06-23
 
-**Repository state:** Agent OS framework repo (self-hosted). `.work/analysis/` (investigation/audit output sink) and `.work/scripts/` (operational runbooks) now documented in canonical layout. Bootstrap creates both dirs. `scripts/framework-verify.sh` local recovery still pending in Trash.
+**Repository state:** Agent OS framework repo (self-hosted). Director skills now expose a clear free-text intake contract (capture → load → classify → channel → record). All entry-point docs route free-text requests to `@ai-director` (Agent OS) or `@x-director` (cross-framework). Self-hosted `.cursorrules` path references now point to repo-root framework files. `scripts/framework-verify.sh` local recovery still pending in Trash.
 
 **Recommended pick-up file:** `.work/plans/NEXT.md`
 
@@ -54,6 +54,7 @@ End with **`@session-control close`** (add `commit` / `commit push` only when re
 
 | Date | Session | Artifacts |
 |------|---------|-----------|
+| 2026-06-23 | director free-text intake | `skills/ai-director/skill.md` + `skills/x-director/skill.md` gained explicit Free-text intake contracts (capture → load → classify → channel → record); `.cursorrules`, `START_HERE.md`, `PROCESS_ROUTER.md`, `README.md`, `context/README.md` now route free-text requests to `@ai-director` / `@x-director`; self-hosted path references corrected throughout `.cursorrules` |
 | 2026-06-01 | .work/ dir structure | `.work/analysis/`, `.work/scripts/` + READMEs; `.work/README.md`, `DIRECTORY_MAP`, `bootstrap.sh` updated |
 | 2026-06-01 | gate-verify integration | `gate-verify.sh` in CI + release; CHANGELOG, CONTRIBUTING updated; 4 broken links fixed |
 | 2026-05-27 | Coverage/registry parity | `plan-verify` coverage mode; `plan-repair` from coverage; FEATURE_STANDARD §14; DIRECTORY_MAP gate; templates/work/reports |

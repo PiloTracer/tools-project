@@ -5,3 +5,5 @@
 Bootstrap: [`templates/work/context/HANDOFF.md.template`](../templates/work/context/HANDOFF.md.template)
 
 Read and update via `@session-control start` / `close`. Portable skills reference `{HANDOFF}`.
+
+**Free-text entry point:** If you don't know which skill to invoke, start with `@ai-director - <describe what you want>` (Agent OS) or `@x-director - <describe what you want>` when the work spans `.ai.ui` / `.ai.biz`.

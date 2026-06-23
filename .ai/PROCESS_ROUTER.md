@@ -12,6 +12,8 @@
 
 It answers: *"Which skill, guide, or standard should I open for this question?"* and gives you the exact `@` command to run next. It does **not** write files, implement code, create SPECs, or run checklists.
 
+> **Don't know which skill to run?** Use `@ai-director - <describe what you want>` and let it route for you. If the work spans `.ai` + `.ai.ui` + `.ai.biz`, use `@x-director - <describe what you want>`.
+
 ```text
 You ask a question
        ↓
@@ -60,11 +62,12 @@ The verb is optional - `@process-router - <question>` is enough. Aliases: `ask`,
 
 | Situation | Use |
 |-----------|-----|
-| First-time / empty `.work` | `@project-bootstrap init` · `bash .ai/templates/bootstrap.sh` |
+| First-time / empty `.work` | `@project-bootstrap init` · `bash templates/bootstrap.sh` |
 | Lost in the workflow | `@process-router - I'm lost` |
 | How-to for a specific step | `@process-router - how do I fix NEXT.md?` |
 | Which concept (MOD) applies | `@process-router - AI-assisted PR, which prompt?` |
 | Explain skill boundaries | `@process-router - foundation vs master plan?` |
+| Don't know the right skill (free-text) | `@ai-director - <describe what you want>` · `@x-director - <describe what you want>` (cross-framework) |
 | Know exactly what's next | `@session-control status` + `.work/context/HANDOFF.md` + `.work/plans/NEXT.md` |
 
 ---

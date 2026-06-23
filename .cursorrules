@@ -63,7 +63,7 @@ These principles override all other instructions. They are non-negotiable.
 
 ## Required Context Files
 
-**Lost or unsure what to do? Read [`.ai/START_HERE.md`](.ai/START_HERE.md) first** — operator decision tree and recovery guide.
+**Lost or unsure what to do? Read `.ai/START_HERE.md` first** — operator decision tree and recovery guide.
 
 Read these at the start of every conversation and when relevant:
 
@@ -77,6 +77,10 @@ Read these at the start of every conversation and when relevant:
 | **`.ai/standards/DIRECTORY_MAP.md`** | Repository layout and boundaries |
 | **`.work/context/HANDOFF.md`** | Session handoff (session-control read/write) |
 | **`.ai/docs/guides/workflows/README.md`** | Workflow index and artifact matrix |
+| **`/mnt/work/Projects/.ai.ui/START_HERE.md`** | UI operator decision tree (via `@ui-director`) |
+| **`/mnt/work/Projects/.ai.biz/START_HERE.md`** | Business operator decision tree (via `@biz-director`) |
+
+**Cross-framework awareness:** This `.cursorrules` orchestrates `.ai` (Agent OS) + `.ai.ui` (UI Design OS) + `.ai.biz` (Business OS). See § Orchestrator Directors for routing rules.
 
 ### Workflow bootstrap (concepts + guides)
 
@@ -101,6 +105,13 @@ Portable process docs: **`.ai/docs/guides/workflows/README.md`** (artifact matri
 | `{OBSERVABILITY_SPEC}` | (not yet defined — add when observability spec is created) |
 | `{BOUNDARY_MAP}` | `.ai/standards/DIRECTORY_MAP.md` |
 | `{AGENT_RULES_FILE}` | **`.cursorrules` (this file)** — `AGENTS.md` is NOT used unless the owner explicitly adopts it |
+| `{UI_ROOT}` | `/mnt/work/Projects/.ai.ui/` (sibling directory, not inside repo) |
+| `{UI_WORK_ROOT}` | `.work.ui/` (created by `.ai.ui` bootstrap) |
+| `{HANDOFF_UI}` | `.work.ui/context/HANDOFF_UI.md` |
+| `{UI_ITERATION_CARRIER}` | `.work.ui/plans/NEXT_UI.md` |
+| `{BIZ_ROOT}` | `/mnt/work/Projects/.ai.biz/` (sibling directory, not inside repo) |
+| `{BIZ_WORK_ROOT}` | `.work.biz/` (created by `.ai.biz` bootstrap) |
+| `{HANDOFF_BIZ}` | `.work.biz/context/HANDOFF.md` |
 | `REPLACE:APP_ROOT` | `api/` |
 | `REPLACE:APP_WORKDIR` | `/app` |
 | `REPLACE:MIGRATIONS_DIR` | `sql/` |
@@ -144,6 +155,44 @@ Reusable agent skills live under `.ai/skills/`. Each skill is a subfolder contai
 **Usage:** When a task matches a skill's purpose, read `skill.md` and follow the workflow. Skills are tool-agnostic (Cursor, Claude Code, Codex, opencode, etc.).
 
 **Creating new skills:** Add `.ai/skills/<skill-name>/skill.md`; register in the table above. **Naming:** `.ai/skills/README.md` § Naming protocol (`{domain}-{role}`, kebab-case).
+
+---
+
+## Orchestrator Directors (free-text entry points)
+
+This `.cursorrules` is **automatically aware** of all three frameworks and their directors. The full framework topology is hardcoded below — no additional config needed.
+
+| Director | Framework | Purpose | Invocation |
+|----------|-----------|---------|------------|
+| `@ai-director` | `.ai/` (Agent OS) | Engineering: planning, coding, DB, dev stack, sessions | `@ai-director - <describe what you want>` |
+| `@ui-director` | `/mnt/work/Projects/.ai.ui/` (UI Design OS) | UI: design tokens, screen specs, components, visual/a11y verify | `@ui-director - <describe what you want>` |
+| `@biz-director` | `/mnt/work/Projects/.ai.biz/` (Business OS) | Business: strategy, brand, content, sales, pricing | `@biz-director - <describe what you want>` |
+| `@x-director` | Cross-framework | Coordinates across ≥2 of `.ai` / `.ai.ui` / `.ai.biz` | `@x-director - <describe what you want>` |
+
+**Skill files:** `.ai/skills/ai-director/skill.md` · `.ai/skills/x-director/skill.md` · `/mnt/work/Projects/.ai.ui/skills/ui-director/skill.md` · `/mnt/work/Projects/.ai.biz/skills/biz-director/skill.md`
+
+### Routing rules
+
+Free-text requests are routed by intent:
+
+```
+Free-text request
+       │
+       ├── Engineering only ──────────► @ai-director - <request>
+       │
+       ├── UI only ────────────────────► @ui-director - <request>
+       │
+       ├── Business only ──────────────► @biz-director - <request>
+       │
+       ├── Cross-framework ────────────► @x-director - <request>
+       │     (spans ≥2 of: .ai / .ai.ui / .ai.biz)
+       │
+       └── Unsure / underspecified ───► @x-director - <request>
+```
+
+- `@x-director` classifies intent, determines dependency order (e.g. API before UI), and invokes each framework's director sequentially.
+- Do not bypass directors by invoking framework-specific skills directly.
+- Do not reimplement another framework's skills inside `.ai/`.
 
 ---
 
@@ -408,11 +457,13 @@ Canonical map: `.ai/README.md` · Working tree: `.work/README.md`.
 <!-- UI_DESIGN_OS_BEGIN -->
 <!-- Merged by setup-target.sh into existing .cursorrules after Agent OS. Core Principles §1–7 above apply to all UI work. -->
 
-## UI Design OS (`.ai.ui/`)
+## UI Design OS (`/mnt/work/Projects/.ai.ui/`)
 
-**Coexistence:** [`.ai.ui/COHABITATION.md`](.ai.ui/COHABITATION.md) — UI skills write to `.work.ui/` only; do not overwrite `.work/plans/NEXT.md` except cross-links.
+> **Path note:** `.ai.ui/` is a sibling directory at `/mnt/work/Projects/.ai.ui/` — NOT inside this repo. All paths below use absolute paths for the framework root; `.work.ui/` paths are relative (they live in this repo).
 
-**Lost on UI?** [`.ai.ui/START_HERE.md`](.ai.ui/START_HERE.md) · **Router:** `@ui-process-router - <question>`
+**Coexistence:** [`/mnt/work/Projects/.ai.ui/COHABITATION.md`](/mnt/work/Projects/.ai.ui/COHABITATION.md) — UI skills write to `.work.ui/` only; do not overwrite `.work/plans/NEXT.md` except cross-links.
+
+**Lost on UI?** `/mnt/work/Projects/.ai.ui/START_HERE.md` · **Router:** `@ui-process-router - <question>`
 
 ### UI completion gate (addition to Core Principle 7)
 
@@ -422,15 +473,15 @@ UI milestone work is not done until: UI lint/type/tests pass; `@ui-visual-verify
 
 | File | Purpose |
 |------|---------|
-| `.ai.ui/START_HERE.md` | UI operator decision tree |
-| `.ai.ui/COHABITATION.md` | Boundary with Agent OS |
+| `/mnt/work/Projects/.ai.ui/START_HERE.md` | UI operator decision tree |
+| `/mnt/work/Projects/.ai.ui/COHABITATION.md` | Boundary with Agent OS |
 | `DOCS_UI_STACK.md` | Front-end stack |
-| `.ai.ui/standards/20260523-UI-CONVENTIONS.md` | UI conventions |
-| `.ai.ui/standards/20260523-SCREEN_SPEC_STANDARD.md` | Screen SPEC |
-| `.ai.ui/standards/20260523-COMPONENT_STANDARD.md` | Components |
-| `.ai.ui/standards/20260523-DESIGN_TOKENS_STANDARD.md` | Tokens |
-| `.ai.ui/standards/20260523-ACCESSIBILITY_STANDARD.md` | WCAG |
-| `.ai.ui/standards/20260523-FRONTEND_DIRECTORY_MAP.md` | UI directories |
+| `/mnt/work/Projects/.ai.ui/standards/20260523-UI-CONVENTIONS.md` | UI conventions |
+| `/mnt/work/Projects/.ai.ui/standards/20260523-SCREEN_SPEC_STANDARD.md` | Screen SPEC |
+| `/mnt/work/Projects/.ai.ui/standards/20260523-COMPONENT_STANDARD.md` | Components |
+| `/mnt/work/Projects/.ai.ui/standards/20260523-DESIGN_TOKENS_STANDARD.md` | Tokens |
+| `/mnt/work/Projects/.ai.ui/standards/20260523-ACCESSIBILITY_STANDARD.md` | WCAG |
+| `/mnt/work/Projects/.ai.ui/standards/20260523-FRONTEND_DIRECTORY_MAP.md` | UI directories |
 | `.work.ui/context/HANDOFF_UI.md` | UI handoff |
 | `.work.ui/plans/NEXT_UI.md` | UI iteration |
 
@@ -442,8 +493,8 @@ UI milestone work is not done until: UI lint/type/tests pass; `@ui-visual-verify
 | `{HANDOFF_UI}` | `.work.ui/context/HANDOFF_UI.md` |
 | `{UI_ITERATION_CARRIER}` | `.work.ui/plans/NEXT_UI.md` |
 | `{SCREEN_SPEC_ROOT}` | `.work.ui/screens/` |
-| `{UI_SKILLS_ROOT}` | `.ai.ui/skills/` |
-| `{UI_CONCEPTS_ROOT}` | `.ai.ui/concepts/` |
+| `{UI_SKILLS_ROOT}` | `/mnt/work/Projects/.ai.ui/skills/` |
+| `{UI_CONCEPTS_ROOT}` | `/mnt/work/Projects/.ai.ui/concepts/` |
 | `REPLACE:UI_APP_ROOT` | `web/` |
 | `REPLACE:UI_TOKENS_FILE` | `web/src/app/globals.css` |
 | `REPLACE:UI_TEST` | *not configured* |
@@ -474,7 +525,7 @@ UI milestone work is not done until: UI lint/type/tests pass; `@ui-visual-verify
 
 - `web/src/app/globals.css` (token file)
 - `web/next.config.ts`, `web/tsconfig.json` (framework config)
-- `.ai.ui/inputs/brand/` (reference — do not auto-edit)
+- `/mnt/work/Projects/.ai.ui/inputs/brand/` (reference — do not auto-edit)
 
 ### UI Design & implementation discipline
 

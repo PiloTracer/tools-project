@@ -26,7 +26,7 @@ Then in chat:
 
 ## What you get
 
-- **Skills** - `@session-control`, `@code-implementation`, `@plan-foundation`, … run the playbook (14 skills in total).
+- **Skills** - `@session-control`, `@code-implementation`, `@plan-foundation`, … run the playbook (18 skills in total).
 - **Standards** - binding contracts (CONVENTIONS, FEATURE_STANDARD, observability, security) keep agent output honest.
 - **`.work/`** - the project's memory: plans, SPECs, ADRs, `HANDOFF.md`, `NEXT.md`. Survives session boundaries.
 - **Gates** - `plan-master-ready`, `implementation-ready`, milestone verify; skip a step and the agent **stops** with a redirect.
@@ -170,7 +170,7 @@ Agent OS is a **gated pipeline**: each stage unlocks the next. Skills enforce th
 
 ### Skills at a glance
 
-All **14** skills live under [`skills/`](skills/README.md). Invoke as `@<skill-id>` plus a mode (e.g. `@plan-foundation status`).
+All **18** skills live under [`skills/`](skills/README.md). Invoke as `@<skill-id>` plus a mode (e.g. `@plan-foundation status`).
 
 | Skill | One line | Typical invoke |
 |-------|----------|----------------|
@@ -188,6 +188,8 @@ All **14** skills live under [`skills/`](skills/README.md). Invoke as `@<skill-i
 | **db-migration** | Idempotent numbered SQL scripts (no Alembic chain) | `init` · `create - <description>` · `run` · `status` · `verify` |
 | **dev-stack** | Generate or update isolated Docker `bin/start.sh` | `init` · `status` |
 | **process-router** | Read-only: “how do I…?” → right skill or guide | `- <question>` · `help` |
+| **ai-director** | Free-text orchestrator: routes to correct `.ai` skill chain | `- <free-text>` · `status` · `help` |
+| **x-director** | Cross-framework director: orchestrates `.ai` + `.ai.ui` + `.ai.biz` | `- <free-text>` · `status` · `help` |
 
 Gates between skills: [`skills/SKILL_DEPENDENCIES.md`](skills/SKILL_DEPENDENCIES.md).
 
@@ -272,6 +274,7 @@ The bird's-eye flow above is the conceptual map. Below is the **literal command 
 |--------|---------|
 | Where am I? | `@session-control status` |
 | How do I…? | `@process-router - <question>` |
+| Don't know which skill to use | `@ai-director - <describe what you want>` · `@x-director - <describe what you want>` (cross-framework) |
 | Stuck on process | [`START_HERE.md`](START_HERE.md) |
 | Dirty tree before commit | `@code-verify uncommitted` |
 | After you committed | `@code-verify last` |

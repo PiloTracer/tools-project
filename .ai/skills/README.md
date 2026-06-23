@@ -45,12 +45,14 @@ Use for **new** skills and for any **rename** (update `.cursorrules`, this READM
 | feature-spec | `feature-spec/` | Author, review, amend feature SPECs per FEATURE_STANDARD |
 | concept-run | `concept-run/` | Run MOD-01…MOD-06 concept prompts; attach output to PR/NEXT/SPEC |
 | project-bootstrap | `project-bootstrap/` | Bootstrap `.work/`, `.cursorrules`, `DOCS_TECH_STACK.md` from templates |
+| ai-director | `ai-director/` | **Orchestrator:** free-text request → optimal `.ai` skill chain; new skill gap detection |
+| x-director | `x-director/` | **Cross-framework director:** orchestrates `.ai` + `.ai.ui` + `.ai.biz` via directors |
 
 **Typical flow (greenfield):** `@project-bootstrap init` → `plan-foundation greenfield` → `certify plan-master-ready` → `plan-master greenfield` → `plan-master status` (implementation-ready) → `code-implementation plan` → `code-implementation start/continue/complete`.
 
 **Canonical verb vocabulary:** see [SKILL_DEPENDENCIES.md § Canonical command vocabulary](SKILL_DEPENDENCIES.md#canonical-command-vocabulary). Every skill uses `status` for read-only state, `init` for one-time setup, and so on - no skill invents bespoke verbs.
 
-**Shared engine docs (not skills):** [`SKILL_DEPENDENCIES.md`](SKILL_DEPENDENCIES.md) (gate graph) and [`probe-protocol.md`](probe-protocol.md) (the adaptive `probe` loop reused by `plan-foundation` and `plan-master`) are single-source-of-truth fragments that skills **link** rather than restate. They are files, not skill folders, so they are not counted in the 16-skill registry.
+**Shared engine docs (not skills):** [`SKILL_DEPENDENCIES.md`](SKILL_DEPENDENCIES.md) (gate graph) and [`probe-protocol.md`](probe-protocol.md) (the adaptive `probe` loop reused by `plan-foundation` and `plan-master`) are single-source-of-truth fragments that skills **link** rather than restate. They are files, not skill folders, so they are not counted in the 18-skill registry.
 
 **Skill prerequisites (gates):** [SKILL_DEPENDENCIES.md](SKILL_DEPENDENCIES.md) - which modes **stop** if an upstream step was skipped (e.g. `@plan-master greenfield` before `@plan-foundation certify plan-master-ready`).
 

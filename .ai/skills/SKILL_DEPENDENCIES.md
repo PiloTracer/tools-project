@@ -97,6 +97,12 @@ foundation-complete  →  plan-master-ready  →  implementation-ready
 | **dev-stack** `init` | User request / `docker-compose*.yml` present; brownfield gate refuses to silently overwrite existing `bin/start.sh` | - |
 | **dev-stack** `status` | - | Read-only |
 | **process-router** `route` / `help` | - | Read-only |
+| **ai-director** `- <free-text>` | `.ai/` framework present with valid `skills/README.md` registry; `{HANDOFF}` readable | Recommended: read `{HANDOFF}` + `{ITERATION_CARRIER}` for routing context |
+| **ai-director** `status` | - | Read-only |
+| **ai-director** `help` | - | Read-only |
+| **x-director** `- <free-text>` | At least one framework directory (`.ai/`, `.ai.ui`, `.ai.biz`) must exist; relevant HANDOFF files readable | Recommended: read all present framework HANDOFF files for routing context |
+| **x-director** `status` | - | Read-only |
+| **x-director** `help` | - | Read-only |
 
 ---
 
@@ -136,6 +142,10 @@ foundation-complete  →  plan-master-ready  →  implementation-ready
 | `@plan-repair master` | Not plan-master-ready (formal) | `@plan-repair brownfield` **or** `@plan-repair foundation` → `@plan-foundation certify` |
 | Legacy repo, no `.work/plans/` | No formal planning | `@plan-verify brownfield` → `@plan-repair brownfield` |
 | Plan gaps during code work | Wrong layer | `@plan-repair` / `@plan-master revise` (not `code-repair`) |
+| "I want to build something but don't know which skill" | Unsure which skill to use | `@ai-director - <describe what you want>` |
+| "I need UI work done" | UI work requires `.ai.ui` framework | `@ui-director` (via `.ai.ui` director) or `@x-director - <request>` |
+| "I need business strategy work" | Business work requires `.ai.biz` framework | `@biz-director` (via `.ai.biz` director) or `@x-director - <request>` |
+| Cross-framework request (e.g. full-stack feature) | Spans multiple frameworks | `@x-director - <request>` (coordinates across directors) |
 | Scope/NFRs/constraints vague; "do you understand the project?" | Understanding gap, not artifact gap | `@plan-foundation probe` (then `certify`) |
 | Plan has vague NFRs / unmapped FRs / ownerless risks | Plan-completeness gap | `@plan-master probe` → `@plan-master integrity` |
 
@@ -170,6 +180,8 @@ All skills use the same verbs where applicable. This keeps muscle memory portabl
 | `alignment` / `drift` | NEXT vs master plan consistency | plan-verify (read-only), plan-repair (fix) |
 | `run` | Execute (scripts / prompts) | db-migration, concept-run |
 | `show` | Read-only inspect of a specific record | plan-master *(alias: `task`)* |
+| `- <free-text>` | Free-text routing: parse intent → classify → execute skill chain | ai-director, x-director |
+| `help` | Display skill's purpose, registry, and invocation examples | ai-director, x-director |
 | `list` | Enumerate available items | concept-run |
 | `route` / `help` | Read-only Q&A | process-router |
 

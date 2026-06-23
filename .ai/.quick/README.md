@@ -7,6 +7,7 @@ Each file is a focused, one-page reference for a specific workflow pattern:
 
 | File | When to open |
 |------|--------------|
+| [`directors.md`](directors.md) | Free-text entry points — let `@ai-director` or `@x-director` route your request |
 | [`add-feature-workflow.md`](add-feature-workflow.md) | Taking a feature idea from intake through implementation |
 | [`explore-codebase.md`](explore-codebase.md) | Understanding how specific code behavior works — tracing logic, calculations, business rules |
 | [`brownfield-onboarding.md`](brownfield-onboarding.md) | First time working with an existing (non-greenfield) repo |
