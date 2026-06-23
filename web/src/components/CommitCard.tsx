@@ -61,7 +61,7 @@ export function CommitCard({ meta }: { meta: CommitMeta }) {
 }
 
 export function extractCommitMeta(
-  meta_json: Record<string, unknown> | null,
+  meta_json: Record<string, unknown> | null | undefined,
 ): CommitMeta | null {
   if (!meta_json) return null;
   const sha = meta_json.sha as string | undefined;
