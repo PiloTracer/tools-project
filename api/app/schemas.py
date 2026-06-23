@@ -661,6 +661,10 @@ class ProspectOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class ProspectStageChangeResponse(ProspectOut):
+    promoted_client: ClientOut | None = None
+
+
 class ProspectListResponse(BaseModel):
     items: list[ProspectOut]
 

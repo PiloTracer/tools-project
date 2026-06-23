@@ -21,10 +21,12 @@ from app.models.user import User
 from app.schemas import (
     TERMINAL_PIPELINE_STAGES,
     VALID_PIPELINE_STAGES,
+    ClientOut,
     ProspectCreate,
     ProspectListResponse,
     ProspectOut,
     ProspectStageChange,
+    ProspectStageChangeResponse,
     ProspectUpdate,
 )
 from app.services.pipeline_service import promote_prospect_to_client
@@ -128,7 +130,7 @@ async def delete_prospect(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@router.patch("/{prospect_id}/stage", response_model=ProspectOut)
+@router.patch("/{prospect_id}/stage", response_model=ProspectStageChangeResponse)
 async def transition_prospect_stage(
     prospect_id: uuid.UUID,
     body: ProspectStageChange,
@@ -158,23 +160,18 @@ async def transition_prospect_stage(
     target_idx = stage_index[target_stage]
 
     if target_stage == "lost":
-        # 'lost' is terminal and can be reached from any non-terminal stage.
         pass
     elif target_stage == "won":
-        # 'won' is terminal and must follow 'negotiating'.
         if current_stage != "negotiating":
             raise HTTPException(
                 status_code=422,
                 detail="Can only transition to 'won' from 'negotiating'",
             )
     elif target_idx < current_idx:
-        # Backward movement — allowed to any previous non-terminal stage.
         pass
     elif target_idx == current_idx + 1:
-        # Forward one step — standard progression.
         pass
     else:
-        # Skipping forward more than one step.
         raise HTTPException(
             status_code=422,
             detail=f"Cannot skip stages from '{current_stage}' to '{target_stage}'",
@@ -182,9 +179,16 @@ async def transition_prospect_stage(
 
     row.pipeline_stage = target_stage
 
+    promoted_client = None
     if target_stage == "won":
-        await promote_prospect_to_client(db, row)
+        client = await promote_prospect_to_client(db, row)
+        await db.flush()
+        await db.refresh(client)
+        promoted_client = ClientOut.model_validate(client)
 
     await db.commit()
     await db.refresh(row)
-    return ProspectOut.model_validate(row)
+    return ProspectStageChangeResponse(
+        **ProspectOut.model_validate(row).model_dump(),
+        promoted_client=promoted_client,
+    )

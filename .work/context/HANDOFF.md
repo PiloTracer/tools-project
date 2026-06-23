@@ -2,8 +2,8 @@
 
 **Date:** 2026-06-18
 
-**Closed:** 2026-06-20 — backup/restore overhaul: .tar.gz volumes only, no pg_dump
-**Updated:** 2026-06-20
+**Closed:** 2026-06-23 — prospect-to-client conversion UX: API returns promoted client, UI shows confirmation dialog with "View client" link; commit message readability policy
+**Updated:** 2026-06-23
 
 **Open:** (none — session closed)
 
@@ -157,6 +157,16 @@ All follow-ups are complete. The project has no open blocking work.
 | `api/app/routers/activities.py` | Auto-create `CommitSubjectRef` when `github_ref` present in activity |
 | Runtime verification | SPEC FR-5 cross-visibility verified with Alice + Bob (Umbrella Corp) |
 | `bin/start.sh` | Backup/restore overhaul: no pg_dump, .tar.gz volume-only backup; restore now removes+recreates volumes to overwrite existing data |
+
+## What this cycle produced (2026-06-23)
+
+| Artifact | Description |
+|----------|-------------|
+| `api/app/schemas.py` | Added `ProspectStageChangeResponse` with optional `promoted_client` field |
+| `api/app/routers/prospects.py` | Stage transition now returns created client on "won"; fixed flush order for server defaults |
+| `web/src/app/prospects/[id]/page.tsx` | Success dialog with "View client" link after prospect-to-client conversion |
+| `web/src/app/prospects/page.tsx` | Board view also shows promotion dialog after "won" transition |
+| `.cursorrules` | Added commit message readability rule: messages must be understandable by non-technical stakeholders |
 
 ## Where to read more
 

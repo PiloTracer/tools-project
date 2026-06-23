@@ -69,6 +69,8 @@ export default function ProspectDetailPage() {
   const [editNotes, setEditNotes] = useState("");
   const [editErr, setEditErr] = useState<string | null>(null);
 
+  const [promotedClient, setPromotedClient] = useState<{ id: string; name: string } | null>(null);
+
   const fetchProspect = async () => {
     setLoading(true);
     try {
@@ -101,7 +103,12 @@ export default function ProspectDetailPage() {
       toast(err.detail, "error");
       return;
     }
-    toast(prospect ? `Moved to ${STAGE_LABELS[stage] ?? stage}` : "Stage updated");
+    const data = await r.json();
+    if (data.promoted_client) {
+      setPromotedClient(data.promoted_client);
+    } else {
+      toast(prospect ? `Moved to ${STAGE_LABELS[stage] ?? stage}` : "Stage updated");
+    }
     fetchProspect();
   };
 
@@ -278,6 +285,31 @@ export default function ProspectDetailPage() {
           ) : null}
         </div>
       ) : null}
+
+      <Dialog
+        open={promotedClient !== null}
+        onClose={() => setPromotedClient(null)}
+        title="Prospect converted to client"
+        actions={
+          <>
+            <button type="button" className="btn btn-ghost" onClick={() => setPromotedClient(null)}>
+              Stay on prospect
+            </button>
+            <Link
+              href={`/clients/${promotedClient?.id}`}
+              className="btn btn-primary"
+              style={{ textDecoration: "none" }}
+              onClick={() => setPromotedClient(null)}
+            >
+              View client
+            </Link>
+          </>
+        }
+      >
+        <p className="text-sm">
+          <strong>{prospect.company_name}</strong> has been converted to a client.
+        </p>
+      </Dialog>
 
       <Dialog
         open={editing}

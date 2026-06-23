@@ -89,6 +89,7 @@ export default function ProspectsPage() {
   const [showEdit, setShowEdit] = useState<ProspectRow | null>(null);
   const [showDelete, setShowDelete] = useState<ProspectRow | null>(null);
   const [view, setView] = useState<"board" | "table">("table");
+  const [promotedClient, setPromotedClient] = useState<{ id: string; name: string } | null>(null);
 
   const [formName, setFormName] = useState("");
   const [formStage, setFormStage] = useState("target");
@@ -159,8 +160,13 @@ export default function ProspectsPage() {
       toast(err.detail, "error");
       return;
     }
+    const data = await r.json();
     const prospect = rows.find((p) => p.id === prospectId);
-    toast(`Moved ${prospect?.company_name ?? "prospect"} to ${STAGE_LABELS[newStage] ?? newStage}`);
+    if (data.promoted_client) {
+      setPromotedClient(data.promoted_client);
+    } else {
+      toast(`Moved ${prospect?.company_name ?? "prospect"} to ${STAGE_LABELS[newStage] ?? newStage}`);
+    }
     fetchRows({ stage: filterStage || undefined, source: filterSource || undefined });
   };
 
@@ -550,6 +556,30 @@ export default function ProspectsPage() {
         }
       >
         <p className="text-sm">Are you sure you want to delete <strong>{showDelete?.company_name}</strong>? This action cannot be undone.</p>
+      </Dialog>
+
+      <Dialog
+        open={promotedClient !== null}
+        onClose={() => setPromotedClient(null)}
+        title="Prospect converted to client"
+        actions={
+          <>
+            <button type="button" className="btn btn-ghost" onClick={() => setPromotedClient(null)}>
+              Stay on prospects
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => { router.push(`/clients/${promotedClient?.id}`); setPromotedClient(null); }}
+            >
+              View client
+            </button>
+          </>
+        }
+      >
+        <p className="text-sm">
+          <strong>{promotedClient?.name}</strong> has been converted to a client.
+        </p>
       </Dialog>
     </div>
   );

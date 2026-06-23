@@ -430,6 +430,7 @@ If OpenSpec is not used, delete this section or replace with your team's proposa
 - Valid types: `feat`, `fix`, `refactor`, `docs`, `chore`, `style`, `test`.
 - Example (correct): `fix: handle empty payload on webhook retry`
 - Example (wrong): `"fix(webhook): empty payload"`
+- **Readable by all audiences:** Every commit message must be understandable by non-technical stakeholders, clients, and project sponsors. Avoid implementation jargon, internal codenames, and framework-specific terms. Describe what changed and why in plain language. If the change requires a technical explanation, put it in the commit body; keep the subject line accessible to a non-technical reader.
 
 ---
 
