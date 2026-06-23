@@ -3,6 +3,7 @@ import { apiServerFetch, fetchMe } from "@/shared/server/session";
 import { redirect, notFound } from "next/navigation";
 
 import { ClientTaskCreateForm } from "./ClientTaskCreateForm";
+import { ActivityList } from "./ActivityList";
 
 type ProjectRow = {
   id: string;
@@ -139,41 +140,7 @@ export default async function ClientProjectPage({
         {activities.length === 0 ? (
           <p className="muted">No public activity yet.</p>
         ) : (
-          <ul className="stack-sm" style={{ listStyle: "none", padding: 0 }}>
-            {activities.map((activity) => (
-              <li key={activity.id} className="card">
-                <p className="muted text-sm" suppressHydrationWarning>
-                  {activity.kind === "github_commit" ? (
-                    <span className="pill" style={{ fontSize: "0.65rem", background: "var(--accent, #0366d6)", color: "var(--on-accent, #fff)" }}>commit</span>
-                  ) : (
-                    <span>{activity.kind}</span>
-                  )}
-                  <span> · {new Date(activity.created_at).toLocaleString()}</span>
-                  {activity.actor_email ? <span> · {activity.actor_email}</span> : null}
-                </p>
-                {activity.kind === "github_commit" && activity.meta_json ? (
-                  <div>
-                    <a
-                      href={activity.meta_json.html_url as string}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}
-                    >
-                      <code style={{ fontSize: "0.85rem" }}>{(activity.meta_json.sha as string)?.slice(0, 7)}</code>
-                    </a>
-                    <span className="muted" style={{ fontSize: "0.8rem", marginLeft: "0.5rem" }}>
-                      {activity.meta_json.owner as string}/{activity.meta_json.repo as string}
-                    </span>
-                    <p style={{ margin: "0.2rem 0 0", whiteSpace: "pre-wrap", fontSize: "0.9rem" }}>
-                      {activity.meta_json.message_preview as string}
-                    </p>
-                  </div>
-                ) : (
-                  <p style={{ margin: "0.35rem 0 0", whiteSpace: "pre-wrap" }}>{activity.body}</p>
-                )}
-              </li>
-            ))}
-          </ul>
+          <ActivityList activities={activities} />
         )}
       </section>
     </div>

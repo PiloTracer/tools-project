@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
+import { CommitCard, extractCommitMeta } from "@/components/CommitCard";
 import { CommitPicker } from "@/components/CommitPicker";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { SubjectPicker } from "@/components/SubjectPicker";
@@ -464,23 +465,8 @@ export function ActivityFeed({
                       </span>
                     ) : null}
                   </div>
-                  {a.kind === "github_commit" && a.meta_json ? (
-                    <div style={{ margin: "0.35rem 0 0" }}>
-                      <a
-                        href={a.meta_json.html_url as string}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}
-                      >
-                        <code style={{ fontSize: "0.85rem" }}>{(a.meta_json.sha as string)?.slice(0, 7)}</code>
-                      </a>
-                      <span className="muted" style={{ fontSize: "0.8rem", marginLeft: "0.5rem" }}>
-                        {a.meta_json.owner as string}/{a.meta_json.repo as string}
-                      </span>
-                      <p style={{ margin: "0.2rem 0 0", whiteSpace: "pre-wrap", fontSize: "0.9rem" }}>
-                        {a.meta_json.message_preview as string}
-                      </p>
-                    </div>
+                  {a.kind === "github_commit" ? (
+                    <CommitCard meta={extractCommitMeta(a.meta_json)!} />
                   ) : (
                     <p style={{ margin: "0.35rem 0 0", whiteSpace: "pre-wrap" }}>{a.body}</p>
                   )}

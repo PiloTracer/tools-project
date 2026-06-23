@@ -56,6 +56,7 @@ async def github_poll_loop() -> None:
                                     "repo": result["repo"],
                                     "html_url": c["html_url"],
                                     "message_preview": preview,
+                                    "full_message": c["message"],
                                 },
                                 is_internal=False,
                             )
