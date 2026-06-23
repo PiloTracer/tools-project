@@ -39,10 +39,7 @@ async def github_poll_loop() -> None:
                             if not c.get("is_new"):
                                 continue
                             preview = (c["message"] or "").split("\n")[0][:100]
-                            body_md = (
-                                f"[`{c['sha'][:7]}`]({c['html_url']}) "
-                                f"**{result['owner']}/{result['repo']}** {preview}"
-                            )
+                            body_md = f"{c['sha'][:7]} {result['owner']}/{result['repo']} {preview}"
                             await write_activity(
                                 db=s2,
                                 project_id=link.project_id,
@@ -60,7 +57,7 @@ async def github_poll_loop() -> None:
                                     "html_url": c["html_url"],
                                     "message_preview": preview,
                                 },
-                                is_internal=True,
+                                is_internal=False,
                             )
                         await s2.commit()
                     except Exception:
