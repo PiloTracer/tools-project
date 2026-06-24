@@ -6,6 +6,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import select, func
+from sqlalchemy.dialects.postgresql import Date
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
@@ -73,12 +74,21 @@ async def pipeline_stats(
     total_terminal = stage_map["won"]["count"] + stage_map["lost"]["count"]
     conversion_rate = round(stage_map["won"]["count"] / total_terminal, 4) if total_terminal > 0 else None
 
+    today = datetime.now(timezone.utc).date()
+    needs_attention_count = sum(
+        1 for p in prospects
+        if p.next_action_date is not None
+        and p.next_action_date <= today
+        and p.pipeline_stage not in TERMINAL_STAGES
+    )
+
     return PipelineStatsOut(
         by_stage=by_stage,
         total_value=round(total_value, 2),
         won_value=round(won_amt, 2),
         lost_value=round(lost_amt, 2),
         conversion_rate=conversion_rate,
+        needs_attention_count=needs_attention_count,
     )
 
 

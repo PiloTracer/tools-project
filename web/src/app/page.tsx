@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { DashboardCrm } from "@/app/_components/DashboardCrm";
 import { DashboardSystem } from "@/app/_components/DashboardSystem";
 import { DashboardWorkspace } from "@/app/_components/DashboardWorkspace";
 import { apiServerFetch, fetchMe } from "@/shared/server/session";
@@ -147,6 +148,8 @@ export default async function HomePage() {
           showUserAdmin={cfg.local_enabled && !!me?.is_superuser}
         />
       </div>
+
+      {me ? <DashboardCrm /> : null}
 
       {!me ? (
         <p className="muted text-sm">

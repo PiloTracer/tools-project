@@ -871,6 +871,7 @@ class PipelineStatsOut(BaseModel):
     won_value: float
     lost_value: float
     conversion_rate: float | None
+    needs_attention_count: int = 0
 
 
 class GlobalStatsOut(BaseModel):
