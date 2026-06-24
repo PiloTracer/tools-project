@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 
 import { apiServerFetch, fetchMe } from "@/shared/server/session";
 
-import { ActivityComposer, ActivityFeed, ActivityStreamHint } from "./ActivityClient";
+import { ActivityComposer, ActivityFeed, ActivityStreamHint, GithubBackfillSync } from "./ActivityClient";
 import { ProjectSubNav } from "../ProjectSubNav";
 
 type ActivityRow = {
@@ -69,6 +69,7 @@ export default async function ProjectActivityPage({
       </div>
       <div className="card wide stack">
         <h2 style={{ marginTop: 0 }}>Feed</h2>
+        {canPost ? <GithubBackfillSync projectId={id} /> : null}
         <ActivityStreamHint projectId={id} />
         <ActivityFeed initial={items} projectId={id} canPost={canPost} />
       </div>

@@ -168,6 +168,30 @@ All follow-ups are complete. The project has no open blocking work.
 | `web/src/app/prospects/page.tsx` | Board view also shows promotion dialog after "won" transition |
 | `.cursorrules` | Added commit message readability rule: messages must be understandable by non-technical stakeholders |
 
+## Cross-framework action (@x-director)
+**Date:** 2026-06-23
+**Request:** "verify this is implemented properly in a very user-friendly/intuitive way for the user!!!!! only prospects in stage 'Won' can be promoted to Client... this must be fully reliable!"
+**Frameworks involved:** .ai, .ai.ui
+**Classified bucket(s):** cross-framework (engineering + ui)
+**Executed:**
+1. @ai-director - "Add POST /v1/prospects/{id}/promote endpoint" → Endpoint created with guards: 422 if not won, 409 if already a client. `client_id` added to `ProspectOut` schema so frontend knows whether promotion is available.
+2. @ui-director - "Add 'Convert to client' button on detail page + table dropdown" → Detail page shows card + dropdown action when stage==won and !client_id. Table dropdown shows "Convert to client" action for same condition.
+**Coordination notes:** API endpoint returns `ClientOut`; frontend reuses existing `promotedClient` success dialog with "View client" link. Both views refresh after promotion.
+**Blockers:** none
+
+## Cross-framework action (@x-director)
+**Date:** 2026-06-23
+**Request:** "under 'http://localhost:18513/projects/{id}/activity', in the 'Feed' section, an administrator is able to update github activity for the last 'n' days, add this feature!"
+**Frameworks involved:** .ai, .ai.ui
+**Classified bucket(s):** cross-framework (engineering + ui)
+**Executed:**
+1. @ai-director - "Add POST /v1/projects/{id}/github/sync-backfill endpoint + modify sync_github_link to accept since parameter" → New endpoint iterates all links for a project and syncs with GitHub's `since` filter. Validates `since_days` (1-365). Returns per-link results.
+2. @ui-director - "Add GithubBackfillSync component to activity Feed section" → Input for days + "Re-sync GitHub" button. Shown only to admin users (canPost role). Displays toast with per-link sync results.
+**Coordination notes:** `sync_github_link` now accepts optional `since: datetime | None`. GitHub API `?since=` param reduces payload to only commits after the cutoff.
+**Blockers:** none
+
+---
+
 ## Where to read more
 
 | Doc | Role |

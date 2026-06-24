@@ -285,6 +285,65 @@ export function ActivityComposer({
   );
 }
 
+export function GithubBackfillSync({ projectId }: { projectId: string }) {
+  const router = useRouter();
+  const [days, setDays] = useState(30);
+  const [busy, setBusy] = useState(false);
+
+  const handleSync = async () => {
+    setBusy(true);
+    const r = await fetch(`/api/projects/${projectId}/github/sync-backfill`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ since_days: days }),
+    });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({ detail: "Sync failed" }));
+      toast(err.detail, "error");
+      setBusy(false);
+      return;
+    }
+    const data = await r.json() as { results: { owner: string; repo: string; upserted?: number; error?: string }[] };
+    const ok = data.results.filter((r) => r.upserted !== undefined);
+    const fail = data.results.filter((r) => r.error);
+    if (ok.length) {
+      toast(`Synced ${ok.map((r) => `${r.owner}/${r.repo} (${r.upserted} commits)`).join(", ")}`, "success");
+    }
+    if (fail.length) {
+      toast(`Failed: ${fail.map((r) => `${r.owner}/${r.repo}: ${r.error}`).join(", ")}`, "error");
+    }
+    setBusy(false);
+    router.refresh();
+  };
+
+  return (
+    <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", marginTop: "0.5rem" }}>
+      <label className="field" style={{ margin: 0, flexDirection: "row", alignItems: "center", gap: "0.35rem" }}>
+        <span className="label text-sm" style={{ margin: 0 }}>Re-sync last</span>
+        <input
+          className="input"
+          type="number"
+          min={1}
+          max={365}
+          value={days}
+          onChange={(e) => setDays(parseInt(e.target.value) || 30)}
+          style={{ width: "60px", fontSize: "0.85rem", padding: "0.2rem 0.4rem" }}
+          disabled={busy}
+        />
+        <span className="text-sm muted">days of GitHub commits</span>
+      </label>
+      <button
+        className="btn btn-sm btn-secondary"
+        onClick={handleSync}
+        disabled={busy}
+        style={{ whiteSpace: "nowrap" }}
+      >
+        {busy ? "Syncing…" : "Re-sync GitHub"}
+      </button>
+    </div>
+  );
+}
+
 export function ActivityStreamHint({ projectId }: { projectId: string }) {
   const [last, setLast] = useState<{ id: string | null; kind?: string; subject_type?: string }>({ id: null });
   const esRef = useRef<EventSource | null>(null);

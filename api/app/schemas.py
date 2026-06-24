@@ -654,6 +654,7 @@ class ProspectOut(BaseModel):
     next_action: str | None = None
     next_action_date: date | None = None
     notes: str | None = None
+    client_id: uuid.UUID | None = None
     created_by: uuid.UUID
     created_at: datetime
     updated_at: datetime

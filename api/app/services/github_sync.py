@@ -44,8 +44,14 @@ def _parse_committed_at(commit_blob: dict[str, Any]) -> datetime:
     return datetime.now(timezone.utc)
 
 
-async def sync_github_link(db: AsyncSession, link_id: uuid.UUID) -> dict[str, int | str | None]:
-    """Pull latest commits for one link; upsert rows with required html_url."""
+async def sync_github_link(db: AsyncSession, link_id: uuid.UUID, since: datetime | None = None) -> dict[str, int | str | None]:
+    """Pull latest commits for one link; upsert rows with required html_url.
+
+    Args:
+        db: active async session.
+        link_id: the github link to sync.
+        since: optional datetime cutoff — only commits AFTER this time are fetched.
+    """
     link = await db.get(GithubLink, link_id)
     if link is None:
         raise ValueError("github link not found")
@@ -62,18 +68,31 @@ async def sync_github_link(db: AsyncSession, link_id: uuid.UUID) -> dict[str, in
         "Authorization": f"Bearer {token}",
         "X-GitHub-Api-Version": "2022-11-28",
     }
+    params: dict[str, Any] = {"per_page": per_page}
+    if since is not None:
+        params["since"] = since.isoformat()
 
+    all_items: list[dict[str, Any]] = []
+    max_pages = 10
     async with httpx.AsyncClient(timeout=45.0) as client:
-        resp = await client.get(url, headers=headers, params={"per_page": per_page})
-        if resp.status_code == 401:
-            raise PermissionError("GitHub rejected the token (401)")
-        if resp.status_code == 404:
-            raise FileNotFoundError(f"GitHub repo not found: {owner}/{repo}")
-        resp.raise_for_status()
-        items = resp.json()
+        page = 1
+        while page <= max_pages:
+            params["page"] = page
+            resp = await client.get(url, headers=headers, params=params)
+            if resp.status_code == 401:
+                raise PermissionError("GitHub rejected the token (401)")
+            if resp.status_code == 404:
+                raise FileNotFoundError(f"GitHub repo not found: {owner}/{repo}")
+            resp.raise_for_status()
+            items = resp.json()
+            if not isinstance(items, list):
+                raise ValueError("Unexpected GitHub API response")
+            all_items.extend(items)
+            if len(items) < per_page:
+                break
+            page += 1
 
-    if not isinstance(items, list):
-        raise ValueError("Unexpected GitHub API response")
+    items = all_items
 
     existing_shas: set[str] = set()
     rows = await db.scalars(

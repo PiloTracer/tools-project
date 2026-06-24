@@ -45,6 +45,7 @@ type ProspectRow = {
   next_action: string | null;
   next_action_date: string | null;
   notes: string | null;
+  client_id: string | null;
   created_at: string;
 };
 
@@ -131,6 +132,18 @@ export default function ProspectsPage() {
   const filtered = rows.filter((r) =>
     !search || r.company_name.toLowerCase().includes(search.toLowerCase())
   );
+
+  const handlePromote = async (prospect: ProspectRow) => {
+    const r = await fetch(`/api/prospects/${prospect.id}/promote`, { method: "POST" });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({ detail: "Promotion failed" }));
+      toast(err.detail, "error");
+      return;
+    }
+    const client = await r.json();
+    setPromotedClient(client);
+    fetchRows({ stage: filterStage || undefined, source: filterSource || undefined });
+  };
 
   const handleAdvanceStage = async (prospect: ProspectRow) => {
     const next = getNextStage(prospect.pipeline_stage);
@@ -319,9 +332,14 @@ export default function ProspectsPage() {
             <DropdownItem onClick={() => handleAdvanceStage(r)}>
               Advance to {STAGE_LABELS[getNextStage(r.pipeline_stage) ?? ""] ?? getNextStage(r.pipeline_stage)}
             </DropdownItem>
-          ) : (
+          ) : null}
+          {r.pipeline_stage === "won" && !r.client_id ? (
+            <DropdownItem onClick={() => handlePromote(r)}>
+              Convert to client
+            </DropdownItem>
+          ) : TERMINAL_STAGES.has(r.pipeline_stage) ? (
             <DropdownItem disabled>Stage is terminal</DropdownItem>
-          )}
+          ) : null}
           <DropdownItem onClick={() => openEdit(r)}>Edit</DropdownItem>
           <DropdownItem onClick={() => { setShowDelete(r); }} danger>Delete</DropdownItem>
         </DropdownMenu>

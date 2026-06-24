@@ -31,6 +31,20 @@ from app.schemas import (
 )
 from app.services.pipeline_service import promote_prospect_to_client
 
+
+async def _enrich_client_id(db, prospect) -> uuid.UUID | None:
+    """Look up the client_id for a given prospect, if any."""
+    return await db.scalar(select(Client.id).where(Client.prospect_id == prospect.id))
+
+
+async def _enrich_list_client_ids(db, prospects: list[Prospect]) -> dict[uuid.UUID, uuid.UUID | None]:
+    """Batch-load client_ids for a list of prospects. Returns a dict of prospect_id → client_id."""
+    ids = [p.id for p in prospects]
+    if not ids:
+        return {}
+    rows = (await db.execute(select(Client.prospect_id, Client.id).where(Client.prospect_id.in_(ids)))).all()
+    return {r.prospect_id: r.id for r in rows}
+
 router = APIRouter(prefix="/v1/prospects", tags=["prospects"])
 
 
@@ -53,7 +67,11 @@ async def list_prospects(
         q = q.where(Prospect.created_by == created_by)
     result = await db.scalars(q)
     rows = list(result.all())
-    return ProspectListResponse(items=[ProspectOut.model_validate(r) for r in rows])
+    client_map = await _enrich_list_client_ids(db, rows)
+    return ProspectListResponse(items=[
+        ProspectOut.model_validate(r).model_copy(update={"client_id": client_map.get(r.id)})
+        for r in rows
+    ])
 
 
 @router.post("", response_model=ProspectOut, status_code=status.HTTP_201_CREATED)
@@ -86,7 +104,8 @@ async def get_prospect(
     row = await db.get(Prospect, prospect_id)
     if not row:
         raise HTTPException(status_code=404, detail="Prospect not found")
-    return ProspectOut.model_validate(row)
+    client_id = await _enrich_client_id(db, row)
+    return ProspectOut.model_validate(row).model_copy(update={"client_id": client_id})
 
 
 @router.patch("/{prospect_id}", response_model=ProspectOut)
@@ -188,7 +207,42 @@ async def transition_prospect_stage(
 
     await db.commit()
     await db.refresh(row)
+    client_id = await _enrich_client_id(db, row)
     return ProspectStageChangeResponse(
-        **ProspectOut.model_validate(row).model_dump(),
+        **ProspectOut.model_validate(row).model_copy(update={"client_id": client_id}).model_dump(),
         promoted_client=promoted_client,
     )
+
+
+@router.post("/{prospect_id}/promote", response_model=ClientOut)
+async def promote_prospect(
+    prospect_id: uuid.UUID,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Promote a won prospect to a client.
+
+    Only works when:
+      - prospect is in 'won' stage
+      - no client record already exists for this prospect
+    Returns the newly created Client record.
+    """
+    row = await db.get(Prospect, prospect_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Prospect not found")
+    if row.pipeline_stage != "won":
+        raise HTTPException(
+            status_code=422,
+            detail="Only prospects in 'Won' stage can be promoted to client",
+        )
+    existing_client_id = await _enrich_client_id(db, row)
+    if existing_client_id:
+        raise HTTPException(
+            status_code=409,
+            detail="This prospect already has a client record",
+        )
+    client = await promote_prospect_to_client(db, row)
+    await db.flush()
+    await db.refresh(client)
+    await db.commit()
+    return ClientOut.model_validate(client)

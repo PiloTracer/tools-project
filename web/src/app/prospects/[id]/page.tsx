@@ -36,6 +36,7 @@ type ProspectDetail = {
   next_action: string | null;
   next_action_date: string | null;
   notes: string | null;
+  client_id: string | null;
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -146,6 +147,18 @@ export default function ProspectDetailPage() {
     router.push("/prospects");
   };
 
+  const handlePromote = async () => {
+    const r = await fetch(`/api/prospects/${id}/promote`, { method: "POST" });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({ detail: "Promotion failed" }));
+      toast(err.detail, "error");
+      return;
+    }
+    const client = await r.json();
+    setPromotedClient(client);
+    fetchProspect();
+  };
+
   if (loading) {
     return (
       <div className="page-inner">
@@ -204,6 +217,11 @@ export default function ProspectDetailPage() {
             {prospect.pipeline_stage === "negotiating" ? (
               <DropdownItem onClick={() => handleStageTransition("won")}>
                 Mark as won
+              </DropdownItem>
+            ) : null}
+            {prospect.pipeline_stage === "won" && !prospect.client_id ? (
+              <DropdownItem onClick={handlePromote}>
+                Convert to client
               </DropdownItem>
             ) : null}
             {!TERMINAL_STAGES.has(prospect.pipeline_stage) ? (
@@ -283,6 +301,18 @@ export default function ProspectDetailPage() {
               Advance to {STAGE_LABELS[nextStage]}
             </button>
           ) : null}
+        </div>
+      ) : null}
+
+      {prospect.pipeline_stage === "won" && !prospect.client_id ? (
+        <div className="card" style={{ maxWidth: "700px" }}>
+          <h2 style={{ marginBottom: "0.5rem" }}>Conversion</h2>
+          <p className="text-sm muted" style={{ margin: "0 0 0.75rem" }}>
+            This prospect has been marked as won but has not been promoted to a client yet.
+          </p>
+          <button className="btn btn-primary" onClick={handlePromote}>
+            Convert to client
+          </button>
         </div>
       ) : null}
 

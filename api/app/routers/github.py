@@ -15,6 +15,7 @@ from sqlalchemy.orm import joinedload
 
 from app.db import get_db
 from app.deps import get_current_user
+from app.models.activity import Activity
 from app.models.github_commit import GithubCommit
 from app.models.github_link import GithubLink
 from app.models.project import Project
@@ -26,9 +27,12 @@ from app.schemas import (
     GithubLinkOut,
     GithubSyncResult,
 )
+from app.services.activity_writer import write_activity
 from app.services.github_sync import sync_github_link
 from app.services.github_token_crypto import encrypt_github_token
 from app.services.project_access import can_edit_project_meta, require_project_access
+
+from datetime import timedelta
 
 log = logging.getLogger(__name__)
 
@@ -189,6 +193,99 @@ async def sync_github_link_route(
         owner=str(out["owner"]),
         repo=str(out["repo"]),
     )
+
+
+@router.post("/sync-backfill")
+async def sync_backfill(
+    project_id: uuid.UUID,
+    body: dict[str, object],
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Re-sync all GitHub links for this project, looking back N days.
+
+    Request body: { "since_days": 30 }
+    Only owners and maintainers can trigger a backfill sync.
+    Returns per-link results.
+    """
+    acc = await require_project_access(db, user, project_id)
+    if not can_edit_project_meta(acc.role):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+
+    since_days = body.get("since_days", 30)
+    if not isinstance(since_days, int) or since_days < 1 or since_days > 365:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail="since_days must be an integer between 1 and 365")
+
+    cutoff = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=since_days)
+
+    links = (await db.scalars(
+        select(GithubLink).where(GithubLink.project_id == project_id)
+    )).all()
+
+    if not links:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="No GitHub links configured for this project")
+
+    results: list[dict[str, object]] = []
+    for link in links:
+        try:
+            out = await sync_github_link(db, link.id, since=cutoff)
+            commits = out.get("commits", [])
+            shas = [c["sha"] for c in commits if isinstance(c.get("sha"), str)]
+
+            if shas:
+                existing = set()
+                for row in await db.scalars(
+                    select(Activity).where(
+                        Activity.kind == "github_commit",
+                        Activity.meta_json["sha"].as_string().in_(shas),
+                    )
+                ):
+                    sha = (row.meta_json or {}).get("sha")
+                    if isinstance(sha, str):
+                        existing.add(sha)
+
+                for c in commits:
+                    sha = c.get("sha")
+                    if not isinstance(sha, str) or sha in existing:
+                        continue
+                    preview = (c["message"] or "").split("\n")[0][:100]
+                    body_md = f"{sha[:7]} {out['owner']}/{out['repo']} {preview}"
+                    await write_activity(
+                        db=db,
+                        project_id=link.project_id,
+                        subject_type="project",
+                        subject_id=link.project_id,
+                        kind="github_commit",
+                        actor_id=None,
+                        body=body_md,
+                        meta_json={
+                            "link_id": str(link.id),
+                            "commit_id": sha,
+                            "sha": sha,
+                            "owner": out["owner"],
+                            "repo": out["repo"],
+                            "html_url": c["html_url"],
+                            "message_preview": preview,
+                            "full_message": c["message"],
+                        },
+                        is_internal=False,
+                    )
+
+            await db.commit()
+            results.append({
+                "owner": out["owner"],
+                "repo": out["repo"],
+                "upserted": int(out["upserted"]),
+            })
+        except PermissionError as e:
+            await db.rollback()
+            results.append({"owner": link.owner, "repo": link.repo, "error": str(e)})
+        except Exception as e:
+            log.exception("backfill sync failed for %s/%s", link.owner, link.repo)
+            await db.rollback()
+            results.append({"owner": link.owner, "repo": link.repo, "error": str(e)})
+
+    return {"results": results}
 
 
 @router.get("/commits", response_model=GithubCommitListResponse)
