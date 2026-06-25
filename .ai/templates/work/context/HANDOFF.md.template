@@ -25,7 +25,7 @@
 5. Read `.work/plans/NEXT.md`.
 6. Read `.work/plans/ASSUMPTIONS.md`, `RISK_REGISTRY.md`, `UNKNOWNS.md`.
 
-End with **`@session-control close`** (add `commit` / `commit push` only when requested).
+End with **`@session-control close`** (add `commit` / `commit push` only when requested). For mid-session checkpoints use **`@session-control commit`** or **`@session-control commit push`** (no close).
 
 ### Conditional reads (customize per project)
 

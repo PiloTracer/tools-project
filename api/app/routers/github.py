@@ -29,6 +29,7 @@ from app.schemas import (
 )
 from app.services.activity_writer import write_activity
 from app.services.github_sync import sync_github_link
+from app.services.github_task_registry import empty_registry, fetch_registry
 from app.services.github_token_crypto import encrypt_github_token
 from app.services.project_access import can_edit_project_meta, require_project_access
 
@@ -192,6 +193,7 @@ async def sync_github_link_route(
         upserted=int(out["upserted"]),
         owner=str(out["owner"]),
         repo=str(out["repo"]),
+        linked_refs=int(out.get("linked_refs") or 0),
     )
 
 
@@ -276,6 +278,7 @@ async def sync_backfill(
                 "owner": out["owner"],
                 "repo": out["repo"],
                 "upserted": int(out["upserted"]),
+                "linked_refs": int(out.get("linked_refs") or 0),
             })
         except PermissionError as e:
             await db.rollback()
@@ -320,3 +323,25 @@ async def list_github_commits(
     result = await db.execute(stmt)
     items = [_to_commit_summary(c, project_id, pname) for c, pname in result.all()]
     return GithubCommitListResponse(items=items)
+
+
+@router.get("/task-registry", response_model=dict)
+async def get_task_registry(
+    project_id: uuid.UUID,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Return the task/ticket registry from GitHub (.github/task-registry.json).
+
+    The registry contains all tracked tasks and tickets with their refs,
+    titles, and statuses. The AI queries this to discover the correct
+    task/ticket ref for commit messages.
+
+    Returns an empty registry if the feature is disabled or GitHub is
+    unreachable — never blocks the caller.
+    """
+    await require_project_access(db, user, project_id)
+    registry = await fetch_registry(db, project_id)
+    if registry is None:
+        return empty_registry()
+    return registry

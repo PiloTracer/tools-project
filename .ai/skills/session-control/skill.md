@@ -2,9 +2,11 @@
 name: session-control
 description: >-
   Open or close an AI working session with verified context load, HANDOFF and NEXT
-  updates, and optional git commit/push. Use when the user says session-control start,
-  session-control close, @session-control start, close commit, or close commit push.
-  Never commits unless the close invocation includes commit. On close commit, MUST run
+  updates, and optional git commit/push. Also supports standalone commit/push
+  without closing (commit task ref, git add + git commit + git push, no
+  HANDOFF/NEXT update). Use when the user says session-control start, session-control
+  close, @session-control start, close commit, close commit push, commit, or commit push.
+  Never commits unless the invocation includes commit. On commit, MUST run
   git add + git commit in the shell for all safe dirty paths (not HANDOFF-only).
 ---
 
@@ -20,9 +22,10 @@ Bookend AI work sessions so the next chat (or human) can resume without guessing
 
 **Hard rules:**
 
-- **Default close:** never `git commit` or `git push`. Only when close invocation includes **`commit`** and/or **`push`** (see [Parse invocation](#parse-invocation)).
-- **`close commit` / `close commit push`:** **MUST** run `git add` + `git commit` in the shell (see [C4b](#c4b--git-actions-modifiers-only)). A dirty tree after close with only a draft message is **fail**.
+- **Default close / default commit:** never `git commit` or `git push`. Only when invocation includes **`commit`** and/or **`push`** (see [Parse invocation](#parse-invocation)).
+- **`close commit` / `close commit push` / `commit` / `commit push`:** **MUST** run `git add` + `git commit` in the shell (see [C4b](#c4b--git-actions-modifiers-only) / [Commit protocol](#commit-protocol)). A dirty tree after close with only a draft message is **fail**.
 - **Always** show the commit message - drafted, used for commit, or `none - working tree clean`.
+- **`commit` / `commit push` (standalone):** run git add + commit + push **without** updating HANDOFF or NEXT. Session stays open. Useful for mid-session checkpoints.
 - Never edit files marked **archived** or **do not edit** in HANDOFF.
 - Never paste secrets from `.env`, `credentials/`, or tokens into chat or HANDOFF.
 - **`{PROMPTS_ROOT}/initial.md` is user-owned.** Do not read or create it on start/close unless the user explicitly names that path in the same invocation.
@@ -46,8 +49,8 @@ Resolve from **repository root** (see [`SKILL_DEPENDENCIES.md`](../SKILL_DEPENDE
 
 Normalize the user message to **verb** + optional **modifiers**. The word `session` is **optional** (legacy alias).
 
-| User says | Verb | Git on close |
-|-----------|------|----------------|
+| User says | Verb | Git action |
+|-----------|------|------------|
 | `@session-control` **start** | start | - |
 | `session-control` **start** - \<goal\> | start | - |
 | `@session-control` **close** | close | draft message only |
@@ -56,6 +59,8 @@ Normalize the user message to **verb** + optional **modifiers**. The word `sessi
 | `session-control` **close** **commit** **scoped** | close | commit only HANDOFF + NEXT + paths listed in close report |
 | `session-control` **close** **commit** **push** | close | commit then push |
 | `session-control` **close** **push** | close | treat as **commit push** (`push` requires commit) |
+| `session-control` **commit** | commit | commit all safe dirty paths (default scope), NO close |
+| `session-control` **commit** **push** | commit | commit then push, NO close |
 | `@session-control` **status** | status | - |
 
 **Aliases (same verb):** `begin`, `open` → start; `end`, `handoff` → close.
@@ -63,6 +68,8 @@ Normalize the user message to **verb** + optional **modifiers**. The word `sessi
 **Goal text:** anything after `-` or on a new line after `start` (not the words `commit`/`push`/`scoped`).
 
 **Commit scope:** default is **full safe tree** (what humans expect from `git add` of their session work). Use **`commit scoped`** only when the user wants bookend files only.
+
+**Standalone commit:** `commit` / `commit push` run the same git steps as `close commit` / `close commit push` but **skip** HANDOFF and NEXT updates. The session remains open.
 
 ---
 
@@ -72,6 +79,7 @@ Normalize the user message to **verb** + optional **modifiers**. The word `sessi
 |------|----------|--------|
 | **start** | `start`, optional goal | [Start protocol](#start-protocol) |
 | **close** | `close` [commit] [push] | [Close protocol](#close-protocol) |
+| **commit** | `commit` [push] | [Commit protocol](#commit-protocol) - git only; no HANDOFF/NEXT writes |
 | **status** | `status` | [Status protocol](#status-protocol) - compact snapshot; no HANDOFF writes |
 
 If the user gives a **task goal** with start (e.g. `start - work on payments SPEC`), capture it in the start report and use HANDOFF's conditional reading table.
@@ -148,6 +156,29 @@ If the session goal mentions coding, M1, implementation, or a feature task:
 2. If **implementation-ready: no** and no HANDOFF waiver for the named milestone → note in start report under **### Readiness (do not implement yet)** with redirect: `@plan-master status` → approve plan, or add HANDOFF waiver, or `@code-implementation plan - M{N}` only after prerequisites pass.
 3. Do **not** invoke `@code-implementation start` from session-control - route the user to that skill after gates pass.
 
+### S4c - GitHub task registry (optional discovery)
+
+The AI MAY query the project's task registry endpoint to discover the current
+task/ticket for this session. The endpoint returns an empty registry if the
+feature is disabled or no GitHub link is configured — so the query is always
+safe to attempt.
+
+```bash
+curl -s -H "Authorization: Bearer <JWT>" \
+  "${API_BASE_URL:-http://localhost:8300}/v1/projects/{project_id}/github/task-registry"
+```
+
+Use `{project_id}` from HANDOFF or the current project context. If
+`API_BASE_URL` is not set, default to `http://localhost:8300`.
+
+Match the response against the session goal or branch name:
+- If a single entry matches → note it as the active task reference.
+- If multiple match → prefer `in_progress` > `todo` > `open`.
+- If none match or the endpoint is unreachable → **continue without error**.
+
+The resolved ref (if any) is stored in the start report and used as priority #2 in
+commit message ref extraction (see [M4](#m4---commit-message-with-task-ref-always)).
+
 ### S5 - Mark session open (HANDOFF)
 
 Update **only** the `## Session status` block at the top of `{HANDOFF}`:
@@ -214,6 +245,100 @@ Optional: one line on dirty files (no full diff). For full context load, use **s
 
 ---
 
+## Commit protocol
+
+**Execution order:** M1 → M2 → M3 → M4 (draft message with task ref) → M5 (git, if `commit`/`push`) → M6 (report).
+
+Runs git commit and optional push **without** updating HANDOFF or NEXT. Session remains open. Idempotent — re-runnable mid-session.
+
+If M1 secrets **fail**, **stop** — do not run M4 or M5.
+
+### M1 - Working tree audit (same as C1)
+
+Same as [C1](#c1---working-tree-audit-mandatory).
+
+### M2 - Verification gate (same as C2)
+
+Same as [C2](#c2---verification-gate-this-session).
+
+### M3 - Follow-ups
+
+Same as [C3](#c3---follow-ups-required).
+
+### M4 - Commit message with task ref (always)
+
+**Always** produce the commit message block — even when tree is clean (`none - working tree clean`).
+
+Format per `.cursorrules` (plain text, no surrounding quotes).
+
+**Task ref extraction (auto-detect):**
+Look for an active task reference in this priority order:
+
+1. **HANDOFF session goal** — if `{HANDOFF}` `## Session status` contains a ref matching `[A-Z]+-[0-9]+` (e.g. `PROJ-456`), use it.
+2. **GitHub task registry** (optional) — query the project API (returns empty registry if the feature is disabled or unreachable, so always safe to try):
+   ```
+   curl -s -H "Authorization: Bearer <JWT>" "${API_BASE_URL:-http://localhost:8300}/v1/projects/{project_id}/github/task-registry"
+   ```
+   Parse the response, match against HANDOFF goal or branch name to find the best task/ticket. If match found, use its ref. If unreachable, empty, or no match, continue to next priority.
+3. **Branch name** — if current branch matches `(feature|fix|chore|docs)/[A-Z]+-[0-9]+` or `[A-Z]+-[0-9]+/`, extract the ref.
+4. **Last commit subject** — if `git log -1 --oneline` starts with `[A-Z]+-[0-9]+`, reuse it.
+5. **None** — use conventional format without ref.
+
+**Subject format:**
+- Ref found: `{REF}: {subject}` (e.g. `PROJ-456: Add login form with email validation`)
+- No ref: `type: short description` per existing `.cursorrules` convention
+
+Keep subject ≤72 chars (including ref prefix), imperative mood.
+
+**Body:** optional; wrap ~72 chars; **why**, not file list. Omit if subject is self-contained.
+
+Valid types (when no ref): `feat`, `fix`, `refactor`, `docs`, `chore`, `style`, `test`.
+
+Label in report: **Commit message (draft)** vs **Commit message (used)**.
+
+### M5 - Git actions (modifiers only)
+
+Same as [C4b](#c4b--git-actions-modifiers-only) — default scope, commit via HEREDOC, post-commit verification, push if modifier includes `push`.
+
+**Hard rule - agents MUST execute git:** Typing `@session-control commit` does not commit by itself. The agent **MUST** run shell commands. Checklist item 9 is **fail** if the tree still has unstaged safe changes and no commit SHA was produced.
+
+**Clean tree + `commit` modifier:** skip commit; report `Commit message (used): none - working tree clean`.
+
+### M6 - Commit report (mandatory output)
+
+```markdown
+## Commit completed - <Project Name>
+
+**Date:** <ISO date> · **Branch:** <branch>
+
+### Checklist
+| # | Check | Result | Evidence |
+|---|-------|--------|----------|
+| 1 | Git audit | pass/fail | clean / N files changed |
+| 2 | Secrets safe | pass/fail | |
+| 3 | Verification honest | pass/fail | |
+| 4 | Follow-ups listed | pass | |
+| 5 | Commit message shown | pass | always |
+| 6 | Task ref extracted | pass/skip | ref or no ref found |
+| 7 | Git commit | pass/fail/skip | modifier `commit`; SHA + `git status` evidence |
+| 8 | Full safe tree staged | pass/fail/skip | leftover safe paths listed |
+| 9 | Git push (if requested) | pass/fail/skip | modifier `push` |
+
+### Commit message
+**Status:** draft | used  
+**Message:**
+
+    PROJ-456: subject line here
+
+    Optional body.
+
+**Git:** committed \<sha\> | push \<remote/branch\> result
+
+**Session:** still open — no HANDOFF or NEXT changes.
+```
+
+---
+
 ## Close protocol
 
 **Execution order:** C1 → C2 → C3 → C4 (draft message) → C5 (HANDOFF) → C6 (NEXT) → C4b (git, if `commit`/`push`) → C7 (optional) → C8 (report).
@@ -269,16 +394,34 @@ Detect and list:
 - [ ] SPECs promised but not written
 - [ ] Archived prompts at risk of edit - **warn**
 
-### C4 - Commit message (always)
+### C4 - Commit message with task ref (always)
 
 **Always** produce the commit message block in the close report - even when the tree is clean (`none - working tree clean`).
 
-Format per `.cursorrules` (plain text, no surrounding quotes):
+Format per `.cursorrules` (plain text, no surrounding quotes).
 
-- **Subject:** `type: short description` - ≤72 chars, imperative mood (`add`, `fix`, not `added`).
+**Task ref extraction (auto-detect):**
+Look for an active task reference in this priority order:
+
+1. **HANDOFF session goal** — if `{HANDOFF}` `## Session status` contains a ref matching `[A-Z]+-[0-9]+` (e.g. `PROJ-456`), use it.
+2. **GitHub task registry** (optional) — query the project API (returns empty registry if the feature is disabled or unreachable, so always safe to try):
+   ```
+   curl -s -H "Authorization: Bearer <JWT>" "${API_BASE_URL:-http://localhost:8300}/v1/projects/{project_id}/github/task-registry"
+   ```
+   Parse the response, match against HANDOFF goal or branch name to find the best task/ticket. If match found, use its ref. If unreachable, empty, or no match, continue to next priority.
+3. **Branch name** — if current branch matches `(feature|fix|chore|docs)/[A-Z]+-[0-9]+` or `[A-Z]+-[0-9]+/`, extract the ref.
+4. **Last commit subject** — if `git log -1 --oneline` starts with `[A-Z]+-[0-9]+`, reuse it.
+5. **None** — use conventional format without ref.
+
+**Subject format:**
+- Ref found: `{REF}: {subject}` (e.g. `PROJ-456: Add login form with email validation`)
+- No ref: `type: short description` per existing `.cursorrules` convention
+
+Keep subject ≤72 chars (including ref prefix), imperative mood (`add`, `fix`, not `added`).
+
 - **Body:** optional; wrap ~72 chars; **why**, not file list. Omit if subject is self-contained.
 
-Valid types: `feat`, `fix`, `refactor`, `docs`, `chore`, `style`, `test`.
+Valid types (when no ref): `feat`, `fix`, `refactor`, `docs`, `chore`, `style`, `test`.
 
 - One message if changes are cohesive; suggest **split** with multiple message blocks if not.
 - Label in report: **Commit message (draft)** vs **Commit message (used)**.
@@ -288,11 +431,11 @@ Valid types: `feat`, `fix`, `refactor`, `docs`, `chore`, `style`, `test`.
 | Modifier | Action |
 |----------|--------|
 | *(none)* | Message only. User runs `git commit` themselves. |
-| `commit` | Only if C1 secrets **pass**. After C5/C6: stage per **default scope** → `git commit` (HEREDOC) → verify tree → record SHA. |
+| `commit` | Only if C1 secrets **pass**. After C5/C6 (close) **or** after M4 (standalone commit): stage per **default scope** → `git commit` (HEREDOC) → verify tree → record SHA. |
 | `commit scoped` | After C5/C6: stage only `{HANDOFF}`, `{ITERATION_CARRIER}`, and paths explicitly tied to this session in the close report. |
 | `commit push` | After successful commit: `git push` (current branch). Warn before force-push. |
 
-**Hard rule - agents MUST execute git:** Typing `@session-control close commit` does not commit by itself. The agent **MUST** run shell commands below. Checklist item 6 is **fail** if the tree still has unstaged safe changes and no commit SHA was produced.
+**Hard rule - agents MUST execute git:** Typing `@session-control close commit` or `@session-control commit` does not commit by itself. The agent **MUST** run shell commands below. Checklist item 6 (close) / item 7 (commit) is **fail** if the tree still has unstaged safe changes and no commit SHA was produced.
 
 **Default commit scope** (when modifier is `commit` or `commit push`, not `scoped`):
 
@@ -385,9 +528,10 @@ If the repo uses plan-foundation conventions, run **status** (read-only) and att
 
 ### Commit message
 **Status:** draft | used  
+**Task ref:** <ref or none>  
 **Message:** (plain text below - always present)
 
-    type: subject line here
+    PROJ-456: subject line here
 
     Optional body - why, not what.
 
@@ -416,6 +560,9 @@ If the repo uses plan-foundation conventions, run **status** (read-only) and att
 | **Close** | `close commit` / `close commit push` → run C4b in shell after HANDOFF/NEXT; stage **default scope**; always echo SHA + post-commit `git status -sb` |
 | **Close** | User expected commit but tree still dirty | **fail** item 6/6b; list unstaged paths; do not claim "close commit" succeeded |
 | **Close** | `push` without network → report failure; do not claim pushed |
+| **Commit** | User says `@session-control commit` or `commit push` | Run [Commit protocol](#commit-protocol); **do not** update HANDOFF or NEXT; session stays open |
+| **Commit** | Task ref found in HANDOFF goal or branch | Prepend `{REF}: ` to commit subject automatically |
+| **Commit** | No task ref found | Use conventional `type: description` format; no error — ref is optional |
 
 ---
 
@@ -431,7 +578,11 @@ If the repo uses plan-foundation conventions, run **status** (read-only) and att
 - Editing archived decision prompts during close "cleanup"
 - Marking checklist `pass` without evidence
 - Continuing close after secrets scan **fail**
-- Running C4b before C5/C6 when `commit` modifier used
+- Running C4b before C5/C6 when `close commit` modifier used
+- Running **HANDOFF/NEXT updates** on standalone `commit` or `commit push`
+- Claiming task ref extraction when HANDOFF / branch / last commit has no match
+- Using `commit` when tree is already clean **without** explicitly reporting "none - working tree clean"
+- Committing non-`REF:` format when a valid task ref is detectable (missed association opportunity)
 
 ---
 

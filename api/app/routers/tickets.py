@@ -31,6 +31,10 @@ from app.services.project_access import (
     require_role,
 )
 from app.services.activity_writer import write_activity
+from app.services.github_task_registry import (
+    spawn_push_ticket_ref,
+    spawn_remove_ref as spawn_remove_ticket_ref,
+)
 from app.services.ref_alloc import allocate_ref
 
 router = APIRouter(
@@ -128,6 +132,8 @@ async def create_ticket(
     )
     await db.commit()
     await db.refresh(row)
+    if row.ref:
+        spawn_push_ticket_ref(project_id, row.ref, row.title, row.status)
     return TicketOut.model_validate(row)
 
 
@@ -197,6 +203,8 @@ async def patch_ticket(
         row.assignee_id = body.assignee_id
     await db.commit()
     await db.refresh(row)
+    if row.ref:
+        spawn_push_ticket_ref(row.project_id, row.ref, row.title, row.status)
     return TicketOut.model_validate(row)
 
 
@@ -232,6 +240,8 @@ async def transition_ticket(
     row.status = status_val
     await db.commit()
     await db.refresh(row)
+    if row.ref:
+        spawn_push_ticket_ref(row.project_id, row.ref, row.title, row.status)
     return TicketOut.model_validate(row)
 
 
@@ -246,8 +256,11 @@ async def delete_ticket(
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Ticket not found")
     acc = await require_project_access(db, user, row.project_id)
     require_role(acc, MemberRole.maintainer)
+    ref = row.ref
     await db.delete(row)
     await db.commit()
+    if ref:
+        spawn_remove_ticket_ref(row.project_id, ref)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -310,4 +323,6 @@ async def batch_update_tickets(
     await db.commit()
     for row in updated:
         await db.refresh(row)
+        if row.ref:
+            spawn_push_ticket_ref(row.project_id, row.ref, row.title, row.status)
     return [TicketOut.model_validate(r) for r in updated]

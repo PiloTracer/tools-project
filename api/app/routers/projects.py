@@ -217,6 +217,10 @@ async def patch_project(
     if body.project_key is not None:
         v = body.project_key.strip()
         proj.project_key = v if v else None
+    if body.github_task_registry_enabled is not None:
+        proj.github_task_registry_enabled = body.github_task_registry_enabled
+    if body.auto_prefix_enabled is not None:
+        proj.auto_prefix_enabled = body.auto_prefix_enabled
     await db.commit()
     await db.refresh(proj)
     return ProjectOut.model_validate(proj).model_copy(

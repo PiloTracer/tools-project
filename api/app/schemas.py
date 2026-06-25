@@ -102,6 +102,8 @@ class ProjectUpdate(BaseModel):
         max_length=32,
         pattern=r"^[A-Za-z0-9_-]+$",
     )
+    github_task_registry_enabled: bool | None = None
+    auto_prefix_enabled: bool | None = None
 
 
 class ProjectOut(BaseModel):
@@ -112,6 +114,8 @@ class ProjectOut(BaseModel):
     owner_id: uuid.UUID
     status: str
     project_key: str | None
+    github_task_registry_enabled: bool = False
+    auto_prefix_enabled: bool = False
     created_at: datetime
     updated_at: datetime
     membership_role: str | None = None
@@ -531,6 +535,7 @@ class GithubSyncResult(BaseModel):
     upserted: int
     owner: str
     repo: str
+    linked_refs: int = 0
 
 
 class CommitSummary(BaseModel):

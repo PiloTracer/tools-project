@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import get_settings
 from app.models.github_commit import GithubCommit
 from app.models.github_link import GithubLink
+from app.services.commit_ref_linker import link_commit_refs
 from app.services.github_token_crypto import decrypt_github_token
 
 log = logging.getLogger(__name__)
@@ -44,7 +45,7 @@ def _parse_committed_at(commit_blob: dict[str, Any]) -> datetime:
     return datetime.now(timezone.utc)
 
 
-async def sync_github_link(db: AsyncSession, link_id: uuid.UUID, since: datetime | None = None) -> dict[str, int | str | None]:
+async def sync_github_link(db: AsyncSession, link_id: uuid.UUID, since: datetime | None = None) -> dict[str, Any]:
     """Pull latest commits for one link; upsert rows with required html_url.
 
     Args:
@@ -104,6 +105,7 @@ async def sync_github_link(db: AsyncSession, link_id: uuid.UUID, since: datetime
 
     upserted = 0
     commits_info: list[dict[str, str]] = []
+    commit_pairs: list[tuple[uuid.UUID, str]] = []
     for item in items:
         if not isinstance(item, dict):
             continue
@@ -157,9 +159,11 @@ async def sync_github_link(db: AsyncSession, link_id: uuid.UUID, since: datetime
                     "raw_json": item,
                 },
             )
+            .returning(GithubCommit.id)
         )
-        await db.execute(stmt)
+        cid = (await db.execute(stmt)).scalar_one()
         upserted += 1
+        commit_pairs.append((cid, message))
         commits_info.append({
             "sha": sha_full,
             "html_url": html_url,
@@ -174,4 +178,14 @@ async def sync_github_link(db: AsyncSession, link_id: uuid.UUID, since: datetime
             link.last_seen_sha = s0.split()[0][:40]
     await db.flush()
 
-    return {"upserted": upserted, "owner": owner, "repo": repo, "commits": commits_info}
+    # Gap #1: auto-link commits → tasks/tickets from ref prefixes in messages.
+    # Fire within the same tx; linker never raises so sync always succeeds.
+    linked_refs = await link_commit_refs(db, link, commit_pairs)
+
+    return {
+        "upserted": upserted,
+        "owner": owner,
+        "repo": repo,
+        "commits": commits_info,
+        "linked_refs": linked_refs,
+    }

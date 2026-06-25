@@ -52,6 +52,7 @@ foundation-complete  →  plan-master-ready  →  implementation-ready
 | **project-bootstrap** `status` | - | Read-only |
 | **session-control** `start` | `{HANDOFF}` (offer bootstrap if missing) | Recommended: `@project-bootstrap init` |
 | **session-control** `close` | Prior `start` or dirty tree | - |
+| **session-control** `commit` | Dirty tree (offer `start` first if HANDOFF missing) | - |
 | **session-control** `status` | - | Read-only |
 | **plan-foundation** `greenfield` | `.cursorrules`, `{HANDOFF}` (GF0 gate) | Recommended: `@project-bootstrap init` |
 | **plan-foundation** `continue` | Prior foundation work started | - |
@@ -161,6 +162,7 @@ All skills use the same verbs where applicable. This keeps muscle memory portabl
 | `repair` | Fix reported issues; re-verify | code-repair, plan-repair |
 | `verify` | Audit planning artifacts (foundation / master / alignment) | plan-verify |
 | `probe` | Adaptive gap-driven interrogation loop; scores knowledge/plan coverage, asks targeted questions, fills gaps into registries. **New verb** (distinct from `status` read-only, `continue` resume-phase, `integrity` auto-sweep). Engine: [`probe-protocol.md`](probe-protocol.md) | plan-foundation, plan-master |
+| `commit` | Git commit/push without close | session-control |
 | `start` | Begin a unit of work | session-control, code-implementation |
 | `continue` | Resume in-progress work | plan-foundation, plan-master, code-implementation |
 | `continue` + target (`code-implementation` only) | Batch tasks: `- N`, `- until blocked`, `- M{N}-T{a}..T{b}`; stop on gate fail or blocker | code-implementation |

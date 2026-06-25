@@ -566,7 +566,7 @@ Refresh `## Repository state` with current truth: which milestones are done, wha
 | 10 | HANDOFF updated | pass/fail | |
 
 ### Commit message (draft - always present)
-{per .cursorrules format}
+{per .cursorrules format — task ref auto-detected from HANDOFF session goal, branch name, or last commit (see `session-control` skill § C4)}
 
 ### Follow-ups before next iteration
 {ordered list}

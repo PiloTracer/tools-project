@@ -148,9 +148,13 @@ Only `plan-master status` can mark `implementation-ready: yes`.
 ## 5. Close for the day
 
 ```text
-@session-control close                      # safe default - drafts message, no commit
-@session-control close commit               # commits with drafted message
-@session-control close commit push          # commit + push (requires explicit `push` keyword)
+@session-control close                      # safe default - drafts message, no close-time commit
+@session-control close commit               # commits + closes session
+@session-control close commit push          # commit + push + close
+
+# Mid-session checkpoint (no close)
+@session-control commit                     # commit only, session stays open
+@session-control commit push                # commit + push, session stays open
 ```
 
 The skill will refuse to close cleanly if **secrets are in the diff**, **tests were claimed pass without evidence**, or **HANDOFF/NEXT are stale**.
@@ -243,6 +247,7 @@ Use **`@process-router - <question>`** for anything not listed - it routes to th
 | Unmapped code / feature catalog gaps? | `@plan-verify coverage` · `@plan-repair repair - from coverage` |
 | Tests/lint/type-check failed? | §6 above · re-run task gate per `.cursorrules` |
 | Close session safely? | `@session-control close` · `@session-control close commit` · `@session-control close commit push` |
+| Mid-session checkpoint (commit only)? | `@session-control commit` · `@session-control commit push` |
 | Free-text request / don't know the skill? | `@ai-director - <describe what you want>` (Agent OS) · `@x-director - <describe what you want>` (spans frameworks) |
 | Foundation vs master plan? | `plan-foundation` = P0–P6 + **plan-master-ready** · `plan-master` = full plan + **implementation-ready** |
 | Read everything? | Don't - §7 reading order; stop when answered |

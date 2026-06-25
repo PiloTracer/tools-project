@@ -23,6 +23,10 @@ from app.schemas import (
     TaskTransition,
 )
 from app.services.activity_writer import write_activity
+from app.services.github_task_registry import (
+    spawn_push_task_ref,
+    spawn_remove_ref as spawn_remove_task_ref,
+)
 from app.services.project_access import (
     can_create_tasks,
     can_edit_tasks,
@@ -149,6 +153,8 @@ async def create_task(
     )
     await db.commit()
     await db.refresh(row)
+    if row.ref:
+        spawn_push_task_ref(project_id, row.ref, row.title, row.status)
     return TaskOut.model_validate(row)
 
 
@@ -249,6 +255,8 @@ async def patch_task(
         )
     await db.commit()
     await db.refresh(row)
+    if row.ref:
+        spawn_push_task_ref(row.project_id, row.ref, row.title, row.status)
     return TaskOut.model_validate(row)
 
 
@@ -293,6 +301,8 @@ async def transition_task(
         )
     await db.commit()
     await db.refresh(row)
+    if row.ref:
+        spawn_push_task_ref(row.project_id, row.ref, row.title, row.status)
     return TaskOut.model_validate(row)
 
 
@@ -311,8 +321,11 @@ async def delete_task(
             status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to delete tasks",
         )
+    ref = row.ref
     await db.delete(row)
     await db.commit()
+    if ref:
+        spawn_remove_task_ref(row.project_id, ref)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -372,4 +385,6 @@ async def batch_update_tasks(
     await db.commit()
     for row in updated:
         await db.refresh(row)
+        if row.ref:
+            spawn_push_task_ref(row.project_id, row.ref, row.title, row.status)
     return [TaskOut.model_validate(r) for r in updated]

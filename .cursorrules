@@ -426,9 +426,16 @@ If OpenSpec is not used, delete this section or replace with your team's proposa
 ## Commit Message Format (When Providing to User)
 
 - Plain text only — NO surrounding quotes, NO parentheses wrapping the message.
-- Format: `type: short description` followed by optional blank line and body.
-- Valid types: `feat`, `fix`, `refactor`, `docs`, `chore`, `style`, `test`.
-- Example (correct): `fix: handle empty payload on webhook retry`
+- Subject format (priority order):
+  1. **With task ref** (auto-detected from HANDOFF goal, GitHub task registry, branch name, or last commit): `REF-123: subject line` — e.g. `PROJ-456: Add login form with email validation`
+  2. **No task ref**: `type: short description` — e.g. `fix: handle empty payload on webhook retry`
+- Keep subject ≤72 chars (including ref prefix), imperative mood.
+- Optional body after blank line; wrap ~72 chars; explain **why**, not file list.
+- Valid types (when no ref): `feat`, `fix`, `refactor`, `docs`, `chore`, `style`, `test`.
+- When `github_task_registry_enabled` (and `auto_prefix_enabled`, which gates registry population) is configured, the AI may query `GET /v1/projects/{id}/github/task-registry` to discover the correct task/ticket ref. This is optional; if unreachable, fall back to HANDOFF/branch/last-commit.
+- Commit ref prefixes are auto-linked inbound: when commits sync from GitHub, any `PROJ-456:` / `PROJ-T-23:` prefix in the message is resolved to the matching task/ticket and linked via `commit_subject_refs` (idempotent). So always prefer the `REF: subject` format when a ref is known.
+- Example (correct with ref): `PROJ-456: Add login form with email validation`
+- Example (correct without ref): `fix: handle empty payload on webhook retry`
 - Example (wrong): `"fix(webhook): empty payload"`
 - **Readable by all audiences:** Every commit message must be understandable by non-technical stakeholders, clients, and project sponsors. Avoid implementation jargon, internal codenames, and framework-specific terms. Describe what changed and why in plain language. If the change requires a technical explanation, put it in the commit body; keep the subject line accessible to a non-technical reader.
 

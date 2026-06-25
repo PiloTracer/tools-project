@@ -32,6 +32,8 @@ CREATE TABLE IF NOT EXISTS projects (
 -- additive columns (existing DBs)
 ALTER TABLE projects ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'active';
 ALTER TABLE projects ADD COLUMN IF NOT EXISTS project_key VARCHAR(32);
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS github_task_registry_enabled BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS auto_prefix_enabled BOOLEAN NOT NULL DEFAULT false;
 
 CREATE TABLE IF NOT EXISTS project_members (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

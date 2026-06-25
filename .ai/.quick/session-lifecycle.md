@@ -26,3 +26,10 @@
 @session-control close commit push
 @session-control close commit scoped
 ```
+
+## Mid-session checkpoint (commit without closing)
+
+```text
+@session-control commit
+@session-control commit push
+```
