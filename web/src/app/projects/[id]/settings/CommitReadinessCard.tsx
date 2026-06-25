@@ -39,7 +39,7 @@ export function CommitReadinessCard({ projectId }: { projectId: string }) {
       return;
     }
     if (check.id === "project_key" || check.id === "registry_enabled" || check.id === "auto_prefix") {
-      toast("Update the settings above and save.", "info");
+      toast("Update the settings above and save.", "success");
       return;
     }
     if (check.id === "commits_synced" && check.api) {
