@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import time
 import uuid
 from datetime import datetime, timezone
 from typing import Annotated
@@ -469,6 +470,12 @@ async def github_readiness(
     }
 
 
+# Simple in-memory cache for token health checks (5 min TTL).
+# Key: project_id, Value: (timestamp, result_dict)
+_token_health_cache: dict[str, tuple[float, dict[str, object]]] = {}
+_TOKEN_HEALTH_CACHE_TTL = 300  # 5 seconds → 300 seconds (5 minutes)
+
+
 @router.get("/token-health")
 async def github_token_health(
     project_id: uuid.UUID,
@@ -477,10 +484,18 @@ async def github_token_health(
 ):
     """Check whether the GitHub token(s) for this project are valid.
 
-    Returns a list of link statuses. Each entry includes ``ok``,
-    ``owner``, ``repo``, and optionally an ``error``.
+    Results are cached for 5 minutes to avoid hitting GitHub API rate
+    limits on every page load. 403 (rate limit) is reported as unknown
+    rather than invalid — the sync path uses the same token and will
+    surface real auth errors during its own API calls.
     """
     await require_project_access(db, user, project_id)
+
+    pid = str(project_id)
+    now = time.time()
+    cached = _token_health_cache.get(pid)
+    if cached and (now - cached[0]) < _TOKEN_HEALTH_CACHE_TTL:
+        return cached[1]
 
     links = (
         await db.scalars(
@@ -511,8 +526,14 @@ async def github_token_health(
                 entry["ok"] = False
                 entry["error"] = "Token is invalid or expired"
             elif resp.status_code == 403:
-                entry["ok"] = False
-                entry["error"] = "Token lacks access to this repository"
+                # 403 is almost always rate limiting, not a bad token.
+                # Check if this link has synced successfully before.
+                if link.last_synced_at is not None:
+                    entry["ok"] = True
+                    entry["info"] = "Rate limited — syncs have succeeded before"
+                else:
+                    entry["ok"] = False
+                    entry["error"] = "Rate limited and never synced"
             elif resp.status_code == 404:
                 entry["ok"] = False
                 entry["error"] = "Repository not found"
@@ -526,4 +547,6 @@ async def github_token_health(
             entry["error"] = "Could not validate token"
         results.append(entry)
 
-    return {"links": results}
+    result: dict[str, object] = {"links": results}
+    _token_health_cache[pid] = (now, result)
+    return result
