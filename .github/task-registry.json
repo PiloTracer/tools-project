@@ -1,11 +1,11 @@
 {
   "version": 1,
-  "updated_at": "2026-06-25T22:24:44.910272+00:00",
+  "updated_at": "2026-06-25T22:24:48.102190+00:00",
   "tasks": [
     {
       "ref": "TPR-1",
       "title": "Project Key Uniqueness",
-      "status": "todo",
+      "status": "in_progress",
       "project_id": "d942e263-efbc-4d96-bc9a-ea33654c3cb4"
     }
   ],
