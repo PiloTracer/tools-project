@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { apiServerFetch, fetchMe } from "@/shared/server/session";
+import { CopyRefButton } from "@/components/CopyRefButton";
 import { WatchButtons } from "./WatchButtons";
 
 type TodayItem = {
@@ -109,6 +110,7 @@ export default async function TodayPage() {
                         {row.task.ref ? (
                           <span className="muted" style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "0.75rem", marginRight: "0.35rem" }}>
                             {row.task.ref}
+                            <CopyRefButton ref={row.task.ref} />
                           </span>
                         ) : null}
                         {row.task.title}
@@ -147,6 +149,7 @@ export default async function TodayPage() {
                             style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "0.75rem", marginRight: "0.35rem" }}
                           >
                             {row.ticket.ref}
+                            <CopyRefButton ref={row.ticket.ref} />
                           </span>
                         ) : null}
                         {row.ticket.title}

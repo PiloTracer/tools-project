@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+
+import { CopyRefButton } from "@/components/CopyRefButton";
 import { KanbanBoard } from "@/components/KanbanBoard";
 import { AssigneePicker } from "@/components/AssigneePicker";
 import { Dialog } from "@/components/Dialog";
@@ -474,8 +476,9 @@ export function TaskTable({
                   />
                 </td>
               ) : null}
-              <td className="muted text-sm" style={{ padding: "0.4rem 0", fontFamily: "var(--font-mono, monospace)", fontSize: "0.8rem" }}>
+              <td className="muted text-sm" style={{ padding: "0.4rem 0", fontFamily: "var(--font-mono, monospace)", fontSize: "0.8rem", whiteSpace: "nowrap" }}>
                 {t.ref || "—"}
+                {t.ref ? <CopyRefButton ref={t.ref} /> : null}
               </td>
               <td style={{ padding: "0.4rem 0" }}>
                 <Link href={`/projects/${projectId}/tasks/${t.id}`} style={{ fontWeight: 600 }}>

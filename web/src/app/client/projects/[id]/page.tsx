@@ -2,6 +2,7 @@ import Link from "next/link";
 import { apiServerFetch, fetchMe } from "@/shared/server/session";
 import { redirect, notFound } from "next/navigation";
 
+import { CopyRefButton } from "@/components/CopyRefButton";
 import { ClientTaskCreateForm } from "./ClientTaskCreateForm";
 import { ActivityList } from "./ActivityList";
 
@@ -105,7 +106,8 @@ export default async function ClientProjectPage({
             {tasks.map((task) => (
               <li key={task.id} className="card">
                 <strong>
-                  {task.ref}: {task.title}
+                  {task.ref}
+                  {task.ref ? <CopyRefButton ref={task.ref} /> : null}: {task.title}
                 </strong>
                 <p className="muted text-sm">
                   {task.status} · {task.priority}
@@ -124,7 +126,8 @@ export default async function ClientProjectPage({
             {tickets.map((ticket) => (
               <li key={ticket.id} className="card">
                 <strong>
-                  {ticket.ref}: {ticket.title}
+                  {ticket.ref}
+                  {ticket.ref ? <CopyRefButton ref={ticket.ref} /> : null}: {ticket.title}
                 </strong>
                 <p className="muted text-sm">
                   {ticket.status} · {ticket.priority}

@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { CopyRefButton } from "@/components/CopyRefButton";
+
 import { Dialog } from "@/components/Dialog";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { usePendingImages } from "@/shared/client/use-pending-images";
@@ -569,8 +571,9 @@ export function TicketTable({
               <td className="text-sm" style={{ padding: "0.35rem 0", whiteSpace: "nowrap" }}>
                 <StaleAge row={t} />
               </td>
-              <td className="muted text-sm" style={{ padding: "0.35rem 0", fontFamily: "var(--font-mono, monospace)", fontSize: "0.8rem" }}>
+              <td className="muted text-sm" style={{ padding: "0.35rem 0", fontFamily: "var(--font-mono, monospace)", fontSize: "0.8rem", whiteSpace: "nowrap" }}>
                 {t.ref || "—"}
+                {t.ref ? <CopyRefButton ref={t.ref} /> : null}
               </td>
               <td style={{ padding: "0.35rem 0" }}>
                 <Link href={`/projects/${projectId}/tickets/${t.id}`}>{t.title}</Link>

@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
+import { CopyRefButton } from "@/components/CopyRefButton";
+
 export type KanbanTask = {
   id: string;
   ref: string | null;
@@ -150,6 +152,7 @@ export function KanbanBoard({
                   }}
                 >
                   {t.ref || "—"}
+                  {t.ref ? <CopyRefButton ref={t.ref} /> : null}
                 </div>
                 <div
                   style={{
