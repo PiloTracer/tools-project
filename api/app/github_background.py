@@ -40,6 +40,17 @@ async def github_poll_loop() -> None:
                                 continue
                             preview = (c["message"] or "").split("\n")[0][:100]
                             body_md = f"{c['sha'][:7]} {result['owner']}/{result['repo']} {preview}"
+                            meta: dict[str, object] = {
+                                "link_id": str(lid),
+                                "sha": c["sha"],
+                                "owner": result["owner"],
+                                "repo": result["repo"],
+                                "html_url": c["html_url"],
+                                "message_preview": preview,
+                                "full_message": c["message"],
+                            }
+                            if c.get("id"):
+                                meta["commit_id"] = c["id"]
                             await write_activity(
                                 db=s2,
                                 project_id=link.project_id,
@@ -48,16 +59,7 @@ async def github_poll_loop() -> None:
                                 kind="github_commit",
                                 actor_id=None,
                                 body=body_md,
-                                meta_json={
-                                    "link_id": str(lid),
-                                    "commit_id": c["sha"],
-                                    "sha": c["sha"],
-                                    "owner": result["owner"],
-                                    "repo": result["repo"],
-                                    "html_url": c["html_url"],
-                                    "message_preview": preview,
-                                    "full_message": c["message"],
-                                },
+                                meta_json=meta,
                                 is_internal=False,
                             )
                         await s2.commit()

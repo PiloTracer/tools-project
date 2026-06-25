@@ -6,7 +6,6 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import select, func
-from sqlalchemy.dialects.postgresql import Date
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db

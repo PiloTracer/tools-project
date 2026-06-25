@@ -7,6 +7,7 @@ import { ProjectSettingsForm } from "../ProjectSettingsForm";
 import { ProjectSubNav } from "../ProjectSubNav";
 import { GitHubSettingsForm } from "./GitHubSettingsForm";
 import { ClientSettingsForm } from "./ClientSettingsForm";
+import { CommitReadinessCard } from "./CommitReadinessCard";
 
 type ProjectRow = {
   id: string;
@@ -16,6 +17,8 @@ type ProjectRow = {
   owner_id: string;
   status: string;
   project_key: string | null;
+  github_task_registry_enabled: boolean;
+  auto_prefix_enabled: boolean;
   membership_role?: string | null;
 };
 
@@ -78,6 +81,8 @@ export default async function ProjectSettingsPage({
           initialDescription={project.description ?? ""}
           initialStatus={project.status || "active"}
           initialProjectKey={project.project_key ?? ""}
+          initialRegistryEnabled={project.github_task_registry_enabled ?? false}
+          initialAutoPrefix={project.auto_prefix_enabled ?? false}
           canEdit={canEditSettings}
         />
       </div>
@@ -89,6 +94,8 @@ export default async function ProjectSettingsPage({
           canEdit={canEditSettings}
         />
       </div>
+
+      <CommitReadinessCard projectId={id} />
 
       <div className="card wide stack">
         <ClientSettingsForm

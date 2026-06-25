@@ -165,6 +165,7 @@ async def sync_github_link(db: AsyncSession, link_id: uuid.UUID, since: datetime
         upserted += 1
         commit_pairs.append((cid, message))
         commits_info.append({
+            "id": str(cid),
             "sha": sha_full,
             "html_url": html_url,
             "message": message,

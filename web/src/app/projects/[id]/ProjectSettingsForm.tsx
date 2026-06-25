@@ -13,6 +13,8 @@ export function ProjectSettingsForm({
   initialDescription,
   initialStatus,
   initialProjectKey,
+  initialRegistryEnabled,
+  initialAutoPrefix,
   canEdit,
 }: {
   projectId: string;
@@ -20,6 +22,8 @@ export function ProjectSettingsForm({
   initialDescription: string;
   initialStatus: string;
   initialProjectKey: string;
+  initialRegistryEnabled: boolean;
+  initialAutoPrefix: boolean;
   canEdit: boolean;
 }) {
   const router = useRouter();
@@ -28,6 +32,8 @@ export function ProjectSettingsForm({
   const [description, setDescription] = useState(initialDescription);
   const [status, setStatus] = useState(initialStatus);
   const [projectKey, setProjectKey] = useState(initialProjectKey);
+  const [registryEnabled, setRegistryEnabled] = useState(initialRegistryEnabled);
+  const [autoPrefix, setAutoPrefix] = useState(initialAutoPrefix);
   if (!canEdit) {
     return (
       <p className="muted text-sm">
@@ -75,6 +81,8 @@ export function ProjectSettingsForm({
       description: descVal,
       status,
       project_key: projectKey.trim() || null,
+      github_task_registry_enabled: registryEnabled,
+      auto_prefix_enabled: autoPrefix,
     };
     const r = await fetch(`/api/projects/${projectId}`, {
       method: "PATCH",
@@ -155,15 +163,48 @@ export function ProjectSettingsForm({
         </select>
       </label>
       <label className="stack" style={{ gap: "0.25rem" }}>
-        <span className="text-sm muted">Project key (optional display ref)</span>
+        <span className="text-sm muted">Project key (display ref for tasks/tickets)</span>
         <input
           className="input"
           value={projectKey}
           onChange={(e) => setProjectKey(e.target.value)}
-          placeholder="e.g. PRJ-A"
+          placeholder="e.g. PROJ"
           pattern="[A-Za-z0-9_-]*"
         />
       </label>
+
+      <hr style={{ border: "none", borderTop: "1px solid var(--border)", margin: "0.5rem 0" }} />
+
+      <h3 style={{ margin: 0 }}>Commit Association</h3>
+      <p className="text-sm muted" style={{ margin: 0 }}>
+        When enabled, tasks and tickets get auto-generated refs (e.g. PROJ-123) and
+        commits matching those refs are automatically linked.
+      </p>
+
+      <label className="stack" style={{ gap: "0.25rem" }}>
+        <span className="text-sm muted">
+          <input
+            type="checkbox"
+            checked={registryEnabled}
+            onChange={(e) => setRegistryEnabled(e.target.checked)}
+            style={{ marginRight: "0.4rem" }}
+          />
+          GitHub task registry — push task/ticket refs to linked GitHub repo
+        </span>
+      </label>
+
+      <label className="stack" style={{ gap: "0.25rem" }}>
+        <span className="text-sm muted">
+          <input
+            type="checkbox"
+            checked={autoPrefix}
+            onChange={(e) => setAutoPrefix(e.target.checked)}
+            style={{ marginRight: "0.4rem" }}
+          />
+          Auto-prefix — automatically assign refs (PROJ-123) to new tasks and tickets
+        </span>
+      </label>
+
       <button type="submit" className="btn btn-primary">
         Save settings
       </button>

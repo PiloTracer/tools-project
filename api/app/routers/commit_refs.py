@@ -36,14 +36,17 @@ async def list_commit_refs(
     db: Annotated[AsyncSession, Depends(get_db)],
     github_commit_id: uuid.UUID | None = Query(None),
     subject_type: str | None = Query(None),
+    subject_id: uuid.UUID | None = Query(None),
 ):
-    """List commit-subject references. Optionally filter by commit or subject type."""
+    """List commit-subject references. Optionally filter by commit, subject type, or subject id."""
     await require_project_access(db, user, project_id)
     stmt = select(CommitSubjectRef).options(joinedload(CommitSubjectRef.commit))
     if github_commit_id:
         stmt = stmt.where(CommitSubjectRef.github_commit_id == github_commit_id)
     if subject_type:
         stmt = stmt.where(CommitSubjectRef.subject_type == subject_type)
+    if subject_id:
+        stmt = stmt.where(CommitSubjectRef.subject_id == subject_id)
     stmt = stmt.order_by(CommitSubjectRef.created_at.desc())
     rows = (await db.scalars(stmt)).all()
     return CommitSubjectRefListResponse(

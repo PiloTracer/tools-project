@@ -7,6 +7,8 @@ import uuid
 from datetime import datetime, timezone
 from typing import Annotated
 
+import httpx
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -197,6 +199,51 @@ async def sync_github_link_route(
     )
 
 
+@router.post("/links/{link_id}/test")
+async def test_github_link(
+    project_id: uuid.UUID,
+    link_id: uuid.UUID,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Test whether the GitHub token can access the repository.
+
+    Makes a lightweight API call without syncing commits.
+    Returns ``{ ok: true }`` or raises an appropriate HTTP error.
+    """
+    acc = await require_project_access(db, user, project_id)
+    if not can_edit_project_meta(acc.role):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+    row = await db.get(GithubLink, link_id)
+    if row is None or row.project_id != project_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Link not found")
+
+    from app.services.github_token_crypto import decrypt_github_token
+    token = decrypt_github_token(row.token_cipher)
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "Authorization": f"Bearer {token}",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+    url = f"https://api.github.com/repos/{row.owner}/{row.repo}"
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.get(url, headers=headers)
+    if resp.status_code == 401:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Token rejected by GitHub (401)")
+    if resp.status_code == 403:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Token lacks access to this repository (403)")
+    if resp.status_code == 404:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Repository not found (404)")
+    resp.raise_for_status()
+    data = resp.json()
+    return {
+        "ok": True,
+        "repo": f"{row.owner}/{row.repo}",
+        "private": data.get("private", False),
+        "description": data.get("description") or "",
+    }
+
+
 @router.post("/sync-backfill")
 async def sync_backfill(
     project_id: uuid.UUID,
@@ -251,7 +298,19 @@ async def sync_backfill(
                     if not isinstance(sha, str) or sha in existing:
                         continue
                     preview = (c["message"] or "").split("\n")[0][:100]
+                    commit_id_uuid = c.get("id")
                     body_md = f"{sha[:7]} {out['owner']}/{out['repo']} {preview}"
+                    meta: dict[str, object] = {
+                        "link_id": str(link.id),
+                        "sha": sha,
+                        "owner": out["owner"],
+                        "repo": out["repo"],
+                        "html_url": c["html_url"],
+                        "message_preview": preview,
+                        "full_message": c["message"],
+                    }
+                    if commit_id_uuid:
+                        meta["commit_id"] = commit_id_uuid
                     await write_activity(
                         db=db,
                         project_id=link.project_id,
@@ -260,16 +319,7 @@ async def sync_backfill(
                         kind="github_commit",
                         actor_id=None,
                         body=body_md,
-                        meta_json={
-                            "link_id": str(link.id),
-                            "commit_id": sha,
-                            "sha": sha,
-                            "owner": out["owner"],
-                            "repo": out["repo"],
-                            "html_url": c["html_url"],
-                            "message_preview": preview,
-                            "full_message": c["message"],
-                        },
+                        meta_json=meta,
                         is_internal=False,
                     )
 
@@ -345,3 +395,75 @@ async def get_task_registry(
     if registry is None:
         return empty_registry()
     return registry
+
+
+@router.get("/readiness")
+async def github_readiness(
+    project_id: uuid.UUID,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Check the project's readiness for commit↔task/ticket auto-association.
+
+    Returns a checklist with ``met`` / ``unmet`` status per requirement.
+    Each unmet item includes an ``action`` hint and, where possible,
+    a direct ``api`` path the UI can call to fix it.
+    """
+    await require_project_access(db, user, project_id)
+    proj = await db.get(Project, project_id)
+
+    links = (
+        await db.scalars(
+            select(GithubLink).where(GithubLink.project_id == project_id)
+        )
+    ).all()
+
+    has_link = len(links) > 0
+    has_synced = any(l.last_synced_at is not None for l in links)
+
+    checks: list[dict[str, object]] = [
+        {
+            "id": "project_key",
+            "label": "Project key set",
+            "met": bool(proj and proj.project_key),
+            "action": "Set a project key in settings (e.g. PROJ) so task/ticket refs can be generated.",
+            "api": f"/v1/projects/{project_id}",
+        },
+        {
+            "id": "github_link",
+            "label": "GitHub repository linked",
+            "met": has_link,
+            "action": "Add a GitHub repository link with a valid PAT.",
+            "api": f"/v1/projects/{project_id}/github/links",
+        },
+        {
+            "id": "commits_synced",
+            "label": "Commits synced from GitHub",
+            "met": has_synced,
+            "action": "Sync the linked repository to pull in commit history.",
+            "api": f"/v1/projects/{project_id}/github/links/{links[0].id}/sync" if has_link and links[0].id else None,
+        },
+        {
+            "id": "registry_enabled",
+            "label": "Task registry enabled",
+            "met": bool(proj and proj.github_task_registry_enabled),
+            "action": "Enable the GitHub task registry setting so task/ticket refs are pushed to the linked repo.",
+            "api": f"/v1/projects/{project_id}",
+        },
+        {
+            "id": "auto_prefix",
+            "label": "Auto-prefix enabled",
+            "met": bool(proj and proj.auto_prefix_enabled),
+            "action": "Enable auto-prefix so new tasks/tickets get automatic refs.",
+            "api": f"/v1/projects/{project_id}",
+        },
+    ]
+
+    met_count = sum(1 for c in checks if c["met"])
+    total = len(checks)
+
+    return {
+        "ready": met_count == total,
+        "score": f"{met_count}/{total}",
+        "checks": checks,
+    }
