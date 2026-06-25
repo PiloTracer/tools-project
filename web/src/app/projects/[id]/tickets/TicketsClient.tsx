@@ -573,7 +573,7 @@ export function TicketTable({
               </td>
               <td className="muted text-sm" style={{ padding: "0.35rem 0", fontFamily: "var(--font-mono, monospace)", fontSize: "0.8rem", whiteSpace: "nowrap" }}>
                 {t.ref || "—"}
-                {t.ref ? <CopyRefButton ref={t.ref} /> : null}
+                {t.ref ? <CopyRefButton code={t.ref} /> : null}
               </td>
               <td style={{ padding: "0.35rem 0" }}>
                 <Link href={`/projects/${projectId}/tickets/${t.id}`}>{t.title}</Link>

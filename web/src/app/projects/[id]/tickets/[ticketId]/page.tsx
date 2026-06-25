@@ -101,7 +101,7 @@ export default async function TicketDetailPage({
           {ticket.ref ? (
             <span className="muted text-sm" style={{ fontFamily: "var(--font-mono, monospace)" }}>
               {ticket.ref}
-              <CopyRefButton ref={ticket.ref} /> ·{" "}
+              <CopyRefButton code={ticket.ref} /> ·{" "}
             </span>
           ) : null}
           {ticket.title}

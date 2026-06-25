@@ -107,7 +107,7 @@ export default async function ClientProjectPage({
               <li key={task.id} className="card">
                 <strong>
                   {task.ref}
-                  {task.ref ? <CopyRefButton ref={task.ref} /> : null}: {task.title}
+                  {task.ref ? <CopyRefButton code={task.ref} /> : null}: {task.title}
                 </strong>
                 <p className="muted text-sm">
                   {task.status} · {task.priority}
@@ -127,7 +127,7 @@ export default async function ClientProjectPage({
               <li key={ticket.id} className="card">
                 <strong>
                   {ticket.ref}
-                  {ticket.ref ? <CopyRefButton ref={ticket.ref} /> : null}: {ticket.title}
+                  {ticket.ref ? <CopyRefButton code={ticket.ref} /> : null}: {ticket.title}
                 </strong>
                 <p className="muted text-sm">
                   {ticket.status} · {ticket.priority}

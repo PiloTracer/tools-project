@@ -109,7 +109,7 @@ export default async function TaskDetailPage({
           {task.ref ? (
             <span className="muted text-sm" style={{ fontFamily: "var(--font-mono, monospace)" }}>
               {task.ref}
-              <CopyRefButton ref={task.ref} /> ·{" "}
+              <CopyRefButton code={task.ref} /> ·{" "}
             </span>
           ) : null}
           {task.title}

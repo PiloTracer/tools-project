@@ -152,7 +152,7 @@ export function KanbanBoard({
                   }}
                 >
                   {t.ref || "—"}
-                  {t.ref ? <CopyRefButton ref={t.ref} /> : null}
+                  {t.ref ? <CopyRefButton code={t.ref} /> : null}
                 </div>
                 <div
                   style={{
