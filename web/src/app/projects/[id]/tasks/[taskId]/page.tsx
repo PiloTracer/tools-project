@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 
 import { apiServerFetch, fetchMe } from "@/shared/server/session";
 
+import { CopyRefButton } from "@/components/CopyRefButton";
 import { TaskDetailEditor } from "@/components/TaskDetailEditor";
 import { TaskDiscussion } from "@/components/TaskDiscussion";
 import { ProjectSubNav } from "../../ProjectSubNav";
@@ -107,7 +108,8 @@ export default async function TaskDetailPage({
         <h1 style={{ marginTop: "0.25rem", marginBottom: "0.15rem" }}>
           {task.ref ? (
             <span className="muted text-sm" style={{ fontFamily: "var(--font-mono, monospace)" }}>
-              {task.ref} ·{" "}
+              {task.ref}
+              <CopyRefButton ref={task.ref} /> ·{" "}
             </span>
           ) : null}
           {task.title}

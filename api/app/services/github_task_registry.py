@@ -147,7 +147,7 @@ async def _update_registry(
         return False
 
     proj = await db.get(Project, project_id)
-    if proj is None or not proj.github_task_registry_enabled or not proj.auto_prefix_enabled:
+    if proj is None or not proj.github_task_registry_enabled:
         return False
 
     token = decrypt_github_token(link.token_cipher)

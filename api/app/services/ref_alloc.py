@@ -38,10 +38,11 @@ async def allocate_ref(
 ) -> str | None:
     """Atomically increment the project counter and return a human ref like PRJ-123.
 
-    Returns None if the project has no ``project_key`` set.
+    Returns None if the project has no ``project_key`` set or
+    ``auto_prefix_enabled`` is false.
     """
     proj = await db.get(Project, project_id)
-    if proj is None or not proj.project_key:
+    if proj is None or not proj.project_key or not proj.auto_prefix_enabled:
         return None
     await _ensure_counter(db, project_id, counter_type)
 

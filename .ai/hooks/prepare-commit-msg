@@ -1,0 +1,47 @@
+#!/bin/sh
+#
+# prepare-commit-msg — auto-prepend task ref from branch name.
+#
+# If the current branch name contains a ref matching [A-Z]+-[0-9]+ or
+# [A-Z]+-T-[0-9]+, prepend "REF: " to the commit subject so that
+# commit_ref_linker can auto-associate the commit with the task/ticket
+# when it syncs from GitHub.
+#
+# Installation (run from repo root):
+#   cp .ai/hooks/prepare-commit-msg .git/hooks/prepare-commit-msg
+#   chmod +x .git/hooks/prepare-commit-msg
+#
+# To skip (e.g. for non-task commits):
+#   git commit --no-verify
+#   # or set GIT_EDITOR and remove the ref line manually
+#
+# See also: .cursorrules § Commit Message Format
+
+COMMIT_MSG_FILE="$1"
+COMMIT_SOURCE="$2"
+SHA1="$3"
+
+# Only prepend on new commits (not amend, merge, rebase, etc.)
+if [ "$COMMIT_SOURCE" = "message" ] || [ "$COMMIT_SOURCE" = "template" ] || [ "$COMMIT_SOURCE" = "merge" ] || [ "$COMMIT_SOURCE" = "squash" ]; then
+    exit 0
+fi
+
+BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null || echo "")
+
+# Extract ref from branch name: feature/PROJ-456-something or PROJ-456/something
+REF=$(echo "$BRANCH" | grep -oE '[A-Z][A-Z0-9_]*-(T-)?[0-9]+' | head -1)
+
+if [ -z "$REF" ]; then
+    exit 0
+fi
+
+# Read the current subject line
+SUBJECT=$(head -1 "$COMMIT_MSG_FILE" 2>/dev/null || echo "")
+
+# Skip if ref already present
+case "$SUBJECT" in
+    "$REF:"*|"$REF: "*) exit 0 ;;
+esac
+
+# Prepend ref
+printf '%s: %s\n' "$REF" "$SUBJECT" > "$COMMIT_MSG_FILE"

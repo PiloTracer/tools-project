@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 
 import { apiServerFetch, fetchMe } from "@/shared/server/session";
 
+import { CopyRefButton } from "@/components/CopyRefButton";
 import { ProjectSubNav } from "../../ProjectSubNav";
 import { TicketDetailEditor } from "@/components/TicketDetailEditor";
 import { TicketDiscussion, type ActivityItem } from "./TicketDiscussion";
@@ -97,7 +98,12 @@ export default async function TicketDetailPage({
           Project: <strong>{project.name}</strong>
         </p>
         <h1 style={{ marginTop: "0.25rem", marginBottom: "0.15rem" }}>
-          {ticket.ref ? <span className="muted text-sm" style={{ fontFamily: "var(--font-mono, monospace)" }}>{ticket.ref} · </span> : null}
+          {ticket.ref ? (
+            <span className="muted text-sm" style={{ fontFamily: "var(--font-mono, monospace)" }}>
+              {ticket.ref}
+              <CopyRefButton ref={ticket.ref} /> ·{" "}
+            </span>
+          ) : null}
           {ticket.title}
         </h1>
         <ProjectSubNav projectId={projectId} current="tickets" />

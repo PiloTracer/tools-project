@@ -317,10 +317,22 @@ If the project does **not** use Docker, replace this section with the canonical 
 ### Deletion
 - NEVER delete files without explicit user permission.
 
+## Task Refs
+
+Task and ticket refs (e.g. `PROJ-456`, `PROJ-T-23`) are the primary key that links commits to work items. Every commit should include a ref in its subject line whenever one is known.
+
+**Rules for the AI:**
+
+1. **If the user provides a task ref** (in the request, in HANDOFF, or as part of a branch name) — use it. Prepend `REF: ` to every commit subject.
+2. **If no ref is known and the work clearly belongs to a task** — ask the user **once** for the ref before committing. Do not guess or invent refs.
+3. **If no ref exists** (exploratory work, docs, chore without a ticket) — use conventional `type:` format without ref. That is acceptable.
+4. **The user can always provide a ref at any time** by pasting it into the conversation. Paste it verbatim into the commit subject.
+
 ### Git
 - NEVER execute `git commit` or `git push` unless the user explicitly requests it in the same message.
 - **`@session-control close commit` / `close commit push` (mandatory):** When the user invokes session-control **close** with **`commit`** (and optional **`push`**), you **MUST** run shell `git add` + `git commit` per `.ai/skills/session-control/skill.md` § C4b **before** finishing your reply — stage all **safe** dirty paths (default scope), not HANDOFF/NEXT only. If **`push`** was requested, run `git push` after a successful commit. Show `git log -1 --oneline` and `git status -sb`; do not claim close commit succeeded without a commit SHA when the tree was dirty.
 - **`@session-control commit` / `commit push` (mandatory):** Same as above but **no** HANDOFF/NEXT update — session stays open (see `.ai/skills/session-control/skill.md` § Commit protocol). Task ref auto-detected and prepended to commit subject.
+- **`prepare-commit-msg` hook** (installed via `.ai/hooks/prepare-commit-msg`): auto-prepends the task ref (e.g. `PROJ-456:`) to every commit subject when the branch name contains a ref pattern. Do not bypass it unless the user explicitly requests `--no-verify`.
 - Otherwise provide commit commands for the user when they will commit themselves.
 - Never modify git history (rebase, force-push) without explicit user request.
 
@@ -384,8 +396,10 @@ If OpenSpec is not used, delete this section or replace with your team's proposa
 - Keep subject ≤72 chars (including ref prefix), imperative mood.
 - Optional body after blank line; wrap ~72 chars; explain **why**, not file list.
 - Valid types (when no ref): `feat`, `fix`, `refactor`, `docs`, `chore`, `style`, `test`.
+- **If no ref is known and the work belongs to a task, ask the user once before committing.** Do not guess or use a placeholder.
 - When `github_task_registry_enabled` (and `auto_prefix_enabled`, which gates registry population) is configured, the AI may query `GET /v1/projects/{id}/github/task-registry` to discover the correct task/ticket ref. This is optional; if unreachable, fall back to HANDOFF/branch/last-commit.
 - Commit ref prefixes are auto-linked inbound: when commits sync from GitHub, any `PROJ-456:` / `PROJ-T-23:` prefix in the message is resolved to the matching task/ticket and linked via `commit_subject_refs` (idempotent). So always prefer the `REF: subject` format when a ref is known.
+- **Readable by all audiences:** Every commit message must be understandable by non-technical stakeholders, clients, and project sponsors. Avoid implementation jargon, internal codenames, and framework-specific terms. Describe what changed and why in plain language. If the change requires a technical explanation, put it in the commit body; keep the subject line accessible to a non-technical reader.
 - Example (correct with ref): `PROJ-456: Add login form with email validation`
 - Example (correct without ref): `fix: handle empty payload on webhook retry`
 - Example (wrong): `"fix(webhook): empty payload"`

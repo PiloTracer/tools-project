@@ -4,7 +4,7 @@
 
 ## Session status
 
-**Closed:** 2026-06-25 — Polish GitHub task registry discovery: use `API_BASE_URL` env var, simplify S4c to always-safe-to-attempt, consistent wording in M4 and C4 extraction sections.
+**Closed:** 2026-06-25 — Added `prepare-commit-msg` git hook for auto-ref from branch; clarified `auto_prefix_enabled` vs registry flags; added Task Refs section to cursorrules; added readability requirement for commit messages.
 
 **Updated:** 2026-06-25
 
@@ -54,6 +54,7 @@ End with **`@session-control close`** (add `commit` / `commit push` only when re
 
 | Date | Session | Artifacts |
 |------|---------|-----------|
+| 2026-06-25 | prepare-commit-msg hook + cursorrules refs | `hooks/prepare-commit-msg` git hook; Task Refs section in cursorrules.template; human-readable commit rule; clarified `auto_prefix_enabled` docs |
 | 2026-06-25 | github registry polish | `API_BASE_URL` env var, simplified S4c, consistent M4/C4 extraction wording |
 | 2026-06-25 | session-control commit verb + task refs | `@session-control commit`/`commit push` standalone verb; auto task-ref extraction in commit messages (HANDOFF/branch/prior commit); optional GitHub task registry discovery; updated skill.md, reference.md, .cursorrules/template, SKILL_DEPENDENCIES.md, quick refs |
 | 2026-06-23 | deploy-files to tools-project | `@deploy-files copy - /mnt/work/Projects/tools-project` — 153 files re-copied to `tools-project/.ai/` (git-ignored content excluded) |

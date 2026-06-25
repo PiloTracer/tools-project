@@ -454,7 +454,7 @@ async def github_readiness(
             "id": "auto_prefix",
             "label": "Auto-prefix enabled",
             "met": bool(proj and proj.auto_prefix_enabled),
-            "action": "Enable auto-prefix so new tasks/tickets get automatic refs.",
+            "action": "Enable auto-prefix so new tasks/tickets get automatic refs (e.g. PROJ-123).",
             "api": f"/v1/projects/{project_id}",
         },
     ]

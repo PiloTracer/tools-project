@@ -60,11 +60,13 @@ Default `close` never runs `git commit` or `git push`. User runs git manually fr
 
 ### GitHub task registry (optional)
 
-If the project has `github_task_registry_enabled` **and** `auto_prefix_enabled`, the app
-maintains a lightweight registry file (`.github/task-registry.json`) via the GitHub Contents
-API. Whenever a task or ticket is created/updated/deleted, the registry is synced to the linked
-GitHub repo. (With only `github_task_registry_enabled`, the query endpoint still works but
-returns an empty registry — no entries are pushed.)
+If the project has `github_task_registry_enabled`, the app maintains a lightweight registry
+file (`.github/task-registry.json`) via the GitHub Contents API. Whenever a task or ticket is
+created/updated/deleted, the registry is synced to the linked GitHub repo.
+
+Ref allocation (`auto_prefix_enabled`) is **independent** — it controls whether new tasks/tickets
+get automatic refs. Both flags are listed in the readiness checklist; you need both enabled plus
+a linked repo for the full end-to-end flow.
 
 The AI SHOULD query the registry to discover the correct task/ticket ref:
 
