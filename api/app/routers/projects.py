@@ -10,9 +10,12 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+import httpx
+
 from app.db import get_db
 from app.deps import get_current_user
 from app.models.client import Client
+from app.models.github_link import GithubLink
 from app.models.project import Project
 from app.models.project_client import ProjectClient
 from app.models.project_member import ProjectMember
@@ -32,6 +35,7 @@ from app.schemas import (
     ProjectUpdate,
     UserSearchResult,
 )
+from app.services.github_token_crypto import decrypt_github_token
 from app.services.project_access import (
     MemberRole,
     assert_can_assign_role,
@@ -229,6 +233,51 @@ async def patch_project(
                     detail=f"Project key '{v}' is already in use by another project.",
                 )
         proj.project_key = v if v else None
+    wants_registry = body.github_task_registry_enabled is True
+    wants_prefix = body.auto_prefix_enabled is True
+    if wants_registry or wants_prefix:
+        link = await db.scalar(
+            select(GithubLink).where(GithubLink.project_id == project_id).limit(1)
+        )
+        if link is None:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                detail="A GitHub repository must be linked before enabling commit association settings.",
+            )
+        try:
+            token = decrypt_github_token(link.token_cipher)
+            headers = {
+                "Accept": "application/vnd.github+json",
+                "Authorization": f"Bearer {token}",
+                "X-GitHub-Api-Version": "2022-11-28",
+            }
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(
+                    f"https://api.github.com/repos/{link.owner}/{link.repo}",
+                    headers=headers,
+                )
+            if resp.status_code == 401:
+                raise HTTPException(
+                    status.HTTP_400_BAD_REQUEST,
+                    detail="The GitHub token for the linked repository is invalid or expired. Update the token in GitHub settings.",
+                )
+            if resp.status_code == 403:
+                raise HTTPException(
+                    status.HTTP_400_BAD_REQUEST,
+                    detail="The GitHub token lacks access to the linked repository. Update the token in GitHub settings.",
+                )
+            if not resp.is_success:
+                raise HTTPException(
+                    status.HTTP_400_BAD_REQUEST,
+                    detail=f"GitHub repository check failed (HTTP {resp.status_code}). Verify the repository is accessible.",
+                )
+        except HTTPException:
+            raise
+        except Exception:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                detail="Could not validate the GitHub token. Check the repository link and token in GitHub settings.",
+            )
     if body.github_task_registry_enabled is not None:
         proj.github_task_registry_enabled = body.github_task_registry_enabled
     if body.auto_prefix_enabled is not None:

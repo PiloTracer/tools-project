@@ -467,3 +467,63 @@ async def github_readiness(
         "score": f"{met_count}/{total}",
         "checks": checks,
     }
+
+
+@router.get("/token-health")
+async def github_token_health(
+    project_id: uuid.UUID,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Check whether the GitHub token(s) for this project are valid.
+
+    Returns a list of link statuses. Each entry includes ``ok``,
+    ``owner``, ``repo``, and optionally an ``error``.
+    """
+    await require_project_access(db, user, project_id)
+
+    links = (
+        await db.scalars(
+            select(GithubLink).where(GithubLink.project_id == project_id)
+        )
+    ).all()
+
+    results: list[dict[str, object]] = []
+    for link in links:
+        entry: dict[str, object] = {
+            "link_id": str(link.id),
+            "owner": link.owner,
+            "repo": link.repo,
+        }
+        try:
+            token = decrypt_github_token(link.token_cipher)
+            headers = {
+                "Accept": "application/vnd.github+json",
+                "Authorization": f"Bearer {token}",
+                "X-GitHub-Api-Version": "2022-11-28",
+            }
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(
+                    f"https://api.github.com/repos/{link.owner}/{link.repo}",
+                    headers=headers,
+                )
+            if resp.status_code == 401:
+                entry["ok"] = False
+                entry["error"] = "Token is invalid or expired"
+            elif resp.status_code == 403:
+                entry["ok"] = False
+                entry["error"] = "Token lacks access to this repository"
+            elif resp.status_code == 404:
+                entry["ok"] = False
+                entry["error"] = "Repository not found"
+            elif resp.is_success:
+                entry["ok"] = True
+            else:
+                entry["ok"] = False
+                entry["error"] = f"GitHub returned HTTP {resp.status_code}"
+        except Exception:
+            entry["ok"] = False
+            entry["error"] = "Could not validate token"
+        results.append(entry)
+
+    return {"links": results}
