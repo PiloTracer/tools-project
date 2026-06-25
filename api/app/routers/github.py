@@ -481,21 +481,23 @@ async def github_token_health(
     project_id: uuid.UUID,
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
+    refresh: bool = Query(False),
 ):
     """Check whether the GitHub token(s) for this project are valid.
 
     Results are cached for 5 minutes to avoid hitting GitHub API rate
-    limits on every page load. 403 (rate limit) is reported as unknown
-    rather than invalid — the sync path uses the same token and will
-    surface real auth errors during its own API calls.
+    limits on every page load. Pass ``?refresh=true`` to bypass cache.
+    403 (rate limit) is reported as unknown rather than invalid — the
+    sync path uses the same token and will surface real auth errors.
     """
     await require_project_access(db, user, project_id)
 
     pid = str(project_id)
     now = time.time()
-    cached = _token_health_cache.get(pid)
-    if cached and (now - cached[0]) < _TOKEN_HEALTH_CACHE_TTL:
-        return cached[1]
+    if not refresh:
+        cached = _token_health_cache.get(pid)
+        if cached and (now - cached[0]) < _TOKEN_HEALTH_CACHE_TTL:
+            return cached[1]
 
     links = (
         await db.scalars(
@@ -517,7 +519,7 @@ async def github_token_health(
                 "Authorization": f"Bearer {token}",
                 "X-GitHub-Api-Version": "2022-11-28",
             }
-            async with httpx.AsyncClient(timeout=10.0) as client:
+            async with httpx.AsyncClient(timeout=15.0) as client:
                 resp = await client.get(
                     f"https://api.github.com/repos/{link.owner}/{link.repo}",
                     headers=headers,
@@ -526,8 +528,6 @@ async def github_token_health(
                 entry["ok"] = False
                 entry["error"] = "Token is invalid or expired"
             elif resp.status_code == 403:
-                # 403 is almost always rate limiting, not a bad token.
-                # Check if this link has synced successfully before.
                 if link.last_synced_at is not None:
                     entry["ok"] = True
                     entry["info"] = "Rate limited — syncs have succeeded before"
@@ -542,9 +542,22 @@ async def github_token_health(
             else:
                 entry["ok"] = False
                 entry["error"] = f"GitHub returned HTTP {resp.status_code}"
-        except Exception:
-            entry["ok"] = False
-            entry["error"] = "Could not validate token"
+        except httpx.TimeoutException:
+            log.warning("token health timeout for %s/%s", link.owner, link.repo)
+            if link.last_synced_at is not None:
+                entry["ok"] = True
+                entry["info"] = "Timed out — syncs have succeeded before"
+            else:
+                entry["ok"] = False
+                entry["error"] = "GitHub API timed out"
+        except Exception as exc:
+            log.warning("token health exception for %s/%s: %s", link.owner, link.repo, exc)
+            if link.last_synced_at is not None:
+                entry["ok"] = True
+                entry["info"] = f"Validation check failed — syncs have succeeded before"
+            else:
+                entry["ok"] = False
+                entry["error"] = "Could not validate token"
         results.append(entry)
 
     result: dict[str, object] = {"links": results}

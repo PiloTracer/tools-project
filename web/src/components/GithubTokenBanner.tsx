@@ -10,27 +10,38 @@ type LinkHealth = {
   repo: string;
   ok: boolean;
   error?: string;
+  info?: string;
 };
 
 export function GithubTokenBanner({ projectId }: { projectId: string }) {
   const [links, setLinks] = useState<LinkHealth[] | null>(null);
   const [dismissed, setDismissed] = useState(false);
+  const [checking, setChecking] = useState(false);
   const router = useRouter();
+
+  async function check(refresh = false) {
+    setChecking(true);
+    try {
+      const r = await fetch(
+        `/api/projects/${projectId}/github/token-health${refresh ? "?refresh=true" : ""}`,
+      );
+      if (r.ok) {
+        const d = await r.json() as { links: LinkHealth[] };
+        setLinks(d.links);
+      }
+    } catch { /* ignore */ }
+    setChecking(false);
+  }
 
   useEffect(() => {
     let cancelled = false;
     setDismissed(false);
-    fetch(`/api/projects/${projectId}/github/token-health`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (!cancelled && d) setLinks((d as { links: LinkHealth[] }).links);
-      })
-      .catch(() => {});
+    check().then(() => { if (cancelled) return; });
     return () => { cancelled = true; };
   }, [projectId]);
 
   const badLinks = (links ?? []).filter((l) => !l.ok);
-  if (!links || badLinks.length === 0 || dismissed) return null;
+  if (!links || badLinks.length === 0 || dismissed || checking) return null;
 
   return (
     <div
@@ -64,15 +75,10 @@ export function GithubTokenBanner({ projectId }: { projectId: string }) {
           type="button"
           className="btn btn-ghost text-sm"
           style={{ padding: "0.15rem 0.5rem" }}
-          onClick={async () => {
-            const r = await fetch(`/api/projects/${projectId}/github/token-health`);
-            if (r.ok) {
-              const d = await r.json() as { links: LinkHealth[] };
-              setLinks(d.links);
-            }
-          }}
+          onClick={() => check(true)}
+          disabled={checking}
         >
-          Re-check
+          {checking ? "Checking…" : "Re-check"}
         </button>
         <button
           type="button"
