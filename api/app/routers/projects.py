@@ -216,6 +216,18 @@ async def patch_project(
         proj.status = body.status
     if body.project_key is not None:
         v = body.project_key.strip()
+        if v:
+            existing = await db.scalar(
+                select(Project).where(
+                    Project.project_key == v,
+                    Project.id != project_id,
+                )
+            )
+            if existing:
+                raise HTTPException(
+                    status.HTTP_409_CONFLICT,
+                    detail=f"Project key '{v}' is already in use by another project.",
+                )
         proj.project_key = v if v else None
     if body.github_task_registry_enabled is not None:
         proj.github_task_registry_enabled = body.github_task_registry_enabled
