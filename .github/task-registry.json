@@ -1,11 +1,11 @@
 {
   "version": 1,
-  "updated_at": "2026-06-25T21:54:26.647056+00:00",
+  "updated_at": "2026-06-25T21:54:31.491325+00:00",
   "tasks": [
     {
       "ref": "TPR-1",
       "title": "Improve settings layout, checboxes are too small, and should be in separate lines in some cases.",
-      "status": "todo",
+      "status": "in_progress",
       "project_id": "dedca048-04b9-481a-aa9b-aa8649bba6f9"
     }
   ],
