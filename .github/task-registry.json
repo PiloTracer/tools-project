@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-06-25T22:33:39.415677+00:00",
+  "updated_at": "2026-06-25T22:33:41.735488+00:00",
   "tasks": [
     {
       "ref": "TPR-1",
@@ -11,7 +11,7 @@
     {
       "ref": "TPR-2",
       "title": "Setting github-related settings must verify the github token is valid and the token is not expired also when inside a given project",
-      "status": "todo",
+      "status": "in_progress",
       "project_id": "d942e263-efbc-4d96-bc9a-ea33654c3cb4"
     }
   ],
