@@ -18,6 +18,8 @@ type ProjectRow = {
   owner_id: string;
   status: string;
   project_key: string | null;
+  github_task_registry_enabled: boolean;
+  auto_prefix_enabled: boolean;
   membership_role?: string | null;
   created_at: string;
   updated_at: string;
@@ -86,6 +88,8 @@ export default async function ProjectDetailPage({
           initialDescription={p.description ?? ""}
           initialStatus={p.status || "active"}
           initialProjectKey={p.project_key ?? ""}
+          initialRegistryEnabled={p.github_task_registry_enabled ?? false}
+          initialAutoPrefix={p.auto_prefix_enabled ?? false}
           canEdit={canEditSettings}
         />
       </div>
