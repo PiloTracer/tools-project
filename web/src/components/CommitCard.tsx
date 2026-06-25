@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { Dialog } from "@/components/Dialog";
@@ -21,12 +22,22 @@ type LinkedRef = {
   created_at: string;
 };
 
+type SubjectDetail = {
+  id: string;
+  ref: string | null;
+  title: string;
+  status: string;
+  priority: string;
+  description: string | null;
+};
+
 export function CommitCard({ meta, projectId }: { meta: CommitMeta; projectId?: string }) {
   const [showFull, setShowFull] = useState(false);
   const [linkedRefs, setLinkedRefs] = useState<LinkedRef[] | null>(null);
-  const [linkedDetails, setLinkedDetails] = useState<Record<string, { ref: string | null; title: string; status: string }>>({});
+  const [linkedDetails, setLinkedDetails] = useState<Record<string, SubjectDetail>>({});
   const [showLinked, setShowLinked] = useState(false);
   const [linkedBusy, setLinkedBusy] = useState(false);
+  const [selectedSubject, setSelectedSubject] = useState<{ type: string; id: string } | null>(null);
   const hasMore = !!(meta.full_message && meta.full_message.length > 100);
 
   useEffect(() => {
@@ -38,7 +49,7 @@ export function CommitCard({ meta, projectId }: { meta: CommitMeta; projectId?: 
         if (!d) return;
         const refs = (d as { items: LinkedRef[] }).items;
         setLinkedRefs(refs);
-        const details: Record<string, { ref: string | null; title: string; status: string }> = {};
+        const details: Record<string, SubjectDetail> = {};
         Promise.all(
           refs.map(async (r) => {
             const endpoint = r.subject_type === "task"
@@ -50,8 +61,8 @@ export function CommitCard({ meta, projectId }: { meta: CommitMeta; projectId?: 
             try {
               const resp = await fetch(endpoint);
               if (resp.ok) {
-                const j = await resp.json() as { ref?: string | null; title: string; status: string };
-                details[r.subject_id] = { ref: j.ref ?? null, title: j.title, status: j.status };
+                const j = await resp.json() as SubjectDetail;
+                details[r.subject_id] = j;
               }
             } catch { /* ignore */ }
           }),
@@ -59,6 +70,49 @@ export function CommitCard({ meta, projectId }: { meta: CommitMeta; projectId?: 
       })
       .finally(() => setLinkedBusy(false));
   }, [showLinked, projectId, meta.commit_id, linkedRefs]);
+
+  if (selectedSubject) {
+    const d = linkedDetails[selectedSubject.id];
+    const href = projectId
+      ? selectedSubject.type === "task"
+        ? `/projects/${projectId}/tasks/${selectedSubject.id}`
+        : `/projects/${projectId}/tickets/${selectedSubject.id}`
+      : "#";
+    return (
+      <Dialog
+        open
+        onClose={() => setSelectedSubject(null)}
+        title={d ? `${d.ref ?? selectedSubject.type}: ${d.title}` : selectedSubject.type}
+      >
+        {!d ? (
+          <p className="muted text-sm">Loading…</p>
+        ) : (
+          <div className="stack" style={{ gap: "0.6rem" }}>
+            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+              <span className="pill">{d.status}</span>
+              <span className="pill pill-muted">{d.priority}</span>
+            </div>
+            {d.description ? (
+              <p style={{ margin: 0, whiteSpace: "pre-wrap", fontSize: "0.9rem", lineHeight: 1.5 }}>
+                {d.description.length > 300 ? d.description.slice(0, 300) + "…" : d.description}
+              </p>
+            ) : (
+              <p className="muted text-sm">No description.</p>
+            )}
+            <div style={{ marginTop: "0.5rem" }}>
+              <Link
+                href={href}
+                className="btn btn-primary text-sm"
+                style={{ display: "inline-flex", textDecoration: "none" }}
+              >
+                Expand →
+              </Link>
+            </div>
+          </div>
+        )}
+      </Dialog>
+    );
+  }
 
   return (
     <div style={{ margin: "0.35rem 0 0" }}>
@@ -127,20 +181,22 @@ export function CommitCard({ meta, projectId }: { meta: CommitMeta; projectId?: 
           <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
             {linkedRefs.map((r) => {
               const d = linkedDetails[r.subject_id];
-              const href = projectId
-                ? r.subject_type === "task"
-                  ? `/projects/${projectId}/tasks/${r.subject_id}`
-                  : r.subject_type === "ticket"
-                    ? `/projects/${projectId}/tickets/${r.subject_id}`
-                    : "#"
-                : "#";
+              const label = d ? `${d.ref ?? d.title}` : "Loading…";
               return (
                 <li key={r.id} style={{ padding: "0.4rem 0", borderBottom: "1px solid var(--border)" }}>
-                  <a
-                    href={href}
-                    style={{ textDecoration: "none", color: "inherit" }}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <button
+                    type="button"
+                    style={{
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      textAlign: "left",
+                      width: "100%",
+                      padding: 0,
+                      fontFamily: "inherit",
+                      color: "inherit",
+                    }}
+                    onClick={() => setSelectedSubject({ type: r.subject_type, id: r.subject_id })}
                   >
                     <span className="pill" style={{ fontSize: "0.65rem", marginRight: "0.35rem" }}>
                       {r.subject_type}
@@ -151,9 +207,9 @@ export function CommitCard({ meta, projectId }: { meta: CommitMeta; projectId?: 
                         <span className="muted text-sm" style={{ marginLeft: "0.35rem" }}>· {d.status}</span>
                       </>
                     ) : (
-                      <span className="muted text-sm">Loading…</span>
+                      <span className="muted text-sm">{label}</span>
                     )}
-                  </a>
+                  </button>
                 </li>
               );
             })}

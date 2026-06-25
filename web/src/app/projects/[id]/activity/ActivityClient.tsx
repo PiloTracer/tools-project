@@ -504,12 +504,11 @@ export function ActivityFeed({
                     {a.subject_title && a.subject_id ? (
                       <button
                         type="button"
-                        className="muted"
-                        style={{ background: "none", border: "none", cursor: "pointer", fontSize: "inherit", padding: 0, fontFamily: "inherit", textDecoration: "underline", textUnderlineOffset: "2px" }}
+                        style={{ background: "none", border: "none", cursor: "pointer", fontSize: "0.85rem", padding: 0, fontFamily: "inherit", color: "var(--text)", textAlign: "left" }}
                         onClick={() => setPreviewSubject({ subjectType: a.subject_type, subjectId: a.subject_id! })}
                         title={a.subject_title ?? undefined}
                       >
-                        {a.subject_title.length > 60 ? a.subject_title.slice(0, 60) + "…" : a.subject_title}
+                        {a.subject_title.length > 80 ? a.subject_title.slice(0, 80) + "…" : a.subject_title}
                       </button>
                     ) : null}
                     <span>·</span>
