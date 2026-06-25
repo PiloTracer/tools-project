@@ -181,29 +181,59 @@ export function ProjectSettingsForm({
         commits matching those refs are automatically linked.
       </p>
 
-      <label className="stack" style={{ gap: "0.25rem" }}>
-        <span className="text-sm muted">
+      <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", padding: "0.5rem 0" }}>
+        <label
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "0.6rem",
+            cursor: "pointer",
+            padding: "0.5rem 0.65rem",
+            border: "1px solid var(--border)",
+            borderRadius: "0.4rem",
+            background: registryEnabled ? "var(--surface-hover)" : "transparent",
+          }}
+        >
           <input
             type="checkbox"
             checked={registryEnabled}
             onChange={(e) => setRegistryEnabled(e.target.checked)}
-            style={{ marginRight: "0.4rem" }}
+            style={{ width: "1.1rem", height: "1.1rem", cursor: "pointer", flexShrink: 0 }}
           />
-          GitHub task registry — push task/ticket refs to linked GitHub repo
-        </span>
-      </label>
+          <div className="stack" style={{ gap: "0.15rem" }}>
+            <span style={{ fontWeight: 600, fontSize: "0.9rem" }}>GitHub task registry</span>
+            <span className="text-sm muted">
+              Push task/ticket refs to linked GitHub repo so the AI can discover them
+            </span>
+          </div>
+        </label>
 
-      <label className="stack" style={{ gap: "0.25rem" }}>
-        <span className="text-sm muted">
+        <label
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "0.6rem",
+            cursor: "pointer",
+            padding: "0.5rem 0.65rem",
+            border: "1px solid var(--border)",
+            borderRadius: "0.4rem",
+            background: autoPrefix ? "var(--surface-hover)" : "transparent",
+          }}
+        >
           <input
             type="checkbox"
             checked={autoPrefix}
             onChange={(e) => setAutoPrefix(e.target.checked)}
-            style={{ marginRight: "0.4rem" }}
+            style={{ width: "1.1rem", height: "1.1rem", cursor: "pointer", flexShrink: 0 }}
           />
-          Auto-prefix — automatically assign refs (PROJ-123) to new tasks and tickets
-        </span>
-      </label>
+          <div className="stack" style={{ gap: "0.15rem" }}>
+            <span style={{ fontWeight: 600, fontSize: "0.9rem" }}>Auto-prefix task/ticket refs</span>
+            <span className="text-sm muted">
+              Automatically assign refs (e.g. PROJ-123) to new tasks and tickets
+            </span>
+          </div>
+        </label>
+      </div>
 
       <button type="submit" className="btn btn-primary">
         Save settings
