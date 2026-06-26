@@ -189,6 +189,37 @@ async def sync_github_link_route(
             status.HTTP_502_BAD_GATEWAY,
             detail="Could not reach GitHub or parse the response",
         ) from e
+
+    # Create github_commit activity entries for new commits.
+    for c in out.get("commits", []):
+        if not c.get("is_new"):
+            continue
+        c_sha = c.get("sha", "")
+        preview = (c["message"] or "").split("\n")[0][:100]
+        body_md = f"{c_sha[:7]} {out['owner']}/{out['repo']} {preview}"
+        meta: dict[str, object] = {
+            "link_id": str(link_id),
+            "sha": c_sha,
+            "owner": str(out["owner"]),
+            "repo": str(out["repo"]),
+            "html_url": c.get("html_url", ""),
+            "message_preview": preview,
+            "full_message": c.get("message", ""),
+        }
+        if c.get("id"):
+            meta["commit_id"] = c["id"]
+        await write_activity(
+            db=db,
+            project_id=row.project_id,
+            subject_type="project",
+            subject_id=row.project_id,
+            kind="github_commit",
+            actor_id=None,
+            body=body_md,
+            meta_json=meta,
+            is_internal=False,
+        )
+
     row.last_synced_at = datetime.now(timezone.utc)
     row.updated_at = datetime.now(timezone.utc)
     await db.commit()

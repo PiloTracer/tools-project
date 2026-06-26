@@ -88,5 +88,14 @@ CREATE INDEX IF NOT EXISTS ix_project_client_access_contact_id ON project_client
 -- I10f: commit_subject_refs
 CREATE INDEX IF NOT EXISTS ix_commit_subject_refs_github_commit_id ON commit_subject_refs (github_commit_id);
 CREATE INDEX IF NOT EXISTS ix_commit_subject_refs_subject ON commit_subject_refs (subject_type, subject_id);
+CREATE INDEX IF NOT EXISTS ix_commit_subject_refs_sha ON commit_subject_refs (sha);
+CREATE INDEX IF NOT EXISTS ix_commit_subject_refs_project_id ON commit_subject_refs (project_id);
+-- Uniqueness: resolved refs (with github_commit_id) are unique on commit+subject.
+-- Pending refs (null github_commit_id) fall back to project+sha uniqueness.
+DROP INDEX IF EXISTS uq_commit_subject_refs_commit_subject;
 CREATE UNIQUE INDEX IF NOT EXISTS uq_commit_subject_refs_commit_subject
-    ON commit_subject_refs (github_commit_id, subject_type, subject_id);
+    ON commit_subject_refs (github_commit_id, subject_type, subject_id)
+    WHERE github_commit_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_commit_subject_refs_pending
+    ON commit_subject_refs (project_id, sha, subject_type, subject_id)
+    WHERE github_commit_id IS NULL;

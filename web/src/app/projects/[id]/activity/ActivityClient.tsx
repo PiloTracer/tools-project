@@ -62,6 +62,13 @@ export function ActivityComposer({
   const [busy, setBusy] = useState(false);
   const [showCommitPicker, setShowCommitPicker] = useState(false);
   const [showSubjectPicker, setShowSubjectPicker] = useState(false);
+  const [commitMeta, setCommitMeta] = useState<{
+    commit_id: string;
+    sha: string;
+    owner: string;
+    repo: string;
+    html_url: string;
+  } | null>(null);
 
   if (!canPost) {
     return <p className="muted text-sm">Viewers cannot post activity.</p>;
@@ -119,14 +126,21 @@ export function ActivityComposer({
         resolvedSubjectId = subjectId;
         resolvedSubjectType = subjectType;
       }
+      const meta_json: Record<string, unknown> = {};
+      if (uploadedIds.length) {
+        meta_json.attachment_ids = uploadedIds;
+      }
+      if (commitMeta) {
+        meta_json.github_ref = commitMeta;
+      }
       const payload: Record<string, unknown> = {
         subject_type: resolvedSubjectType,
         subject_id: resolvedSubjectId,
         kind: "note",
         body: caption || (uploadedIds.length ? "(image)" : ""),
       };
-      if (uploadedIds.length) {
-        payload.meta_json = { attachment_ids: uploadedIds };
+      if (Object.keys(meta_json).length) {
+        payload.meta_json = meta_json;
       }
       const r = await fetch(`/api/projects/${projectId}/activities`, {
         method: "POST",
@@ -274,8 +288,9 @@ export function ActivityComposer({
       {showCommitPicker ? (
         <CommitPicker
           projectId={projectId}
-          onSelect={(md) => {
+          onSelect={(md, meta) => {
             setBody((prev) => (prev ? prev + "\n" + md : md));
+            setCommitMeta(meta);
             setShowCommitPicker(false);
           }}
           onClose={() => setShowCommitPicker(false)}
@@ -402,6 +417,13 @@ export function ActivityFeed({
   const [replyBody, setReplyBody] = useState("");
   const [replyBusy, setReplyBusy] = useState(false);
   const [replyCommitPicker, setReplyCommitPicker] = useState<string | null>(null);
+  const [replyCommitMeta, setReplyCommitMeta] = useState<{
+    commit_id: string;
+    sha: string;
+    owner: string;
+    repo: string;
+    html_url: string;
+  } | null>(null);
   const [previewSubject, setPreviewSubject] = useState<{ subjectType: string; subjectId: string } | null>(null);
 
   const topItems = buildThreaded(initial);
@@ -431,6 +453,13 @@ export function ActivityFeed({
         const row = JSON.parse(ut) as { id: string };
         uploadedIds.push(row.id);
       }
+      const reply_meta: Record<string, unknown> = {};
+      if (uploadedIds.length) {
+        reply_meta.attachment_ids = uploadedIds;
+      }
+      if (replyCommitMeta) {
+        reply_meta.github_ref = replyCommitMeta;
+      }
       const payload: Record<string, unknown> = {
         subject_type: parentActivity.subject_type,
         subject_id: parentActivity.subject_id || projectId,
@@ -438,8 +467,8 @@ export function ActivityFeed({
         body: caption || (uploadedIds.length ? "(image)" : ""),
         parent_activity_id: parentActivity.id,
       };
-      if (uploadedIds.length) {
-        payload.meta_json = { attachment_ids: uploadedIds };
+      if (Object.keys(reply_meta).length) {
+        payload.meta_json = reply_meta;
       }
       const r = await fetch(`/api/projects/${projectId}/activities`, {
         method: "POST",
@@ -459,6 +488,7 @@ export function ActivityFeed({
       }
       setReplyBody("");
       setReplyToId(null);
+      setReplyCommitMeta(null);
       clearReplyPending();
       toast("Reply posted");
       router.refresh();
@@ -617,8 +647,9 @@ export function ActivityFeed({
                     {replyCommitPicker === a.id && projectId ? (
                       <CommitPicker
                         projectId={projectId}
-                        onSelect={(md) => {
+                        onSelect={(md, meta) => {
                           setReplyBody((prev) => (prev ? prev + "\n" + md : md));
+                          setReplyCommitMeta(meta);
                           setReplyCommitPicker(null);
                         }}
                         onClose={() => setReplyCommitPicker(null)}

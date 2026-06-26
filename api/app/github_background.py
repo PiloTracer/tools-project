@@ -12,6 +12,7 @@ from app.db import session_factory
 from app.models.github_link import GithubLink
 from app.services.activity_writer import write_activity
 from app.services.attachment_service import run_attachment_retention_purge
+from app.services.commit_ref_pending_processor import process_pending_commit_refs
 from app.services.github_sync import sync_github_link
 
 log = logging.getLogger(__name__)
@@ -22,6 +23,13 @@ async def github_poll_loop() -> None:
     await asyncio.sleep(max(0, float(settings.github_poll_initial_delay_seconds)))
     while True:
         try:
+            # Process pending commit refs (post-commit hook → instant local linking).
+            # This runs regardless of github_sync_enabled — it's independent.
+            fac = session_factory()
+            async with fac() as pending_session:
+                await process_pending_commit_refs(pending_session)
+                await pending_session.commit()
+
             if not get_settings().github_sync_enabled:
                 await asyncio.sleep(max(30.0, float(get_settings().github_poll_interval_seconds)))
                 continue

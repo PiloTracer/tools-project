@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 
 type CommitRow = {
   id: string;
+  sha: string;
   short_sha: string;
   message_preview: string;
   html_url: string;
@@ -22,6 +23,8 @@ export function CommitPicker({
   onSelect: (markdown: string, meta: { commit_id: string; sha: string; owner: string; repo: string; html_url: string }) => void;
   onClose: () => void;
 }) {
+  // The meta object is now consumed by callers — they include it in the
+  // activity payload so the backend creates a formal CommitSubjectRef row.
   const [query, setQuery] = useState("");
   const [commits, setCommits] = useState<CommitRow[]>([]);
   const [busy, setBusy] = useState(false);
@@ -58,7 +61,7 @@ export function CommitPicker({
     const md = `[\`${c.short_sha}\`](${c.html_url})`;
     onSelect(md, {
       commit_id: c.id,
-      sha: c.short_sha,
+      sha: c.sha,
       owner: c.owner,
       repo: c.repo,
       html_url: c.html_url,

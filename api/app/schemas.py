@@ -566,9 +566,24 @@ class GithubCommitListResponse(BaseModel):
 
 
 class CommitSubjectRefCreate(BaseModel):
+    """Create a ref for a commit that has already been synced (github_commit_id known)."""
+
     github_commit_id: uuid.UUID
     subject_type: str = Field(pattern=r"^(task|ticket|activity)$")
     subject_id: uuid.UUID
+
+
+class CommitSubjectRefPendingCreate(BaseModel):
+    """Create a ref for a commit that has NOT been synced yet (local SHA only).
+
+    ``project_id`` is inferred from the URL path. ``sha`` is the full 40-char hex SHA.
+    ``ref`` is the task/ticket ref string (e.g. ``PROJ-456`` / ``PROJ-T-23``).
+    """
+
+    sha: str = Field(
+        ..., min_length=40, max_length=40, pattern=r"^[0-9a-f]{40}$"
+    )
+    ref: str = Field(..., min_length=1, max_length=40)
 
 
 class CommitBrief(BaseModel):
@@ -586,7 +601,9 @@ class CommitBrief(BaseModel):
 
 class CommitSubjectRefOut(BaseModel):
     id: uuid.UUID
-    github_commit_id: uuid.UUID
+    github_commit_id: uuid.UUID | None = None
+    sha: str
+    project_id: uuid.UUID
     subject_type: str
     subject_id: uuid.UUID
     created_by: uuid.UUID

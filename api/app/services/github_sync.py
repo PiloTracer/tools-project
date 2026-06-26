@@ -105,7 +105,7 @@ async def sync_github_link(db: AsyncSession, link_id: uuid.UUID, since: datetime
 
     upserted = 0
     commits_info: list[dict[str, str]] = []
-    commit_pairs: list[tuple[uuid.UUID, str]] = []
+    commit_pairs: list[tuple[uuid.UUID, str, str]] = []
     for item in items:
         if not isinstance(item, dict):
             continue
@@ -163,7 +163,7 @@ async def sync_github_link(db: AsyncSession, link_id: uuid.UUID, since: datetime
         )
         cid = (await db.execute(stmt)).scalar_one()
         upserted += 1
-        commit_pairs.append((cid, message))
+        commit_pairs.append((cid, sha_full, message))
         commits_info.append({
             "id": str(cid),
             "sha": sha_full,

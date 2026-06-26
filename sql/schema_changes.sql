@@ -280,9 +280,23 @@ CREATE TABLE IF NOT EXISTS project_client_access (
 -- I10f: commit_subject_refs (normalized cross-link table)
 CREATE TABLE IF NOT EXISTS commit_subject_refs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    github_commit_id UUID NOT NULL REFERENCES github_commits (id) ON DELETE CASCADE,
+    github_commit_id UUID REFERENCES github_commits (id) ON DELETE SET NULL,
     subject_type VARCHAR(40) NOT NULL,
     subject_id UUID NOT NULL,
     created_by UUID NOT NULL REFERENCES users (id) ON DELETE CASCADE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Link-now, resolve-later columns: sha + project_id let us create refs before
+-- the commit syncs back from GitHub.  github_commit_id became nullable above.
+ALTER TABLE commit_subject_refs ADD COLUMN IF NOT EXISTS sha VARCHAR(40);
+ALTER TABLE commit_subject_refs ADD COLUMN IF NOT EXISTS project_id UUID REFERENCES projects (id) ON DELETE CASCADE;
+
+-- Backfill existing rows from the github_commits → github_links chain.
+UPDATE commit_subject_refs r
+SET sha = gc.sha,
+    project_id = gl.project_id
+FROM github_commits gc
+JOIN github_links gl ON gl.id = gc.github_link_id
+WHERE r.github_commit_id = gc.id
+  AND (r.sha IS NULL OR r.project_id IS NULL);
