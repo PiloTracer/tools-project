@@ -135,13 +135,9 @@ async def _process_one(db: AsyncSession, sha: str, ref: str) -> bool:
     if github_commit_id is not None:
         row_data["github_commit_id"] = github_commit_id
 
-    try:
-        stmt = pg_insert(CommitSubjectRef).values(**row_data)
-        await db.execute(stmt)
-        await db.flush()
-    except Exception:
-        log.warning("pending_ref: insert failed for %s ref=%s (likely duplicate, skipping)", sha, ref)
-        return False
+    stmt = pg_insert(CommitSubjectRef).values(**row_data).on_conflict_do_nothing()
+    await db.execute(stmt)
+    await db.flush()
 
     return True
 

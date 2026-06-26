@@ -198,13 +198,10 @@ async def link_commit_refs(
         else:
             linked = 0
             for row_data in rows:
-                try:
-                    stmt = pg_insert(CommitSubjectRef).values(**row_data)
-                    r = await db.execute(stmt)
-                    if r.rowcount:
-                        linked += 1
-                except Exception as exc:
-                    log.warning("commit_ref_linker: individual insert failed: %s", exc)
+                stmt = pg_insert(CommitSubjectRef).values(**row_data).on_conflict_do_nothing()
+                r = await db.execute(stmt)
+                if r.rowcount:
+                    linked += 1
             await db.flush()
 
         if linked:
