@@ -12,6 +12,8 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
+
 from app.db import get_db
 from app.deps import get_current_user
 from app.models.commit_subject_ref import CommitSubjectRef

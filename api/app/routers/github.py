@@ -33,7 +33,7 @@ from app.schemas import (
 from app.services.activity_writer import write_activity
 from app.services.github_sync import sync_github_link
 from app.services.github_task_registry import empty_registry, fetch_registry
-from app.services.github_token_crypto import encrypt_github_token
+from app.services.github_token_crypto import decrypt_github_token, encrypt_github_token
 from app.services.project_access import can_edit_project_meta, require_project_access
 
 from datetime import timedelta
@@ -219,7 +219,6 @@ async def test_github_link(
     if row is None or row.project_id != project_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Link not found")
 
-    from app.services.github_token_crypto import decrypt_github_token
     token = decrypt_github_token(row.token_cipher)
     headers = {
         "Accept": "application/vnd.github+json",
