@@ -623,8 +623,8 @@ class CommitBrief(BaseModel):
 class CommitSubjectRefOut(BaseModel):
     id: uuid.UUID
     github_commit_id: uuid.UUID | None = None
-    sha: str
-    project_id: uuid.UUID
+    sha: str | None = None
+    project_id: uuid.UUID | None = None
     subject_type: str
     subject_id: uuid.UUID
     created_by: uuid.UUID

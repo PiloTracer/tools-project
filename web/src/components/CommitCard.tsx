@@ -49,12 +49,13 @@ export function CommitCard({ meta, projectId }: { meta: CommitMeta; projectId?: 
     fetch(`/api/projects/${projectId}/github/refs?github_commit_id=${meta.commit_id}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
-        if (cancelled || !d) return;
+        if (cancelled) return;
+        if (!d) { setLinkedRefs([]); return; }
         const refs = (d as { items: LinkedRef[] }).items;
         setHasLinks(refs.length > 0);
         setLinkedRefs(refs);
       })
-      .catch(() => {});
+      .catch(() => { setLinkedRefs([]); });
     return () => { cancelled = true; };
   }, [projectId, meta.commit_id]);
 
