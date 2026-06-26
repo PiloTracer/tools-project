@@ -26,6 +26,7 @@ Bookend AI work sessions so the next chat (or human) can resume without guessing
 - **`close commit` / `close commit push` / `commit` / `commit push`:** **MUST** run `git add` + `git commit` in the shell (see [C4b](#c4b--git-actions-modifiers-only) / [Commit protocol](#commit-protocol)). A dirty tree after close with only a draft message is **fail**.
 - **Always** show the commit message - drafted, used for commit, or `none - working tree clean`.
 - **`commit` / `commit push` (standalone):** run git add + commit + push **without** updating HANDOFF or NEXT. Session stays open. Useful for mid-session checkpoints.
+- **Never commit with `type:` format when a task ref is known or could reasonably be asked for.** If the user provided a ref, or the branch/HANDOFF/github-registry contains one — use it. If no ref is known but the work clearly belongs to a task, ask the user once. Commits without refs are not linked to tasks/tickets and are invisible in the association UI.
 - Never edit files marked **archived** or **do not edit** in HANDOFF.
 - Never paste secrets from `.env`, `credentials/`, or tokens into chat or HANDOFF.
 - **`{PROMPTS_ROOT}/initial.md` is user-owned.** Do not read or create it on start/close unless the user explicitly names that path in the same invocation.

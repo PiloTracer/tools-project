@@ -1,0 +1,51 @@
+#!/bin/sh
+#
+# commit-msg — warn when commit message lacks a task ref.
+#
+# This hook runs after the commit message is finalized. If the message
+# doesn't contain a ref matching [A-Z]+-[0-9]+ or [A-Z]+-T-[0-9]+,
+# it prints a non-blocking warning.  The warning is stronger when the
+# branch name itself contains a ref pattern — that means a ref was
+# almost certainly intended.
+#
+# Installation:
+#   cp .ai/hooks/commit-msg .git/hooks/commit-msg
+#   chmod +x .git/hooks/commit-msg
+#
+# To suppress the warning (e.g. docs-only commits):
+#   git commit --no-verify
+#
+# See also: .cursorrules § Commit Message Format
+
+COMMIT_MSG_FILE="$1"
+SUBJECT=$(head -1 "$COMMIT_MSG_FILE" 2>/dev/null || echo "")
+
+# Check if the subject already contains a ref pattern
+case "$SUBJECT" in
+    *[A-Z][A-Z0-9_]*-[0-9]*:*|*[A-Z][A-Z0-9_]*T-[0-9]*:*)
+        exit 0 ;;
+esac
+
+# Also check the full message body for a ref
+FULL_MSG=$(cat "$COMMIT_MSG_FILE" 2>/dev/null || echo "")
+case "$FULL_MSG" in
+    *[A-Z][A-Z0-9_]*-[0-9]*|*[A-Z][A-Z0-9_]*T-[0-9]*)
+        exit 0 ;;
+esac
+
+# Check branch name for ref pattern — if branch has a ref but message doesn't,
+# it's almost certainly a mistake
+BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null || echo "")
+BRANCH_REF=$(echo "$BRANCH" | grep -oE '[A-Z][A-Z0-9_]*-(T-)?[0-9]+' | head -1)
+
+if [ -n "$BRANCH_REF" ]; then
+    printf '\033[33m⚠  Warning:\033[0m Branch name contains ref \033[36m%s\033[0m' "$BRANCH_REF" >&2
+    printf ' but commit subject does not.\n   Include \033[36m%s:\033[0m at the start so the commit gets linked to the task/ticket.\n' "$BRANCH_REF" >&2
+    printf '   (suppress with \033[33mgit commit --no-verify\033[0m)\n' >&2
+else
+    printf '\033[33m⚠  Tip:\033[0m Commit subject does not contain a task ref (e.g. \033[36mPROJ-123:\033[0m).\n' >&2
+    printf '   Commits without refs are not linked to tasks/tickets.\n' >&2
+    printf '   (suppress with \033[33mgit commit --no-verify\033[0m)\n' >&2
+fi
+
+exit 0
