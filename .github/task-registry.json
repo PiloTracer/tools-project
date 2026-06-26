@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-06-26T02:43:14.790290+00:00",
+  "updated_at": "2026-06-26T03:44:03.040483+00:00",
   "tasks": [
     {
       "ref": "TPR-1",
@@ -69,6 +69,13 @@
       "title": "Under settings, visually differentiate between Client and Contact",
       "status": "open",
       "project_id": "d942e263-efbc-4d96-bc9a-ea33654c3cb4"
+    },
+    {
+      "ref": "TPR-T-8",
+      "title": "tiquete de prueba",
+      "status": "open",
+      "project_id": "d942e263-efbc-4d96-bc9a-ea33654c3cb4",
+      "description": "esto es solo para probar si el commit se asocia a este tiquete."
     }
   ]
 }
