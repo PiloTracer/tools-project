@@ -85,6 +85,18 @@ export function CommitCard({ meta, projectId, readonly }: { meta: CommitMeta; pr
         } catch { /* ignore */ }
       }),
     ).then(() => {
+      for (const r of toFetch) {
+        if (!details[r.subject_id]) {
+          details[r.subject_id] = {
+            id: r.subject_id,
+            ref: null,
+            title: r.subject_type,
+            status: "unavailable",
+            priority: "—",
+            description: null,
+          };
+        }
+      }
       setLinkedDetails((prev) => ({ ...prev, ...details }));
     });
   }, [showLinked, linkedRefs, selectedSubject]);
@@ -104,6 +116,12 @@ export function CommitCard({ meta, projectId, readonly }: { meta: CommitMeta; pr
       >
         {!d ? (
           <p className="muted text-sm">Loading…</p>
+        ) : d.status === "unavailable" ? (
+          <div className="stack" style={{ gap: "0.6rem" }}>
+            <p className="muted text-sm">
+              Details unavailable for this {selectedSubject.type}.
+            </p>
+          </div>
         ) : (
           <div className="stack" style={{ gap: "0.6rem" }}>
             <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
