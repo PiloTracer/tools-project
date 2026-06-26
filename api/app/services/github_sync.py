@@ -173,6 +173,10 @@ async def sync_github_link(db: AsyncSession, link_id: uuid.UUID, since: datetime
         })
 
     link.last_synced_at = datetime.now(timezone.utc)
+    link.sync_status = "idle"
+    link.last_error = None
+    link.last_error_at = None
+    link.error_count = 0
     if items and isinstance(items[0], dict):
         s0 = items[0].get("sha")
         if isinstance(s0, str) and s0:

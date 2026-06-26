@@ -4,12 +4,18 @@ import { notFound, redirect } from "next/navigation";
 import { apiServerFetch, fetchMe } from "@/shared/server/session";
 
 import { DateDisplay } from "@/components/DateDisplay";
+import { SyncNowButton } from "@/components/SyncNowButton";
+import { SyncStatusBadge } from "@/components/SyncStatusBadge";
 import { ProjectSubNav } from "../ProjectSubNav";
 
 type GithubLinkRow = {
   id: string;
   owner: string;
   repo: string;
+  sync_status: string;
+  last_error: string | null;
+  last_error_at: string | null;
+  error_count: number;
   last_synced_at: string | null;
   created_at: string;
 };
@@ -88,8 +94,10 @@ export default async function ProjectGithubPage({
             <thead>
               <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border)" }}>
                 <th style={{ padding: "0.5rem 0" }}>Repository</th>
+                <th>Status</th>
                 <th>Last synced</th>
-                <th>Synced commits</th>
+                <th>Commits</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
@@ -103,9 +111,16 @@ export default async function ProjectGithubPage({
                     >
                       {l.owner}/{l.repo}
                     </a>
+                    {l.last_error ? (
+                      <div style={{ fontSize: "0.72rem", color: "var(--danger)", marginTop: "0.15rem" }}>
+                        {l.last_error.length > 120 ? l.last_error.slice(0, 120) + "…" : l.last_error}
+                      </div>
+                    ) : null}
                   </td>
+                  <td><SyncStatusBadge status={l.sync_status} error={l.last_error} errorCount={l.error_count} /></td>
                   <td>{l.last_synced_at ? <DateDisplay date={l.last_synced_at} /> : "—"}</td>
                   <td>{commits.filter((c) => c.owner === l.owner && c.repo === l.repo).length}</td>
+                  <td><SyncNowButton projectId={id} linkId={l.id} /></td>
                 </tr>
               ))}
             </tbody>

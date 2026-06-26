@@ -300,3 +300,9 @@ FROM github_commits gc
 JOIN github_links gl ON gl.id = gc.github_link_id
 WHERE r.github_commit_id = gc.id
   AND (r.sha IS NULL OR r.project_id IS NULL);
+
+-- Sync health: error-tracking columns for github_links (2026-06-26)
+ALTER TABLE github_links ADD COLUMN IF NOT EXISTS sync_status VARCHAR(20) NOT NULL DEFAULT 'idle';
+ALTER TABLE github_links ADD COLUMN IF NOT EXISTS last_error TEXT;
+ALTER TABLE github_links ADD COLUMN IF NOT EXISTS last_error_at TIMESTAMPTZ;
+ALTER TABLE github_links ADD COLUMN IF NOT EXISTS error_count INT NOT NULL DEFAULT 0;

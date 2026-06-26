@@ -525,6 +525,10 @@ class GithubLinkOut(BaseModel):
     poll_interval_seconds: int
     last_synced_at: datetime | None = None
     last_seen_sha: str | None = None
+    sync_status: str = "idle"
+    last_error: str | None = None
+    last_error_at: datetime | None = None
+    error_count: int = 0
     created_at: datetime
     updated_at: datetime
 
@@ -536,6 +540,23 @@ class GithubSyncResult(BaseModel):
     owner: str
     repo: str
     linked_refs: int = 0
+
+
+class GithubSyncStatusItem(BaseModel):
+    """Per-link sync health — returned by the sync-status endpoint."""
+
+    link_id: uuid.UUID
+    owner: str
+    repo: str
+    sync_status: str = "idle"
+    last_synced_at: datetime | None = None
+    last_error: str | None = None
+    last_error_at: datetime | None = None
+    error_count: int = 0
+
+
+class GithubSyncStatusResponse(BaseModel):
+    items: list[GithubSyncStatusItem]
 
 
 class CommitSummary(BaseModel):

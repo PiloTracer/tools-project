@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { Dialog } from "@/components/Dialog";
+import { SyncNowButton } from "@/components/SyncNowButton";
+import { SyncStatusBadge } from "@/components/SyncStatusBadge";
 import { toast } from "@/components/Toast";
 import { apiRequest } from "@/shared/client/api";
 
@@ -11,6 +13,10 @@ type LinkRow = {
   id: string;
   owner: string;
   repo: string;
+  sync_status: string;
+  last_error: string | null;
+  last_error_at: string | null;
+  error_count: number;
   last_synced_at: string | null;
 };
 
@@ -40,7 +46,8 @@ export function GitHubSettingsForm({
           <ul style={{ marginTop: "0.5rem" }}>
             {links.map((l) => (
               <li key={l.id}>
-                {l.owner}/{l.repo}
+                {l.owner}/{l.repo} <SyncStatusBadge status={l.sync_status} error={l.last_error} errorCount={l.error_count} />
+                {l.last_error && <span className="muted text-sm" style={{ marginLeft: "0.35rem" }}>— {l.last_error}</span>}
               </li>
             ))}
           </ul>
@@ -104,6 +111,7 @@ export function GitHubSettingsForm({
           <thead>
             <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border)" }}>
               <th style={{ padding: "0.5rem 0" }}>Repository</th>
+              <th>Status</th>
               <th>Last synced</th>
               <th></th>
             </tr>
@@ -119,16 +127,23 @@ export function GitHubSettingsForm({
                   >
                     {l.owner}/{l.repo}
                   </a>
+                  {l.last_error ? (
+                    <div style={{ fontSize: "0.72rem", color: "var(--danger)", marginTop: "0.15rem" }}>
+                      {l.last_error.length > 100 ? l.last_error.slice(0, 100) + "…" : l.last_error}
+                    </div>
+                  ) : null}
                 </td>
+                <td><SyncStatusBadge status={l.sync_status} error={l.last_error} errorCount={l.error_count} /></td>
                 <td suppressHydrationWarning>
                   {l.last_synced_at
                     ? new Date(l.last_synced_at).toLocaleString()
                     : "—"}
                 </td>
-                <td>
+                <td style={{ display: "flex", gap: "0.3rem", alignItems: "center" }}>
+                  <SyncNowButton projectId={projectId} linkId={l.id} />
                   <button
                     className="btn btn-ghost"
-                    style={{ color: "var(--danger, #c33)", fontSize: "0.85rem" }}
+                    style={{ color: "var(--danger, #c33)", fontSize: "0.72rem" }}
                     onClick={() => setRemoveLinkId(l.id)}
                   >
                     Remove

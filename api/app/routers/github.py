@@ -29,6 +29,7 @@ from app.schemas import (
     GithubLinkCreate,
     GithubLinkOut,
     GithubSyncResult,
+    GithubSyncStatusResponse,
 )
 from app.services.activity_writer import write_activity
 from app.services.github_sync import sync_github_link
@@ -501,6 +502,40 @@ async def github_readiness(
         "score": f"{met_count}/{total}",
         "checks": checks,
     }
+
+
+@router.get("/sync-status", response_model=GithubSyncStatusResponse)
+async def github_sync_status(
+    project_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Return per-link sync health — lightweight, no auth, no GitHub API call."""
+    proj = await db.get(Project, project_id)
+    if not proj:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Project not found")
+    links = (
+        await db.scalars(
+            select(GithubLink)
+            .where(GithubLink.project_id == project_id)
+            .order_by(GithubLink.created_at.desc())
+        )
+    ).all()
+    from app.schemas import GithubSyncStatusItem
+    return GithubSyncStatusResponse(
+        items=[
+            GithubSyncStatusItem(
+                link_id=l.id,
+                owner=l.owner,
+                repo=l.repo,
+                sync_status=l.sync_status or "idle",
+                last_synced_at=l.last_synced_at,
+                last_error=l.last_error,
+                last_error_at=l.last_error_at,
+                error_count=l.error_count or 0,
+            )
+            for l in links
+        ]
+    )
 
 
 # Simple in-memory cache for token health checks (5 min TTL).

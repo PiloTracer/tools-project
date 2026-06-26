@@ -33,6 +33,10 @@ class GithubLink(Base):
     poll_interval_seconds: Mapped[int] = mapped_column(Integer, default=300)
     last_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_seen_sha: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    sync_status: Mapped[str] = mapped_column(String(20), default="idle")
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    last_error_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    error_count: Mapped[int] = mapped_column(Integer, default=0)
     created_by: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="CASCADE"),
