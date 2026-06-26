@@ -60,6 +60,8 @@ async def github_poll_loop() -> None:
                             }
                             if c.get("id"):
                                 meta["commit_id"] = c["id"]
+                            if result.get("linked_refs"):
+                                meta["linked_refs"] = int(result["linked_refs"])
                             await write_activity(
                                 db=s2,
                                 project_id=link.project_id,

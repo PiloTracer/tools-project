@@ -13,6 +13,7 @@ type CommitMeta = {
   message_preview: string;
   full_message?: string;
   commit_id?: string;
+  linked_refs?: number;
 };
 
 type LinkedRef = {
@@ -36,10 +37,12 @@ export function CommitCard({ meta, projectId }: { meta: CommitMeta; projectId?: 
   const [linkedRefs, setLinkedRefs] = useState<LinkedRef[] | null>(null);
   const [linkedDetails, setLinkedDetails] = useState<Record<string, SubjectDetail>>({});
   const [showLinked, setShowLinked] = useState(false);
-  const [hasLinks, setHasLinks] = useState(false);
+  const [hasLinks, setHasLinks] = useState((meta.linked_refs ?? 0) > 0);
   const [selectedSubject, setSelectedSubject] = useState<{ type: string; id: string } | null>(null);
   const hasMore = !!(meta.full_message && meta.full_message.length > 100);
 
+  // Fetch linked refs on mount. The meta.linked_refs count gives the UI an
+  // instant hint to show the button before the fetch completes.
   useEffect(() => {
     if (!projectId || !meta.commit_id) return;
     let cancelled = false;
@@ -246,5 +249,6 @@ export function extractCommitMeta(
     message_preview: message_preview ?? "",
     full_message: (meta_json.full_message as string) ?? undefined,
     commit_id: (meta_json.commit_id as string) ?? undefined,
+    linked_refs: (meta_json.linked_refs as number) ?? undefined,
   };
 }

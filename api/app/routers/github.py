@@ -343,6 +343,8 @@ async def sync_backfill(
                     }
                     if commit_id_uuid:
                         meta["commit_id"] = commit_id_uuid
+                    if out.get("linked_refs"):
+                        meta["linked_refs"] = int(out["linked_refs"])
                     await write_activity(
                         db=db,
                         project_id=link.project_id,
