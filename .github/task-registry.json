@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-06-26T00:36:52.731145+00:00",
+  "updated_at": "2026-06-26T00:36:56.823666+00:00",
   "tasks": [
     {
       "ref": "TPR-1",
@@ -37,7 +37,7 @@
     {
       "ref": "TPR-T-2",
       "title": "Tickets showing a \"Queue\" we need a Board also, similarly to the Tasks.",
-      "status": "resolved",
+      "status": "closed",
       "project_id": "d942e263-efbc-4d96-bc9a-ea33654c3cb4"
     },
     {
