@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { apiServerFetch, fetchMe } from "@/shared/server/session";
 
 import { CopyRefButton } from "@/components/CopyRefButton";
+import { LinkedCommitsList } from "@/components/LinkedCommitsList";
 import { TaskDetailEditor } from "@/components/TaskDetailEditor";
 import { TaskDiscussion } from "@/components/TaskDiscussion";
 import { ProjectSubNav } from "../../ProjectSubNav";
@@ -118,6 +119,8 @@ export default async function TaskDetailPage({
       </div>
 
       <TaskDetailEditor task={task} canEdit={canEdit} members={members} />
+
+      <LinkedCommitsList projectId={projectId} subjectType="task" subjectId={taskId} />
 
       <TaskDiscussion projectId={projectId} taskId={taskId} initialItems={activityItems} canEdit={canEdit} />
     </div>

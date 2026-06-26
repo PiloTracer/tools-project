@@ -571,6 +571,19 @@ class CommitSubjectRefCreate(BaseModel):
     subject_id: uuid.UUID
 
 
+class CommitBrief(BaseModel):
+    """Lightweight commit info embedded in ref responses."""
+
+    sha: str
+    short_sha: str
+    message_preview: str
+    html_url: str
+    author_name: str | None = None
+    committed_at: datetime
+    owner: str
+    repo: str
+
+
 class CommitSubjectRefOut(BaseModel):
     id: uuid.UUID
     github_commit_id: uuid.UUID
@@ -578,6 +591,7 @@ class CommitSubjectRefOut(BaseModel):
     subject_id: uuid.UUID
     created_by: uuid.UUID
     created_at: datetime
+    commit: CommitBrief | None = None
 
     model_config = {"from_attributes": True}
 

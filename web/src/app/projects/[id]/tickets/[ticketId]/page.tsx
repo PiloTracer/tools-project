@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { apiServerFetch, fetchMe } from "@/shared/server/session";
 
 import { CopyRefButton } from "@/components/CopyRefButton";
+import { LinkedCommitsList } from "@/components/LinkedCommitsList";
 import { ProjectSubNav } from "../../ProjectSubNav";
 import { TicketDetailEditor } from "@/components/TicketDetailEditor";
 import { TicketDiscussion, type ActivityItem } from "./TicketDiscussion";
@@ -110,6 +111,8 @@ export default async function TicketDetailPage({
       </div>
 
       <TicketDetailEditor ticket={ticket} canEdit={canEdit} />
+
+      <LinkedCommitsList projectId={projectId} subjectType="ticket" subjectId={ticketId} />
 
       <div className="card wide stack">
         <h2 style={{ marginTop: 0 }}>Discussion</h2>

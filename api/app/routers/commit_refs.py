@@ -12,15 +12,13 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload
-
 from app.db import get_db
 from app.deps import get_current_user
 from app.models.commit_subject_ref import CommitSubjectRef
 from app.models.github_commit import GithubCommit
 from app.models.github_link import GithubLink
 from app.models.user import User
-from app.schemas import CommitSubjectRefCreate, CommitSubjectRefListResponse, CommitSubjectRefOut
+from app.schemas import CommitBrief, CommitSubjectRefCreate, CommitSubjectRefListResponse, CommitSubjectRefOut
 from app.services.project_access import require_project_access
 
 router = APIRouter(
@@ -40,7 +38,12 @@ async def list_commit_refs(
 ):
     """List commit-subject references. Optionally filter by commit, subject type, or subject id."""
     await require_project_access(db, user, project_id)
-    stmt = select(CommitSubjectRef).options(joinedload(CommitSubjectRef.commit))
+    stmt = (
+        select(CommitSubjectRef)
+        .options(
+            joinedload(CommitSubjectRef.commit).joinedload(GithubCommit.link)
+        )
+    )
     if github_commit_id:
         stmt = stmt.where(CommitSubjectRef.github_commit_id == github_commit_id)
     if subject_type:
@@ -49,9 +52,25 @@ async def list_commit_refs(
         stmt = stmt.where(CommitSubjectRef.subject_id == subject_id)
     stmt = stmt.order_by(CommitSubjectRef.created_at.desc())
     rows = (await db.scalars(stmt)).all()
-    return CommitSubjectRefListResponse(
-        items=[CommitSubjectRefOut.model_validate(r) for r in rows]
-    )
+
+    items: list[CommitSubjectRefOut] = []
+    for r in rows:
+        d = CommitSubjectRefOut.model_validate(r)
+        if r.commit:
+            msg = r.commit.message or ""
+            d.commit = CommitBrief(
+                sha=r.commit.sha,
+                short_sha=r.commit.sha[:7],
+                message_preview=msg[:120] + "…" if len(msg) > 120 else msg,
+                html_url=r.commit.html_url,
+                author_name=r.commit.author_name,
+                committed_at=r.commit.committed_at,
+                owner=r.commit.link.owner,
+                repo=r.commit.link.repo,
+            )
+        items.append(d)
+
+    return CommitSubjectRefListResponse(items=items)
 
 
 @router.post("", response_model=CommitSubjectRefOut, status_code=status.HTTP_201_CREATED)
