@@ -35,6 +35,7 @@ from app.models.commit_subject_ref import CommitSubjectRef
 from app.models.github_link import GithubLink
 from app.models.task import Task
 from app.models.ticket import Ticket
+from app.services.github_task_registry import fetch_registry
 
 log = logging.getLogger(__name__)
 
@@ -133,6 +134,63 @@ async def link_commit_refs(
             return 0
 
         resolved = await resolve_refs(db, project_id, all_refs)
+
+        # Fallback: try the GitHub registry for any refs that didn't resolve
+        # locally. The registry may have tickets created in other environments
+        # (e.g. production). If found, create a stub ticket in this DB so the
+        # link can be established.
+        unmatched_refs = [r for r in all_refs if r not in resolved]
+        if unmatched_refs:
+            try:
+                registry = await fetch_registry(db, project_id)
+                if registry:
+                    for entry in registry.get("tickets", []):
+                        eref = entry.get("ref")
+                        if eref in unmatched_refs:
+                            existing = await db.scalar(
+                                select(Ticket.id).where(Ticket.ref == eref).limit(1)
+                            )
+                            if existing is not None:
+                                resolved[eref] = (SUBJECT_TICKET, existing)
+                                unmatched_refs.remove(eref)
+                            else:
+                                stub = Ticket(
+                                    id=uuid.uuid4(),
+                                    project_id=project_id,
+                                    ref=eref,
+                                    title=entry.get("title", ""),
+                                    description=entry.get("description"),
+                                    status=entry.get("status", "open"),
+                                    reporter_id=created_by,
+                                )
+                                db.add(stub)
+                                await db.flush()
+                                resolved[eref] = (SUBJECT_TICKET, stub.id)
+                                unmatched_refs.remove(eref)
+                    for entry in registry.get("tasks", []):
+                        eref = entry.get("ref")
+                        if eref in unmatched_refs:
+                            existing = await db.scalar(
+                                select(Task.id).where(Task.ref == eref).limit(1)
+                            )
+                            if existing is not None:
+                                resolved[eref] = (SUBJECT_TASK, existing)
+                            else:
+                                stub = Task(
+                                    id=uuid.uuid4(),
+                                    project_id=project_id,
+                                    ref=eref,
+                                    title=entry.get("title", ""),
+                                    description=entry.get("description"),
+                                    status=entry.get("status", "todo"),
+                                    reporter_id=created_by,
+                                )
+                                db.add(stub)
+                                await db.flush()
+                                resolved[eref] = (SUBJECT_TASK, stub.id)
+            except Exception:
+                log.warning("commit_ref_linker: registry fallback failed, continuing without stub")
+
         if not resolved:
             return 0
 
