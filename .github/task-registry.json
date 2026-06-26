@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-06-26T00:22:15.190464+00:00",
+  "updated_at": "2026-06-26T00:26:27.021811+00:00",
   "tasks": [
     {
       "ref": "TPR-1",
@@ -43,6 +43,12 @@
     {
       "ref": "TPR-T-3",
       "title": "Run Audit and Verification of the code",
+      "status": "open",
+      "project_id": "d942e263-efbc-4d96-bc9a-ea33654c3cb4"
+    },
+    {
+      "ref": "TPR-T-4",
+      "title": "there's no sign of the commit being linked to a given ticket or task",
       "status": "open",
       "project_id": "d942e263-efbc-4d96-bc9a-ea33654c3cb4"
     }
