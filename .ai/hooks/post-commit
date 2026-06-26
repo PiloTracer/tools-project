@@ -1,0 +1,43 @@
+#!/bin/sh
+#
+# post-commit — write commit ref metadata so the background processor can
+# create pending commit_subject_refs rows immediately (no need to wait for
+# GitHub sync).
+#
+# Writes to .work/commit-ref-pending/ which is consumed by the API's
+# background loop (github_background.py / process_pending_commit_refs).
+#
+# Installation:
+#   cp .ai/hooks/post-commit .git/hooks/post-commit
+#   chmod +x .git/hooks/post-commit
+#
+# To skip:
+#   git commit --no-verify
+#
+# See also: .work/commit-ref-pending/README.md
+
+# NOTE: post-commit hooks receive no positional args from Git, so COMMIT_SOURCE
+# guards are impossible.  The operation is idempotent (same SHA + ref → same
+# file → same pending ref → deduped by processor) so this is safe on all paths.
+
+SHA=$(git rev-parse HEAD 2>/dev/null || echo "")
+test -z "$SHA" && exit 0
+
+# Extract ref: first from branch name, then from commit subject.
+BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null || echo "")
+REF=$(echo "$BRANCH" | grep -oE '[A-Z][A-Z0-9_]*-(T-)?[0-9]+' | head -1)
+
+if [ -z "$REF" ]; then
+    # Fallback: parse the commit subject for a ref pattern
+    SUBJECT=$(git log -1 --format="%s" 2>/dev/null || echo "")
+    REF=$(echo "$SUBJECT" | grep -oE '[A-Z][A-Z0-9_]*-(T-)?[0-9]+' | head -1)
+fi
+
+test -z "$REF" && exit 0
+
+# Write to .work/commit-ref-pending/ for the background processor.
+PENDING_DIR="$(git rev-parse --show-toplevel 2>/dev/null)/.work/commit-ref-pending"
+mkdir -p "$PENDING_DIR"
+
+# File name = SHA, content = ref.  The processor reads both.
+printf '%s' "$REF" > "${PENDING_DIR}/${SHA}"

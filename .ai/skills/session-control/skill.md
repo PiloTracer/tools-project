@@ -282,8 +282,14 @@ Look for an active task reference in this priority order:
    ```
    Parse the response, match against HANDOFF goal or branch name to find the best task/ticket. If match found, use its ref. If unreachable, empty, or no match, continue to next priority.
 3. **Branch name** — if current branch matches `(feature|fix|chore|docs)/[A-Z]+-[0-9]+` or `[A-Z]+-[0-9]+/`, extract the ref.
-4. **Last commit subject** — if `git log -1 --oneline` starts with `[A-Z]+-[0-9]+`, reuse it.
-5. **None** — use conventional format without ref.
+4. **Diff analysis (LLM-assisted)** — run `git diff --cached --stat` (or `git diff HEAD --stat`). Read the changed files and compare against candidate task/ticket descriptions. Use this when branch name lacks a ref, HANDOFF mentions multiple tasks, or changes span a different concern:
+   ```bash
+   curl -s "${API_BASE_URL:-http://localhost:8300}/v1/projects/{project_id}/tasks?limit=10" 2>/dev/null | python3 -m json.tool || true
+   curl -s "${API_BASE_URL:-http://localhost:8300}/v1/projects/{project_id}/tickets?limit=10" 2>/dev/null | python3 -m json.tool || true
+   ```
+   Clear match → use that ref. Multiple refs → primary as prefix, others in body. No match → continue.
+5. **Last commit subject** — if `git log -1 --oneline` starts with `[A-Z]+-[0-9]+`, reuse it.
+6. **None** — use conventional format without ref.
 
 **Subject format:**
 - Ref found: `{REF}: {subject}` (e.g. `PROJ-456: Add login form with email validation`)
@@ -411,8 +417,14 @@ Look for an active task reference in this priority order:
    ```
    Parse the response, match against HANDOFF goal or branch name to find the best task/ticket. If match found, use its ref. If unreachable, empty, or no match, continue to next priority.
 3. **Branch name** — if current branch matches `(feature|fix|chore|docs)/[A-Z]+-[0-9]+` or `[A-Z]+-[0-9]+/`, extract the ref.
-4. **Last commit subject** — if `git log -1 --oneline` starts with `[A-Z]+-[0-9]+`, reuse it.
-5. **None** — use conventional format without ref.
+4. **Diff analysis (LLM-assisted)** — run `git diff --cached --stat` (or `git diff HEAD --stat`). Read the changed files and compare against candidate task/ticket descriptions. Use this when branch name lacks a ref, HANDOFF mentions multiple tasks, or changes span a different concern:
+   ```bash
+   curl -s "${API_BASE_URL:-http://localhost:8300}/v1/projects/{project_id}/tasks?limit=10" 2>/dev/null | python3 -m json.tool || true
+   curl -s "${API_BASE_URL:-http://localhost:8300}/v1/projects/{project_id}/tickets?limit=10" 2>/dev/null | python3 -m json.tool || true
+   ```
+   Clear match → use that ref. Multiple refs → primary as prefix, others in body. No match → continue.
+5. **Last commit subject** — if `git log -1 --oneline` starts with `[A-Z]+-[0-9]+`, reuse it.
+6. **None** — use conventional format without ref.
 
 **Subject format:**
 - Ref found: `{REF}: {subject}` (e.g. `PROJ-456: Add login form with email validation`)

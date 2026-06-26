@@ -21,8 +21,11 @@ COMMIT_MSG_FILE="$1"
 COMMIT_SOURCE="$2"
 SHA1="$3"
 
-# Only prepend on new commits (not amend, merge, rebase, etc.)
-if [ "$COMMIT_SOURCE" = "message" ] || [ "$COMMIT_SOURCE" = "template" ] || [ "$COMMIT_SOURCE" = "merge" ] || [ "$COMMIT_SOURCE" = "squash" ]; then
+# Only prepend on new commits (not template, merge, squash, etc.)
+# NOTE: "message" (git commit -m) is NOT skipped so AI-driven commits
+# also get the ref prefix.  If the message already carries the ref the
+# case check below exits early — no double-prefix risk.
+if [ "$COMMIT_SOURCE" = "template" ] || [ "$COMMIT_SOURCE" = "merge" ] || [ "$COMMIT_SOURCE" = "squash" ]; then
     exit 0
 fi
 
