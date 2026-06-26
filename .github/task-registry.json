@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-06-26T00:37:10.975343+00:00",
+  "updated_at": "2026-06-26T00:39:34.890634+00:00",
   "tasks": [
     {
       "ref": "TPR-1",
@@ -50,6 +50,12 @@
       "ref": "TPR-T-4",
       "title": "there's no sign of the commit being linked to a given ticket or task",
       "status": "closed",
+      "project_id": "d942e263-efbc-4d96-bc9a-ea33654c3cb4"
+    },
+    {
+      "ref": "TPR-T-5",
+      "title": "In project's \"Github\" tab, the recent commits are not showing today's commits.",
+      "status": "open",
       "project_id": "d942e263-efbc-4d96-bc9a-ea33654c3cb4"
     }
   ]
