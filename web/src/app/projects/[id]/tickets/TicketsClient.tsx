@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { CopyRefButton } from "@/components/CopyRefButton";
+import { KanbanBoard } from "@/components/KanbanBoard";
 
 import { Dialog } from "@/components/Dialog";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
@@ -639,5 +640,64 @@ export function TicketTable({
         <p className="text-sm">Delete {selectedIds.size} selected tickets? This action cannot be undone.</p>
       </Dialog>
     </>
+  );
+}
+
+export function TicketsView({
+  projectId,
+  tickets,
+  canEdit,
+  canDelete,
+}: {
+  projectId: string;
+  tickets: TicketQueueRow[];
+  canEdit: boolean;
+  canDelete: boolean;
+}) {
+  const [view, setView] = useState<"board" | "table">("board");
+  const router = useRouter();
+
+  async function onStatusChange(ticketId: string, newStatus: string) {
+    const r = await apiRequest(`/api/tickets/${ticketId}/transition`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: newStatus }),
+    });
+    if (!r.ok) { toast(r.error, "error"); return; }
+    router.refresh();
+  }
+
+  return (
+    <div className="stack" style={{ gap: "0.75rem" }}>
+      <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+        <span className="text-sm muted">View:</span>
+        <button
+          type="button"
+          className={`btn ${view === "board" ? "btn-primary" : "btn-ghost"} text-sm`}
+          onClick={() => setView("board")}
+        >
+          Board
+        </button>
+        <button
+          type="button"
+          className={`btn ${view === "table" ? "btn-primary" : "btn-ghost"} text-sm`}
+          onClick={() => setView("table")}
+        >
+          Table
+        </button>
+      </div>
+      {view === "board" ? (
+        <KanbanBoard
+          projectId={projectId}
+          items={tickets}
+          canEdit={canEdit}
+          onStatusChange={onStatusChange}
+          kind="ticket"
+          linkPath={(t) => `/projects/${projectId}/tickets/${t.id}`}
+        />
+      ) : (
+        <TicketTable projectId={projectId} tickets={tickets} canEdit={canEdit} canDelete={canDelete} />
+      )}
+    </div>
   );
 }

@@ -4,7 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { apiServerFetch, fetchMe } from "@/shared/server/session";
 
 import { ProjectSubNav } from "../ProjectSubNav";
-import { NewTicketForm, TicketTable, type TicketQueueRow } from "./TicketsClient";
+import { NewTicketForm, TicketsView, type TicketQueueRow } from "./TicketsClient";
 
 type ProjectRow = {
   id: string;
@@ -71,7 +71,7 @@ export default async function ProjectTicketsPage({
         {items.length === 0 ? (
           <p className="muted">No tickets.</p>
         ) : (
-          <TicketTable projectId={id} tickets={items} canEdit={canEdit} canDelete={canDelete} />
+          <TicketsView projectId={id} tickets={items} canEdit={canEdit} canDelete={canDelete} />
         )}
       </div>
     </div>

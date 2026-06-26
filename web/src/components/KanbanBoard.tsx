@@ -5,18 +5,16 @@ import { useMemo, useState } from "react";
 
 import { CopyRefButton } from "@/components/CopyRefButton";
 
-export type KanbanTask = {
+export type KanbanItem = {
   id: string;
   ref: string | null;
   title: string;
   status: string;
   priority: string;
-  assignee_id: string | null;
-  due_at: string | null;
-  is_todo: boolean;
+  due_at?: string | null;
 };
 
-const COLUMNS = [
+const TASK_COLUMNS = [
   { key: "todo", label: "Todo", color: "var(--muted)" },
   { key: "in_progress", label: "In Progress", color: "var(--accent)" },
   { key: "blocked", label: "Blocked", color: "var(--danger)" },
@@ -24,33 +22,48 @@ const COLUMNS = [
   { key: "cancelled", label: "Cancelled", color: "var(--muted)" },
 ];
 
+const TICKET_COLUMNS = [
+  { key: "open", label: "Open", color: "var(--muted)" },
+  { key: "in_progress", label: "In Progress", color: "var(--accent)" },
+  { key: "waiting_customer", label: "Waiting", color: "var(--warning, #b90)" },
+  { key: "resolved", label: "Resolved", color: "var(--success)" },
+  { key: "closed", label: "Closed", color: "var(--muted)" },
+];
+
 export function KanbanBoard({
   projectId,
-  tasks,
+  items,
   canEdit,
   onStatusChange,
+  kind = "task",
+  linkPath,
 }: {
   projectId: string;
-  tasks: KanbanTask[];
+  items: KanbanItem[];
   canEdit: boolean;
-  onStatusChange: (taskId: string, newStatus: string) => void;
+  onStatusChange: (itemId: string, newStatus: string) => void;
+  kind?: "task" | "ticket";
+  linkPath?: (item: KanbanItem) => string;
 }) {
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
 
+  const cols = kind === "ticket" ? TICKET_COLUMNS : TASK_COLUMNS;
+
   const columns = useMemo(() => {
-    const map: Record<string, KanbanTask[]> = {};
-    for (const col of COLUMNS) {
+    const map: Record<string, KanbanItem[]> = {};
+    for (const col of cols) {
       map[col.key] = [];
     }
-    for (const t of tasks) {
+    const fallback = cols[0]?.key || "todo";
+    for (const t of items) {
       if (map[t.status]) {
         map[t.status].push(t);
       } else {
-        map.todo.push(t);
+        map[fallback].push(t);
       }
     }
     return map;
-  }, [tasks]);
+  }, [items, cols]);
 
   function onDragStart(e: React.DragEvent, taskId: string) {
     e.dataTransfer.setData("text/plain", taskId);
@@ -85,7 +98,7 @@ export function KanbanBoard({
         minHeight: 320,
       }}
     >
-      {COLUMNS.map((col) => (
+      {cols.map((col) => (
         <div
           key={col.key}
           className="kanban-col"
@@ -161,7 +174,7 @@ export function KanbanBoard({
                     wordBreak: "break-word",
                   }}
                 >
-                  <Link href={`/projects/${projectId}/tasks/${t.id}`} style={{ color: "inherit", textDecoration: "none" }}>
+                  <Link href={linkPath ? linkPath(t) : `/projects/${projectId}/tasks/${t.id}`} style={{ color: "inherit", textDecoration: "none" }}>
                     {t.title}
                   </Link>
                 </div>

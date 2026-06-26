@@ -637,9 +637,10 @@ export function TasksView({
       {view === "board" ? (
         <KanbanBoard
           projectId={projectId}
-          tasks={tasks}
+          items={tasks}
           canEdit={canEdit}
           onStatusChange={onStatusChange}
+          kind="task"
         />
       ) : (
         <TaskTable projectId={projectId} tasks={tasks} canEdit={canEdit} members={members} />
