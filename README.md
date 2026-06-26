@@ -68,3 +68,7 @@ docker compose run --rm api sh
 ## Secrets
 
 Never commit `.env`, `credentials/`, or tokens. Rotate **`JWT_SECRET`** and bootstrap passwords in production.
+
+## Prueba de enlace de commit
+
+Commit de prueba para verificar asociación automática con TPR-T-8.
