@@ -27,6 +27,10 @@ type GithubLinkRow = {
   owner: string;
   repo: string;
   last_synced_at: string | null;
+  sync_status: string;
+  last_error: string | null;
+  last_error_at: string | null;
+  error_count: number;
 };
 
 export default async function ProjectSettingsPage({
