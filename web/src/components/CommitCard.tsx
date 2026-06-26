@@ -20,29 +20,21 @@ type LinkedRef = {
   id: string;
   subject_type: string;
   subject_id: string;
+  subject_ref: string | null;
+  subject_title: string | null;
+  subject_status: string | null;
   created_at: string;
-};
-
-type SubjectDetail = {
-  id: string;
-  ref: string | null;
-  title: string;
-  status: string;
-  priority: string;
-  description: string | null;
 };
 
 export function CommitCard({ meta, projectId, readonly }: { meta: CommitMeta; projectId?: string; readonly?: boolean }) {
   const [showFull, setShowFull] = useState(false);
   const [linkedRefs, setLinkedRefs] = useState<LinkedRef[] | null>(null);
-  const [linkedDetails, setLinkedDetails] = useState<Record<string, SubjectDetail>>({});
   const [showLinked, setShowLinked] = useState(false);
   const [hasLinks, setHasLinks] = useState((meta.linked_refs ?? 0) > 0);
-  const [selectedSubject, setSelectedSubject] = useState<{ type: string; id: string } | null>(null);
+  const [selectedSubject, setSelectedSubject] = useState<LinkedRef | null>(null);
   const hasMore = !!(meta.full_message && meta.full_message.length > 100);
 
-  // Fetch linked refs on mount. The meta.linked_refs count gives the UI an
-  // instant hint to show the button before the fetch completes.
+  // Fetch linked refs on mount.
   useEffect(() => {
     if (!projectId || !meta.commit_id) return;
     let cancelled = false;
@@ -59,106 +51,48 @@ export function CommitCard({ meta, projectId, readonly }: { meta: CommitMeta; pr
     return () => { cancelled = true; };
   }, [projectId, meta.commit_id]);
 
-  useEffect(() => {
-    const toFetch: { subject_type: string; subject_id: string }[] =
-      showLinked && linkedRefs
-        ? linkedRefs.map((r) => ({ subject_type: r.subject_type, subject_id: r.subject_id }))
-        : selectedSubject
-          ? [{ subject_type: selectedSubject.type, subject_id: selectedSubject.id }]
-          : [];
-    if (toFetch.length === 0) return;
-    const details: Record<string, SubjectDetail> = {};
-    Promise.all(
-      toFetch.map(async (r) => {
-        const endpoint = r.subject_type === "task"
-          ? `/api/tasks/${r.subject_id}`
-          : r.subject_type === "ticket"
-            ? `/api/tickets/${r.subject_id}`
-            : null;
-        if (!endpoint) return;
-        try {
-          const resp = await fetch(endpoint);
-          if (resp.ok) {
-            const j = await resp.json() as SubjectDetail;
-            details[r.subject_id] = j;
-          }
-        } catch { /* ignore */ }
-      }),
-    ).then(() => {
-      for (const r of toFetch) {
-        if (!details[r.subject_id]) {
-          details[r.subject_id] = {
-            id: r.subject_id,
-            ref: null,
-            title: r.subject_type,
-            status: "unavailable",
-            priority: "—",
-            description: null,
-          };
-        }
-      }
-      setLinkedDetails((prev) => ({ ...prev, ...details }));
-    });
-  }, [showLinked, linkedRefs, selectedSubject]);
+  const handleLinkedClick = () => {
+    if (linkedRefs && linkedRefs.length === 1) {
+      setSelectedSubject(linkedRefs[0]);
+    } else {
+      setShowLinked(true);
+    }
+  };
 
   if (selectedSubject) {
-    const d = linkedDetails[selectedSubject.id];
     const href = projectId
-      ? selectedSubject.type === "task"
-        ? `/projects/${projectId}/tasks/${selectedSubject.id}`
-        : `/projects/${projectId}/tickets/${selectedSubject.id}`
+      ? selectedSubject.subject_type === "task"
+        ? `/projects/${projectId}/tasks/${selectedSubject.subject_id}`
+        : `/projects/${projectId}/tickets/${selectedSubject.subject_id}`
       : "#";
     return (
       <Dialog
         open
         onClose={() => setSelectedSubject(null)}
-        title={d ? `${d.ref ?? selectedSubject.type}: ${d.title}` : selectedSubject.type}
+        title={`${selectedSubject.subject_ref ?? selectedSubject.subject_type}: ${selectedSubject.subject_title ?? selectedSubject.subject_type}`}
       >
-        {!d ? (
-          <p className="muted text-sm">Loading…</p>
-        ) : d.status === "unavailable" ? (
-          <div className="stack" style={{ gap: "0.6rem" }}>
-            <p className="muted text-sm">
-              Details unavailable for this {selectedSubject.type}.
-            </p>
-          </div>
-        ) : (
-          <div className="stack" style={{ gap: "0.6rem" }}>
-            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-              <span className="pill">{d.status}</span>
-              <span className="pill pill-muted">{d.priority}</span>
-            </div>
-            {d.description ? (
-              <p style={{ margin: 0, whiteSpace: "pre-wrap", fontSize: "0.9rem", lineHeight: 1.5 }}>
-                {d.description.length > 300 ? d.description.slice(0, 300) + "…" : d.description}
-              </p>
-            ) : (
-              <p className="muted text-sm">No description.</p>
-            )}
-            {!readonly ? (
-              <div style={{ marginTop: "0.5rem" }}>
-                <Link
-                  href={href}
-                  className="btn btn-primary text-sm"
-                  style={{ display: "inline-flex", textDecoration: "none" }}
-                >
-                  Expand →
-                </Link>
-              </div>
+        <div className="stack" style={{ gap: "0.6rem" }}>
+          <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+            {selectedSubject.subject_status ? (
+              <span className="pill">{selectedSubject.subject_status}</span>
             ) : null}
+            <span className="pill pill-muted">{selectedSubject.subject_type}</span>
           </div>
-        )}
+          {!readonly ? (
+            <div style={{ marginTop: "0.5rem" }}>
+              <Link
+                href={href}
+                className="btn btn-primary text-sm"
+                style={{ display: "inline-flex", textDecoration: "none" }}
+              >
+                Expand →
+              </Link>
+            </div>
+          ) : null}
+        </div>
       </Dialog>
     );
   }
-
-  const handleLinkedClick = () => {
-    if (linkedRefs && linkedRefs.length === 1) {
-      setSelectedSubject({ type: linkedRefs[0].subject_type, id: linkedRefs[0].subject_id });
-    } else {
-      setShowLinked(true);
-    }
-  };
 
   return (
     <div style={{ margin: "0.35rem 0 0" }}>
@@ -226,8 +160,7 @@ export function CommitCard({ meta, projectId, readonly }: { meta: CommitMeta; pr
         ) : (
           <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
             {linkedRefs.map((r) => {
-              const d = linkedDetails[r.subject_id];
-              const label = d ? `${d.ref ?? d.title}` : "Loading…";
+              const label = r.subject_ref ?? r.subject_title ?? r.subject_type;
               return (
                 <li key={r.id} style={{ padding: "0.4rem 0", borderBottom: "1px solid var(--border)" }}>
                   <button
@@ -242,19 +175,15 @@ export function CommitCard({ meta, projectId, readonly }: { meta: CommitMeta; pr
                       fontFamily: "inherit",
                       color: "inherit",
                     }}
-                    onClick={() => setSelectedSubject({ type: r.subject_type, id: r.subject_id })}
+                    onClick={() => setSelectedSubject(r)}
                   >
                     <span className="pill" style={{ fontSize: "0.65rem", marginRight: "0.35rem" }}>
                       {r.subject_type}
                     </span>
-                    {d ? (
-                      <>
-                        <strong>{d.ref ?? d.title}</strong>
-                        <span className="muted text-sm" style={{ marginLeft: "0.35rem" }}>· {d.status}</span>
-                      </>
-                    ) : (
-                      <span className="muted text-sm">{label}</span>
-                    )}
+                    <strong>{label}</strong>
+                    {r.subject_status ? (
+                      <span className="muted text-sm" style={{ marginLeft: "0.35rem" }}>· {r.subject_status}</span>
+                    ) : null}
                   </button>
                 </li>
               );

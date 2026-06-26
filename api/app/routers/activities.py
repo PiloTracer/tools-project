@@ -344,7 +344,7 @@ async def create_activity(
     await db.flush()
 
     # Create commit_subject_ref row if github_ref was present
-    if commit_ref_id is not None:
+    if commit_ref_id is not None and st in ("task", "ticket"):
         existing_ref = await db.scalar(
             select(CommitSubjectRef).where(
                 CommitSubjectRef.github_commit_id == commit_ref_id,

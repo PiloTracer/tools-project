@@ -32,6 +32,35 @@ from app.schemas import (
 )
 from app.services.project_access import require_project_access
 
+async def _enrich_subject_fields(
+    db: AsyncSession,
+    pairs: list[tuple[str, uuid.UUID]],
+) -> dict[tuple[str, str], tuple[str | None, str, str]]:
+    """Return a map of (type, id) → (ref, title, status) for the given subjects."""
+    out: dict[tuple[str, str], tuple[str | None, str, str]] = {}
+    task_ids = [sid for st, sid in pairs if st == "task"]
+    ticket_ids = [sid for st, sid in pairs if st == "ticket"]
+    if task_ids:
+        for ref_val, tid, title, status in (
+            await db.execute(
+                select(Task.ref, Task.id, Task.title, Task.status).where(
+                    Task.id.in_(task_ids)
+                )
+            )
+        ).all():
+            out[("task", str(tid))] = (ref_val, title, status)
+    if ticket_ids:
+        for ref_val, tid, title, status in (
+            await db.execute(
+                select(Ticket.ref, Ticket.id, Ticket.title, Ticket.status).where(
+                    Ticket.id.in_(ticket_ids)
+                )
+            )
+        ).all():
+            out[("ticket", str(tid))] = (ref_val, title, status)
+    return out
+
+
 router = APIRouter(
     prefix="/v1/projects/{project_id}/github/refs",
     tags=["github"],
@@ -68,8 +97,14 @@ async def list_commit_refs(
     stmt = stmt.order_by(CommitSubjectRef.created_at.desc())
     rows = (await db.scalars(stmt)).all()
 
+    subject_map = await _enrich_subject_fields(
+        db,
+        [(r.subject_type, r.subject_id) for r in rows],
+    )
+
     items: list[CommitSubjectRefOut] = []
     for r in rows:
+        sub = subject_map.get((r.subject_type, str(r.subject_id)))
         d = CommitSubjectRefOut(
             id=r.id,
             github_commit_id=r.github_commit_id,
@@ -77,6 +112,9 @@ async def list_commit_refs(
             project_id=r.project_id,
             subject_type=r.subject_type,
             subject_id=r.subject_id,
+            subject_ref=sub[0] if sub else None,
+            subject_title=sub[1] if sub else None,
+            subject_status=sub[2] if sub else None,
             created_by=r.created_by,
             created_at=r.created_at,
             commit=None,
@@ -144,6 +182,8 @@ async def create_commit_ref(
     db.add(row)
     await db.flush()
     await db.refresh(row)
+    sm = await _enrich_subject_fields(db, [(row.subject_type, row.subject_id)])
+    sub = sm.get((row.subject_type, str(row.subject_id)))
     return CommitSubjectRefOut(
         id=row.id,
         github_commit_id=row.github_commit_id,
@@ -151,13 +191,14 @@ async def create_commit_ref(
         project_id=row.project_id,
         subject_type=row.subject_type,
         subject_id=row.subject_id,
+        subject_ref=sub[0] if sub else None,
+        subject_title=sub[1] if sub else None,
+        subject_status=sub[2] if sub else None,
         created_by=row.created_by,
         created_at=row.created_at,
         commit=None,
     )
 
-
-@router.post("/pending", status_code=status.HTTP_201_CREATED)
 async def create_pending_commit_ref(
     project_id: uuid.UUID,
     body: CommitSubjectRefPendingCreate,
@@ -248,6 +289,8 @@ async def create_pending_commit_ref(
     db.add(row)
     await db.flush()
     await db.refresh(row)
+    sm = await _enrich_subject_fields(db, [(row.subject_type, row.subject_id)])
+    sub = sm.get((row.subject_type, str(row.subject_id)))
     return CommitSubjectRefOut(
         id=row.id,
         github_commit_id=row.github_commit_id,
@@ -255,6 +298,9 @@ async def create_pending_commit_ref(
         project_id=row.project_id,
         subject_type=row.subject_type,
         subject_id=row.subject_id,
+        subject_ref=sub[0] if sub else None,
+        subject_title=sub[1] if sub else None,
+        subject_status=sub[2] if sub else None,
         created_by=row.created_by,
         created_at=row.created_at,
         commit=None,

@@ -18,6 +18,9 @@ type CommitRef = {
   id: string;
   subject_type: string;
   subject_id: string;
+  subject_ref: string | null;
+  subject_title: string | null;
+  subject_status: string | null;
   commit: CommitBrief | null;
   created_at: string;
 };
