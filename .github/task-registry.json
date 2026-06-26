@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-06-26T04:44:12.067658+00:00",
+  "updated_at": "2026-06-26T06:07:57.837192+00:00",
   "tasks": [
     {
       "ref": "TPR-1",
@@ -67,8 +67,9 @@
     {
       "ref": "TPR-T-7",
       "title": "Under settings, visually differentiate between Client and Contact",
-      "status": "open",
-      "project_id": "d942e263-efbc-4d96-bc9a-ea33654c3cb4"
+      "status": "closed",
+      "project_id": "d942e263-efbc-4d96-bc9a-ea33654c3cb4",
+      "description": "it's a bit confusing  when adding clients and contacts because they look very similar, let's differentiate, and give the Client there a kind-of header role, and the contact like a sub-component of the client."
     },
     {
       "ref": "TPR-T-8",
