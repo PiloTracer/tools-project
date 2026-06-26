@@ -203,8 +203,8 @@ async def link_commit_refs(
                     r = await db.execute(stmt)
                     if r.rowcount:
                         linked += 1
-                except Exception:
-                    continue
+                except Exception as exc:
+                    log.warning("commit_ref_linker: individual insert failed: %s", exc)
             await db.flush()
 
         if linked:
