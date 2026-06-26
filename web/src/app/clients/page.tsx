@@ -86,9 +86,28 @@ export default function ClientsPage() {
   const columns: Column<ClientRow>[] = [
     {
       key: "name",
-      label: "Name",
+      label: "Company",
       sortable: true,
-      render: (r) => <span style={{ fontWeight: 600 }}>{r.name}</span>,
+      render: (r) => (
+        <span style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          <span style={{
+            display: "inline-flex", alignItems: "center", justifyContent: "center",
+            width: "1.6rem", height: "1.6rem", borderRadius: "var(--radius-sm)",
+            background: "rgb(56 189 248 / 12%)", color: "var(--accent)",
+            fontSize: "0.75rem", fontWeight: 700, flexShrink: 0,
+          }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+            </svg>
+          </span>
+          <div>
+            <div style={{ fontWeight: 600, lineHeight: 1.3 }}>{r.name}</div>
+            <div style={{ fontSize: "0.72rem", color: "var(--muted)", marginTop: "0.1rem" }}>
+              {r.slug}
+            </div>
+          </div>
+        </span>
+      ),
     },
     {
       key: "slug",

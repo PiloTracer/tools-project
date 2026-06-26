@@ -196,16 +196,16 @@ async def link_commit_refs(
         if not rows:
             linked = 0
         else:
-            stmt = (
-                pg_insert(CommitSubjectRef)
-                .values(rows)
-                .on_conflict_do_nothing(
-                    index_elements=["github_commit_id", "subject_type", "subject_id"]
-                )
-            )
-            result = await db.execute(stmt)
+            linked = 0
+            for row_data in rows:
+                try:
+                    stmt = pg_insert(CommitSubjectRef).values(**row_data)
+                    r = await db.execute(stmt)
+                    if r.rowcount:
+                        linked += 1
+                except Exception:
+                    continue
             await db.flush()
-            linked = result.rowcount or 0
 
         if linked:
             log.info(

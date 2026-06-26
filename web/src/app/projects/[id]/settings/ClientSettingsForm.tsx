@@ -232,35 +232,51 @@ export function ClientSettingsForm({
 
   return (
     <><div>
-      <h2 style={{ marginTop: 0 }}>Clients</h2>
+      <h2 style={{ marginTop: 0, display: "flex", alignItems: "center", gap: "0.5rem" }}>
+        <span style={{
+          display: "inline-flex", alignItems: "center", justifyContent: "center",
+          width: "1.3rem", height: "1.3rem", borderRadius: "var(--radius-sm)",
+          background: "rgb(56 189 248 / 12%)", color: "var(--accent)", fontSize: "0.65rem",
+        }}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+          </svg>
+        </span>
+        Clients
+      </h2>
 
       {linkedClients.length > 0 ? (
-        <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "1rem" }}>
-          <thead>
-            <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border)" }}>
-              <th style={{ padding: "0.5rem 0" }}>Client</th>
-              <th>Slug</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {linkedClients.map((c) => (
-              <tr key={c.id} style={{ borderBottom: "1px solid var(--border)" }}>
-                <td style={{ padding: "0.35rem 0", fontWeight: 600 }}>{c.client_name}</td>
-                <td style={{ fontFamily: "ui-monospace, monospace", fontSize: "0.82rem", color: "var(--muted)" }}>
-                  {c.client_slug}
-                </td>
-                <td style={{ textAlign: "right" }}>
-                  <button className="btn btn-sm btn-ghost" style={{ color: "var(--danger)" }} onClick={() => setUnlinkClientId(c.client_id)}>
-                    Unlink
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="stack" style={{ gap: "0.4rem", marginBottom: "0.75rem" }}>
+          {linkedClients.map((c) => (
+            <div key={c.id} style={{
+              display: "flex", alignItems: "center", gap: "0.6rem",
+              padding: "0.55rem 0.75rem",
+              background: "var(--surface)",
+              border: "1px solid var(--border)",
+              borderRadius: "var(--radius-sm)",
+              borderLeft: "3px solid rgb(56 189 248 / 50%)",
+            }}>
+              <span style={{
+                display: "inline-flex", alignItems: "center", justifyContent: "center",
+                width: "1.5rem", height: "1.5rem", borderRadius: "var(--radius-sm)",
+                background: "rgb(56 189 248 / 12%)", color: "var(--accent)", flexShrink: 0, fontSize: "0.7rem",
+              }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+                </svg>
+              </span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 600, fontSize: "0.9rem" }}>{c.client_name}</div>
+                <div style={{ fontSize: "0.72rem", color: "var(--muted)", fontFamily: "ui-monospace, monospace" }}>{c.client_slug}</div>
+              </div>
+              <button className="btn btn-sm btn-ghost" style={{ color: "var(--danger)", fontSize: "0.72rem", flexShrink: 0 }} onClick={() => setUnlinkClientId(c.client_id)}>
+                Unlink
+              </button>
+            </div>
+          ))}
+        </div>
       ) : (
-        <p className="muted text-sm">No clients linked to this project yet.</p>
+        <p className="muted text-sm" style={{ marginBottom: "0.75rem" }}>No clients linked to this project yet.</p>
       )}
 
       <button className="btn btn-sm btn-secondary" onClick={openLinkClient}>
@@ -312,23 +328,36 @@ export function ClientSettingsForm({
                   type="button"
                   className="btn btn-ghost"
                   style={{
-                    display: "block",
+                    display: "flex",
                     width: "100%",
                     textAlign: "left",
                     padding: "0.5rem",
                     borderRadius: 0,
                     borderBottom: "1px solid var(--border)",
+                    alignItems: "center",
+                    gap: "0.5rem",
                   }}
                   onClick={() => {
                     setSelectedClient(h);
                     setSearchResults([]);
                   }}
                 >
-                  <div style={{ fontWeight: 600 }}>{h.client_name}</div>
-                  <div style={{ fontSize: "0.78rem", color: "var(--muted)" }}>
-                    {h.contact_name ?? ""}
-                    {h.contact_name && h.contact_email ? " — " : ""}
-                    {h.contact_email ?? ""}
+                  <span style={{
+                    display: "inline-flex", alignItems: "center", justifyContent: "center",
+                    width: "1.4rem", height: "1.4rem", borderRadius: "var(--radius-sm)",
+                    background: "rgb(56 189 248 / 12%)", color: "var(--accent)", flexShrink: 0, fontSize: "0.65rem",
+                  }}>
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+                    </svg>
+                  </span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 600, fontSize: "0.85rem" }}>{h.client_name}</div>
+                    <div style={{ fontSize: "0.72rem", color: "var(--muted)" }}>
+                      {h.contact_name ?? ""}
+                      {h.contact_name && h.contact_email ? " — " : ""}
+                      {h.contact_email ?? ""}
+                    </div>
                   </div>
                 </button>
               ))}
@@ -340,41 +369,61 @@ export function ClientSettingsForm({
 
       <hr style={{ border: "none", borderTop: "1px solid var(--border)", margin: "1.25rem 0" }} />
 
-      <h2 style={{ marginTop: 0 }}>Client Access</h2>
+      <h2 style={{ marginTop: 0, display: "flex", alignItems: "center", gap: "0.5rem" }}>
+        <span style={{
+          display: "inline-flex", alignItems: "center", justifyContent: "center",
+          width: "1.3rem", height: "1.3rem", borderRadius: "var(--radius-sm)",
+          background: "rgb(148 163 184 / 12%)", color: "var(--muted)", fontSize: "0.65rem",
+        }}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+          </svg>
+        </span>
+        Client Access
+      </h2>
 
       {accessGrants.length > 0 ? (
-        <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "1rem" }}>
-          <thead>
-            <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border)" }}>
-              <th style={{ padding: "0.5rem 0" }}>Contact</th>
-              <th>Client</th>
-              <th>Role</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {accessGrants.map((a) => (
-              <tr key={a.id} style={{ borderBottom: "1px solid var(--border)" }}>
-                <td style={{ padding: "0.35rem 0" }}>
-                  <div style={{ fontWeight: 600 }}>{a.contact_name ?? "—"}</div>
-                  <div style={{ fontSize: "0.78rem", color: "var(--muted)" }}>{a.contact_email}</div>
-                </td>
-                <td style={{ color: "var(--muted)", fontSize: "0.88rem" }}>{a.client_name ?? "—"}</td>
-                <td><Badge variant="neutral">{a.role}</Badge></td>
-                <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
-                  <button className="btn btn-sm btn-ghost" onClick={() => { setEditAccess(a); setEditRole(a.role); setEditViewTasks(a.can_view_tasks); setEditViewTickets(a.can_view_tickets); setEditCreateTasks(a.can_create_tasks); }}>
-                    Edit
-                  </button>
-                  <button className="btn btn-sm btn-ghost" style={{ color: "var(--danger)" }} onClick={() => setRevokeAccessId(a.id)}>
-                    Revoke
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="stack" style={{ gap: "0.4rem", marginBottom: "0.75rem" }}>
+          {accessGrants.map((a) => (
+            <div key={a.id} style={{
+              display: "flex", alignItems: "center", gap: "0.6rem",
+              padding: "0.5rem 0.75rem",
+              background: "var(--surface)",
+              border: "1px solid var(--border)",
+              borderRadius: "var(--radius-sm)",
+              borderLeft: "3px solid rgb(148 163 184 / 40%)",
+            }}>
+              <span style={{
+                display: "inline-flex", alignItems: "center", justifyContent: "center",
+                width: "1.6rem", height: "1.6rem", borderRadius: "50%",
+                background: "rgb(148 163 184 / 10%)", color: "var(--muted)", flexShrink: 0,
+                fontSize: "0.65rem", fontWeight: 700,
+              }}>
+                {(a.contact_name ?? "?")[0].toUpperCase()}
+              </span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", flexWrap: "wrap" }}>
+                  <span style={{ fontWeight: 500, fontSize: "0.85rem" }}>{a.contact_name ?? "—"}</span>
+                  <Badge variant="neutral" style={{ fontSize: "0.6rem" }}>{a.role}</Badge>
+                </div>
+                <div style={{ fontSize: "0.75rem", color: "var(--muted)", marginTop: "0.1rem" }}>
+                  {a.contact_email ?? ""}
+                  {a.client_name ? <span> · {a.client_name}</span> : null}
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: "0.3rem", flexShrink: 0 }}>
+                <button className="btn btn-sm btn-ghost" style={{ fontSize: "0.72rem" }} onClick={() => { setEditAccess(a); setEditRole(a.role); setEditViewTasks(a.can_view_tasks); setEditViewTickets(a.can_view_tickets); setEditCreateTasks(a.can_create_tasks); }}>
+                  Edit
+                </button>
+                <button className="btn btn-sm btn-ghost" style={{ color: "var(--danger)", fontSize: "0.72rem" }} onClick={() => setRevokeAccessId(a.id)}>
+                  Revoke
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
       ) : (
-        <p className="muted text-sm">No client access grants yet.</p>
+        <p className="muted text-sm" style={{ marginBottom: "0.75rem" }}>No client access grants yet.</p>
       )}
 
       {linkedClients.length > 0 && (
@@ -407,48 +456,49 @@ export function ClientSettingsForm({
           ) : contacts.length === 0 ? (
             <p className="muted text-sm">No contacts found for linked clients.</p>
           ) : (
-            <div style={{ maxHeight: "18rem", overflowY: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                <thead>
-                  <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border)" }}>
-                    <th style={{ padding: "0.35rem 0" }}></th>
-                    <th>Name</th>
-                    <th>Client</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {contacts.map((c) => {
-                    const granted = alreadyHasAccess(c.id);
-                    return (
-                      <tr
-                        key={c.id}
-                        style={{
-                          borderBottom: "1px solid var(--border)",
-                          opacity: granted ? 0.45 : 1,
-                        }}
-                      >
-                        <td style={{ padding: "0.35rem 0" }}>
-                          <input
-                            type="radio"
-                            name="contact"
-                            value={c.id}
-                            checked={selectedContactId === c.id}
-                            onChange={() => setSelectedContactId(c.id)}
-                            disabled={granted}
-                          />
-                        </td>
-                        <td>
-                          <div style={{ fontWeight: 500 }}>{c.name}</div>
-                          <div style={{ fontSize: "0.78rem", color: "var(--muted)" }}>{c.email}</div>
-                        </td>
-                        <td style={{ color: "var(--muted)", fontSize: "0.88rem" }}>
-                          {c.client_name ?? "—"}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+            <div className="stack" style={{ gap: "0.3rem", maxHeight: "18rem", overflowY: "auto" }}>
+              {contacts.map((c) => {
+                const granted = alreadyHasAccess(c.id);
+                return (
+                  <label
+                    key={c.id}
+                    style={{
+                      display: "flex", alignItems: "center", gap: "0.6rem",
+                      padding: "0.45rem 0.65rem",
+                      borderRadius: "var(--radius-sm)",
+                      border: `1px solid ${selectedContactId === c.id ? "var(--accent)" : "var(--border)"}`,
+                      background: selectedContactId === c.id ? "rgb(56 189 248 / 5%)" : "transparent",
+                      opacity: granted ? 0.4 : 1,
+                      cursor: granted ? "default" : "pointer",
+                    }}
+                  >
+                    <input
+                      type="radio"
+                      name="contact"
+                      value={c.id}
+                      checked={selectedContactId === c.id}
+                      onChange={() => setSelectedContactId(c.id)}
+                      disabled={granted}
+                      style={{ flexShrink: 0 }}
+                    />
+                    <span style={{
+                      display: "inline-flex", alignItems: "center", justifyContent: "center",
+                      width: "1.5rem", height: "1.5rem", borderRadius: "50%",
+                      background: "rgb(148 163 184 / 10%)", color: "var(--muted)", flexShrink: 0,
+                      fontSize: "0.6rem", fontWeight: 700,
+                    }}>
+                      {c.name[0].toUpperCase()}
+                    </span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 500, fontSize: "0.85rem" }}>{c.name}</div>
+                      <div style={{ fontSize: "0.72rem", color: "var(--muted)" }}>
+                        {c.email} · {c.client_name ?? "—"}
+                      </div>
+                    </div>
+                    {granted ? <span className="muted text-sm" style={{ fontSize: "0.7rem" }}>already granted</span> : null}
+                  </label>
+                );
+              })}
             </div>
           )}
 

@@ -46,7 +46,6 @@ async def list_clients(
     rows = list(result.all())
     return ClientListResponse(items=[ClientOut.model_validate(r) for r in rows])
 
-
 @router.post("", response_model=ClientOut, status_code=status.HTTP_201_CREATED)
 async def create_client(
     body: ClientCreate,
