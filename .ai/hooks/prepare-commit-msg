@@ -31,8 +31,16 @@ fi
 
 BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null || echo "")
 
-# Extract ref from branch name: feature/PROJ-456-something or PROJ-456/something
+# Priority 1: extract ref from branch name: feature/PROJ-456-something or PROJ-456/something
 REF=$(echo "$BRANCH" | grep -oE '[A-Z][A-Z0-9_]*-(T-)?[0-9]+' | head -1)
+
+# Priority 2: fallback to .work/active-ref (written by session-control at start)
+if [ -z "$REF" ]; then
+    TOPLEVEL=$(git rev-parse --show-toplevel 2>/dev/null || echo "")
+    if [ -n "$TOPLEVEL" ] && [ -f "${TOPLEVEL}/.work/active-ref" ]; then
+        REF=$(head -1 "${TOPLEVEL}/.work/active-ref" 2>/dev/null | grep -oE '[A-Z][A-Z0-9_]*-(T-)?[0-9]+' | head -1)
+    fi
+fi
 
 if [ -z "$REF" ]; then
     exit 0
@@ -46,5 +54,5 @@ case "$SUBJECT" in
     "$REF:"*|"$REF: "*) exit 0 ;;
 esac
 
-# Prepend ref
-printf '%s: %s\n' "$REF" "$SUBJECT" > "$COMMIT_MSG_FILE"
+# Prepend ref to the first line; preserve commit body.
+sed -i "1s/^/${REF}: /" "$COMMIT_MSG_FILE"

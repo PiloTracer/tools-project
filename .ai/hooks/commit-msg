@@ -18,20 +18,12 @@
 # See also: .cursorrules § Commit Message Format
 
 COMMIT_MSG_FILE="$1"
-SUBJECT=$(head -1 "$COMMIT_MSG_FILE" 2>/dev/null || echo "")
-
-# Check if the subject already contains a ref pattern
-case "$SUBJECT" in
-    *[A-Z][A-Z0-9_]*-[0-9]*:*|*[A-Z][A-Z0-9_]*T-[0-9]*:*)
-        exit 0 ;;
-esac
-
-# Also check the full message body for a ref
 FULL_MSG=$(cat "$COMMIT_MSG_FILE" 2>/dev/null || echo "")
-case "$FULL_MSG" in
-    *[A-Z][A-Z0-9_]*-[0-9]*|*[A-Z][A-Z0-9_]*T-[0-9]*)
-        exit 0 ;;
-esac
+
+# Check if the message already contains a ref pattern (e.g. PROJ-456 or PROJ-T-23)
+if echo "$FULL_MSG" | grep -qE '[A-Z][A-Z0-9_]*-(T-)?[0-9]+'; then
+    exit 0
+fi
 
 # Check branch name for ref pattern — if branch has a ref but message doesn't,
 # it's almost certainly a mistake

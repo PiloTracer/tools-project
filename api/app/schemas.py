@@ -590,7 +590,7 @@ class CommitSubjectRefCreate(BaseModel):
     """Create a ref for a commit that has already been synced (github_commit_id known)."""
 
     github_commit_id: uuid.UUID
-    subject_type: str = Field(pattern=r"^(task|ticket|activity)$")
+    subject_type: str = Field(pattern=r"^(task|ticket)$")
     subject_id: uuid.UUID
 
 

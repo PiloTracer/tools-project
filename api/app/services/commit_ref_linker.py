@@ -39,13 +39,10 @@ from app.services.github_task_registry import fetch_registry
 
 log = logging.getLogger(__name__)
 
-# Matches PROJ-456 (task) and PROJ-T-23 (ticket).  Word-bounded, uppercase.
-REF_RE = re.compile(r"\b[A-Z][A-Z0-9_]*-(?:T-)?\d+\b")
-
 SUBJECT_TASK = "task"
 SUBJECT_TICKET = "ticket"
-_SUBJECT_TASK = SUBJECT_TASK
-_SUBJECT_TICKET = SUBJECT_TICKET
+
+REF_RE = re.compile(r"\b[A-Z][A-Z0-9_]*-(?:T-)?\d+\b")
 
 
 def extract_refs(message: str) -> list[str]:
@@ -85,7 +82,7 @@ async def resolve_refs(
     )
     for ref, tid in task_rows.all():
         if ref is not None:
-            out[ref] = (_SUBJECT_TASK, tid)
+            out[ref] = (SUBJECT_TASK, tid)
 
     remaining = [r for r in unique_refs if r not in out]
     if remaining:
@@ -97,7 +94,7 @@ async def resolve_refs(
         )
         for ref, tid in ticket_rows.all():
             if ref is not None:
-                out[ref] = (_SUBJECT_TICKET, tid)
+                out[ref] = (SUBJECT_TICKET, tid)
 
     return out
 
@@ -252,15 +249,15 @@ async def link_commit_refs(
         await db.flush()
 
         if not rows:
-            linked = 0
-        else:
-            linked = 0
-            for row_data in rows:
-                stmt = pg_insert(CommitSubjectRef).values(**row_data).on_conflict_do_nothing()
-                r = await db.execute(stmt)
-                if r.rowcount:
-                    linked += 1
-            await db.flush()
+            return 0
+
+        linked = 0
+        for row_data in rows:
+            stmt = pg_insert(CommitSubjectRef).values(**row_data).on_conflict_do_nothing()
+            r = await db.execute(stmt)
+            if r.rowcount:
+                linked += 1
+        await db.flush()
 
         if linked:
             log.info(

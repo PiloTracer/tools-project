@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, UniqueConstraint, func
+from sqlalchemy import DateTime, ForeignKey, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -37,10 +37,11 @@ class CommitSubjectRef(Base):
         nullable=True,
         index=True,
     )
-    sha: Mapped[str] = mapped_column(String(40), index=True)
-    project_id: Mapped[uuid.UUID] = mapped_column(
+    sha: Mapped[str | None] = mapped_column(String(40), nullable=True, index=True)
+    project_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("projects.id", ondelete="CASCADE"),
+        nullable=True,
         index=True,
     )
     subject_type: Mapped[str] = mapped_column(String(40))

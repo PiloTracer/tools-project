@@ -180,6 +180,30 @@ Match the response against the session goal or branch name:
 The resolved ref (if any) is stored in the start report and used as priority #2 in
 commit message ref extraction (see [M4](#m4---commit-message-with-task-ref-always)).
 
+### S4d - Write active ref (hook integration)
+
+If a task/ticket ref was resolved during S4–S4c (from HANDOFF goal, branch name, or
+task registry), write it to `.work/active-ref` so the `prepare-commit-msg` hook can
+read it when the branch name carries no ref pattern.
+
+```bash
+REF="<resolved-ref>"  # e.g. PROJ-456 or PROJ-T-23
+
+# Only write if a ref was actually resolved.
+if [ -n "$REF" ]; then
+    mkdir -p .work
+    printf '%s\n' "$REF" > .work/active-ref
+fi
+```
+
+**Do not guess or invent a ref** — only write when one was confirmed in S4/S4c.
+If no ref is resolved, delete `.work/active-ref` if it exists (stale from a
+previous session):
+
+```bash
+rm -f .work/active-ref
+```
+
 ### S5 - Mark session open (HANDOFF)
 
 Update **only** the `## Session status` block at the top of `{HANDOFF}`:

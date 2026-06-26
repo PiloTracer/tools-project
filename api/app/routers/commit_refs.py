@@ -271,7 +271,7 @@ async def delete_commit_ref(
     """Delete a commit-subject reference."""
     await require_project_access(db, user, project_id)
     row = await db.get(CommitSubjectRef, ref_id)
-    if row is None:
+    if row is None or row.project_id != project_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Reference not found")
     await db.delete(row)
     await db.flush()

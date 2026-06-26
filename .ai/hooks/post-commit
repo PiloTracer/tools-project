@@ -23,14 +23,21 @@
 SHA=$(git rev-parse HEAD 2>/dev/null || echo "")
 test -z "$SHA" && exit 0
 
-# Extract ref: first from branch name, then from commit subject.
+# Extract ref: first from branch name, then from commit subject, then from
+# full commit message body.
 BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null || echo "")
 REF=$(echo "$BRANCH" | grep -oE '[A-Z][A-Z0-9_]*-(T-)?[0-9]+' | head -1)
 
 if [ -z "$REF" ]; then
-    # Fallback: parse the commit subject for a ref pattern
+    # Fallback 1: parse the commit subject for a ref pattern
     SUBJECT=$(git log -1 --format="%s" 2>/dev/null || echo "")
     REF=$(echo "$SUBJECT" | grep -oE '[A-Z][A-Z0-9_]*-(T-)?[0-9]+' | head -1)
+fi
+
+if [ -z "$REF" ]; then
+    # Fallback 2: parse the full commit message body for a ref pattern
+    BODY=$(git log -1 --format="%b" 2>/dev/null || echo "")
+    REF=$(echo "$BODY" | grep -oE '[A-Z][A-Z0-9_]*-(T-)?[0-9]+' | head -1)
 fi
 
 test -z "$REF" && exit 0
@@ -40,4 +47,4 @@ PENDING_DIR="$(git rev-parse --show-toplevel 2>/dev/null)/.work/commit-ref-pendi
 mkdir -p "$PENDING_DIR"
 
 # File name = SHA, content = ref.  The processor reads both.
-printf '%s' "$REF" > "${PENDING_DIR}/${SHA}"
+printf '%s\n' "$REF" > "${PENDING_DIR}/${SHA}"

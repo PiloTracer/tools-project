@@ -353,9 +353,12 @@ async def create_activity(
             )
         )
         if existing_ref is None:
+            ref_commit = await db.get(GithubCommit, commit_ref_id)
             db.add(
                 CommitSubjectRef(
                     github_commit_id=commit_ref_id,
+                    sha=ref_commit.sha,
+                    project_id=project_id,
                     subject_type=st,
                     subject_id=body.subject_id,
                     created_by=user.id,
