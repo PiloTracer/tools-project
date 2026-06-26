@@ -36,40 +36,48 @@ export function CommitCard({ meta, projectId }: { meta: CommitMeta; projectId?: 
   const [linkedRefs, setLinkedRefs] = useState<LinkedRef[] | null>(null);
   const [linkedDetails, setLinkedDetails] = useState<Record<string, SubjectDetail>>({});
   const [showLinked, setShowLinked] = useState(false);
-  const [linkedBusy, setLinkedBusy] = useState(false);
+  const [hasLinks, setHasLinks] = useState(false);
   const [selectedSubject, setSelectedSubject] = useState<{ type: string; id: string } | null>(null);
   const hasMore = !!(meta.full_message && meta.full_message.length > 100);
 
   useEffect(() => {
-    if (!showLinked || !projectId || !meta.commit_id || linkedRefs) return;
-    setLinkedBusy(true);
+    if (!projectId || !meta.commit_id) return;
+    let cancelled = false;
     fetch(`/api/projects/${projectId}/github/refs?github_commit_id=${meta.commit_id}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
-        if (!d) return;
+        if (cancelled || !d) return;
         const refs = (d as { items: LinkedRef[] }).items;
+        setHasLinks(refs.length > 0);
         setLinkedRefs(refs);
-        const details: Record<string, SubjectDetail> = {};
-        Promise.all(
-          refs.map(async (r) => {
-            const endpoint = r.subject_type === "task"
-              ? `/api/tasks/${r.subject_id}`
-              : r.subject_type === "ticket"
-                ? `/api/tickets/${r.subject_id}`
-                : null;
-            if (!endpoint) return;
-            try {
-              const resp = await fetch(endpoint);
-              if (resp.ok) {
-                const j = await resp.json() as SubjectDetail;
-                details[r.subject_id] = j;
-              }
-            } catch { /* ignore */ }
-          }),
-        ).then(() => setLinkedDetails(details));
       })
-      .finally(() => setLinkedBusy(false));
-  }, [showLinked, projectId, meta.commit_id, linkedRefs]);
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [projectId, meta.commit_id]);
+
+  useEffect(() => {
+    if (!showLinked || !linkedRefs || linkedRefs.length === 0) return;
+    const details: Record<string, SubjectDetail> = {};
+    Promise.all(
+      linkedRefs.map(async (r) => {
+        const endpoint = r.subject_type === "task"
+          ? `/api/tasks/${r.subject_id}`
+          : r.subject_type === "ticket"
+            ? `/api/tickets/${r.subject_id}`
+            : null;
+        if (!endpoint) return;
+        try {
+          const resp = await fetch(endpoint);
+          if (resp.ok) {
+            const j = await resp.json() as SubjectDetail;
+            details[r.subject_id] = j;
+          }
+        } catch { /* ignore */ }
+      }),
+    ).then(() => {
+      setLinkedDetails(details);
+    });
+  }, [showLinked, linkedRefs]);
 
   if (selectedSubject) {
     const d = linkedDetails[selectedSubject.id];
@@ -128,7 +136,7 @@ export function CommitCard({ meta, projectId }: { meta: CommitMeta; projectId?: 
         <span className="muted" style={{ fontSize: "0.8rem" }}>
           {meta.owner}/{meta.repo}
         </span>
-        {meta.commit_id && projectId ? (
+        {hasLinks ? (
           <button
             type="button"
             className="btn btn-ghost text-sm"
@@ -173,9 +181,9 @@ export function CommitCard({ meta, projectId }: { meta: CommitMeta; projectId?: 
         onClose={() => setShowLinked(false)}
         title="Linked items"
       >
-        {linkedBusy && !linkedRefs ? (
+        {!linkedRefs ? (
           <p className="muted text-sm">Loading…</p>
-        ) : !linkedRefs || linkedRefs.length === 0 ? (
+        ) : linkedRefs.length === 0 ? (
           <p className="muted text-sm">No linked tasks or tickets.</p>
         ) : (
           <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>

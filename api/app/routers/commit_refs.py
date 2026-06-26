@@ -57,7 +57,15 @@ async def list_commit_refs(
 
     items: list[CommitSubjectRefOut] = []
     for r in rows:
-        d = CommitSubjectRefOut.model_validate(r)
+        d = CommitSubjectRefOut(
+            id=r.id,
+            github_commit_id=r.github_commit_id,
+            subject_type=r.subject_type,
+            subject_id=r.subject_id,
+            created_by=r.created_by,
+            created_at=r.created_at,
+            commit=None,
+        )
         if r.commit:
             msg = r.commit.message or ""
             d.commit = CommitBrief(
@@ -119,7 +127,15 @@ async def create_commit_ref(
     db.add(row)
     await db.flush()
     await db.refresh(row)
-    return CommitSubjectRefOut.model_validate(row)
+    return CommitSubjectRefOut(
+        id=row.id,
+        github_commit_id=row.github_commit_id,
+        subject_type=row.subject_type,
+        subject_id=row.subject_id,
+        created_by=row.created_by,
+        created_at=row.created_at,
+        commit=None,
+    )
 
 
 @router.delete("/{ref_id}", status_code=status.HTTP_204_NO_CONTENT)
