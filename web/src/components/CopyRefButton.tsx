@@ -38,7 +38,7 @@ export function CopyRefButton({ code }: { code: string }) {
         lineHeight: 1.4,
       }}
     >
-      {copied ? "✓" : "📋"} Copy
+      {copied ? "✓" : "📋"}
     </button>
   );
 }
