@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 
 import { apiServerFetch, fetchMe } from "@/shared/server/session";
 
+import { DateDisplay } from "@/components/DateDisplay";
 import { ProjectSubNav } from "../ProjectSubNav";
 
 type GithubLinkRow = {
@@ -103,7 +104,7 @@ export default async function ProjectGithubPage({
                       {l.owner}/{l.repo}
                     </a>
                   </td>
-                  <td suppressHydrationWarning>{l.last_synced_at ? new Date(l.last_synced_at).toLocaleString() : "—"}</td>
+                  <td>{l.last_synced_at ? <DateDisplay date={l.last_synced_at} /> : "—"}</td>
                   <td>{commits.filter((c) => c.owner === l.owner && c.repo === l.repo).length}</td>
                 </tr>
               ))}
@@ -136,7 +137,7 @@ export default async function ProjectGithubPage({
                   </td>
                   <td>{c.message_preview}</td>
                   <td>{c.author_name ?? "—"}</td>
-                  <td suppressHydrationWarning>{new Date(c.committed_at).toLocaleString()}</td>
+                  <td><DateDisplay date={c.committed_at} /></td>
                 </tr>
               ))}
             </tbody>
