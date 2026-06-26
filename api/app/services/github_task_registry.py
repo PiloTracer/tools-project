@@ -48,13 +48,16 @@ def _empty_registry() -> dict[str, Any]:
 empty_registry = _empty_registry
 
 
-def _entry(ref: str, title: str, status: str, project_id: uuid.UUID) -> dict[str, str]:
-    return {
+def _entry(ref: str, title: str, status: str, project_id: uuid.UUID, description: str | None = None) -> dict[str, str]:
+    entry: dict[str, str] = {
         "ref": ref,
         "title": title,
         "status": status,
         "project_id": str(project_id),
     }
+    if description:
+        entry["description"] = description
+    return entry
 
 
 # ---------------------------------------------------------------------------
@@ -184,6 +187,7 @@ async def push_task_ref(
     ref: str,
     title: str,
     status: str,
+    description: str | None = None,
 ) -> bool:
     """Add or update a task entry in the GitHub registry."""
     def _mutate(registry: dict[str, Any]) -> str | None:
@@ -193,8 +197,10 @@ async def push_task_ref(
                 if t.get("title") == title and t.get("status") == status:
                     return None
                 t.update(title=title, status=status, project_id=str(project_id))
+                if description:
+                    t["description"] = description
                 return f"registry: update task {ref}"
-        tasks.append(_entry(ref, title, status, project_id))
+        tasks.append(_entry(ref, title, status, project_id, description))
         return f"registry: add task {ref}"
     return await _update_registry(db, project_id, _mutate)
 
@@ -205,6 +211,7 @@ async def push_ticket_ref(
     ref: str,
     title: str,
     status: str,
+    description: str | None = None,
 ) -> bool:
     """Add or update a ticket entry in the GitHub registry."""
     def _mutate(registry: dict[str, Any]) -> str | None:
@@ -214,8 +221,10 @@ async def push_ticket_ref(
                 if t.get("title") == title and t.get("status") == status:
                     return None
                 t.update(title=title, status=status, project_id=str(project_id))
+                if description:
+                    t["description"] = description
                 return f"registry: update ticket {ref}"
-        tickets.append(_entry(ref, title, status, project_id))
+        tickets.append(_entry(ref, title, status, project_id, description))
         return f"registry: add ticket {ref}"
     return await _update_registry(db, project_id, _mutate)
 
@@ -274,12 +283,13 @@ async def _background_push_task_ref(
     ref: str,
     title: str,
     status: str,
+    description: str | None = None,
 ) -> None:
     """Fire-and-forget wrapper — creates its own DB session. Never raises."""
     from app.db import session_factory
     try:
         async with session_factory()() as db:
-            await push_task_ref(db, project_id, ref, title, status)
+            await push_task_ref(db, project_id, ref, title, status, description)
     except Exception:
         log.exception("background push_task_ref failed for %s", ref)
 
@@ -289,12 +299,13 @@ async def _background_push_ticket_ref(
     ref: str,
     title: str,
     status: str,
+    description: str | None = None,
 ) -> None:
     """Fire-and-forget wrapper — creates its own DB session. Never raises."""
     from app.db import session_factory
     try:
         async with session_factory()() as db:
-            await push_ticket_ref(db, project_id, ref, title, status)
+            await push_ticket_ref(db, project_id, ref, title, status, description)
     except Exception:
         log.exception("background push_ticket_ref failed for %s", ref)
 
@@ -320,17 +331,19 @@ def _spawn(coro: Any) -> None:
 
 
 def spawn_push_task_ref(
-    project_id: uuid.UUID, ref: str, title: str, status: str
+    project_id: uuid.UUID, ref: str, title: str, status: str,
+    description: str | None = None,
 ) -> None:
     """Schedule a registry push for a task (fire-and-forget, never blocks)."""
-    _spawn(_background_push_task_ref(project_id, ref, title, status))
+    _spawn(_background_push_task_ref(project_id, ref, title, status, description))
 
 
 def spawn_push_ticket_ref(
-    project_id: uuid.UUID, ref: str, title: str, status: str
+    project_id: uuid.UUID, ref: str, title: str, status: str,
+    description: str | None = None,
 ) -> None:
     """Schedule a registry push for a ticket (fire-and-forget, never blocks)."""
-    _spawn(_background_push_ticket_ref(project_id, ref, title, status))
+    _spawn(_background_push_ticket_ref(project_id, ref, title, status, description))
 
 
 def spawn_remove_ref(project_id: uuid.UUID, ref: str) -> None:

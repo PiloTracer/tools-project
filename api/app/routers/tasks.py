@@ -154,7 +154,7 @@ async def create_task(
     await db.commit()
     await db.refresh(row)
     if row.ref:
-        spawn_push_task_ref(project_id, row.ref, row.title, row.status)
+        spawn_push_task_ref(project_id, row.ref, row.title, row.status, row.description)
     return TaskOut.model_validate(row)
 
 
@@ -256,7 +256,7 @@ async def patch_task(
     await db.commit()
     await db.refresh(row)
     if row.ref:
-        spawn_push_task_ref(row.project_id, row.ref, row.title, row.status)
+        spawn_push_task_ref(row.project_id, row.ref, row.title, row.status, row.description)
     return TaskOut.model_validate(row)
 
 
@@ -302,7 +302,7 @@ async def transition_task(
     await db.commit()
     await db.refresh(row)
     if row.ref:
-        spawn_push_task_ref(row.project_id, row.ref, row.title, row.status)
+        spawn_push_task_ref(row.project_id, row.ref, row.title, row.status, row.description)
     return TaskOut.model_validate(row)
 
 
@@ -386,5 +386,5 @@ async def batch_update_tasks(
     for row in updated:
         await db.refresh(row)
         if row.ref:
-            spawn_push_task_ref(row.project_id, row.ref, row.title, row.status)
+            spawn_push_task_ref(row.project_id, row.ref, row.title, row.status, row.description)
     return [TaskOut.model_validate(r) for r in updated]

@@ -409,19 +409,22 @@ async def list_github_commits(
 @router.get("/task-registry", response_model=dict)
 async def get_task_registry(
     project_id: uuid.UUID,
-    user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     """Return the task/ticket registry from GitHub (.github/task-registry.json).
 
     The registry contains all tracked tasks and tickets with their refs,
-    titles, and statuses. The AI queries this to discover the correct
-    task/ticket ref for commit messages.
+    titles, and descriptions. The AI queries this to discover the correct
+    task/ticket ref for commit messages by matching descriptions against
+    changed files.
 
+    No authentication required — the registry contains only metadata.
     Returns an empty registry if the feature is disabled or GitHub is
     unreachable — never blocks the caller.
     """
-    await require_project_access(db, user, project_id)
+    proj = await db.get(Project, project_id)
+    if not proj:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Project not found")
     registry = await fetch_registry(db, project_id)
     if registry is None:
         return empty_registry()

@@ -18,6 +18,10 @@
 !.env.example
 **/credentials/
 
+# Session state (ref cache, pending refs, etc.)
+**/.work/active-ref
+**/.work/commit-ref-pending/*
+
 # Scratch / temp trees
 **/tmp/
 

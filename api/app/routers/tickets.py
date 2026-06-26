@@ -133,7 +133,7 @@ async def create_ticket(
     await db.commit()
     await db.refresh(row)
     if row.ref:
-        spawn_push_ticket_ref(project_id, row.ref, row.title, row.status)
+        spawn_push_ticket_ref(project_id, row.ref, row.title, row.status, row.description)
     return TicketOut.model_validate(row)
 
 
@@ -204,7 +204,7 @@ async def patch_ticket(
     await db.commit()
     await db.refresh(row)
     if row.ref:
-        spawn_push_ticket_ref(row.project_id, row.ref, row.title, row.status)
+        spawn_push_ticket_ref(row.project_id, row.ref, row.title, row.status, row.description)
     return TicketOut.model_validate(row)
 
 
@@ -241,7 +241,7 @@ async def transition_ticket(
     await db.commit()
     await db.refresh(row)
     if row.ref:
-        spawn_push_ticket_ref(row.project_id, row.ref, row.title, row.status)
+        spawn_push_ticket_ref(row.project_id, row.ref, row.title, row.status, row.description)
     return TicketOut.model_validate(row)
 
 
@@ -324,5 +324,5 @@ async def batch_update_tickets(
     for row in updated:
         await db.refresh(row)
         if row.ref:
-            spawn_push_ticket_ref(row.project_id, row.ref, row.title, row.status)
+            spawn_push_ticket_ref(row.project_id, row.ref, row.title, row.status, row.description)
     return [TicketOut.model_validate(r) for r in updated]
