@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-06-26T06:07:57.837192+00:00",
+  "updated_at": "2026-06-26T06:08:01.032842+00:00",
   "tasks": [
     {
       "ref": "TPR-1",
@@ -74,7 +74,7 @@
     {
       "ref": "TPR-T-8",
       "title": "tiquete de prueba",
-      "status": "open",
+      "status": "closed",
       "project_id": "d942e263-efbc-4d96-bc9a-ea33654c3cb4",
       "description": "esto es solo para probar si el commit se asocia a este tiquete."
     },
