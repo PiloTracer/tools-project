@@ -32,7 +32,7 @@ type SubjectDetail = {
   description: string | null;
 };
 
-export function CommitCard({ meta, projectId }: { meta: CommitMeta; projectId?: string }) {
+export function CommitCard({ meta, projectId, readonly }: { meta: CommitMeta; projectId?: string; readonly?: boolean }) {
   const [showFull, setShowFull] = useState(false);
   const [linkedRefs, setLinkedRefs] = useState<LinkedRef[] | null>(null);
   const [linkedDetails, setLinkedDetails] = useState<Record<string, SubjectDetail>>({});
@@ -60,10 +60,16 @@ export function CommitCard({ meta, projectId }: { meta: CommitMeta; projectId?: 
   }, [projectId, meta.commit_id]);
 
   useEffect(() => {
-    if (!showLinked || !linkedRefs || linkedRefs.length === 0) return;
+    const toFetch: { subject_type: string; subject_id: string }[] =
+      showLinked && linkedRefs
+        ? linkedRefs.map((r) => ({ subject_type: r.subject_type, subject_id: r.subject_id }))
+        : selectedSubject
+          ? [{ subject_type: selectedSubject.type, subject_id: selectedSubject.id }]
+          : [];
+    if (toFetch.length === 0) return;
     const details: Record<string, SubjectDetail> = {};
     Promise.all(
-      linkedRefs.map(async (r) => {
+      toFetch.map(async (r) => {
         const endpoint = r.subject_type === "task"
           ? `/api/tasks/${r.subject_id}`
           : r.subject_type === "ticket"
@@ -79,9 +85,9 @@ export function CommitCard({ meta, projectId }: { meta: CommitMeta; projectId?: 
         } catch { /* ignore */ }
       }),
     ).then(() => {
-      setLinkedDetails(details);
+      setLinkedDetails((prev) => ({ ...prev, ...details }));
     });
-  }, [showLinked, linkedRefs]);
+  }, [showLinked, linkedRefs, selectedSubject]);
 
   if (selectedSubject) {
     const d = linkedDetails[selectedSubject.id];
@@ -111,20 +117,30 @@ export function CommitCard({ meta, projectId }: { meta: CommitMeta; projectId?: 
             ) : (
               <p className="muted text-sm">No description.</p>
             )}
-            <div style={{ marginTop: "0.5rem" }}>
-              <Link
-                href={href}
-                className="btn btn-primary text-sm"
-                style={{ display: "inline-flex", textDecoration: "none" }}
-              >
-                Expand →
-              </Link>
-            </div>
+            {!readonly ? (
+              <div style={{ marginTop: "0.5rem" }}>
+                <Link
+                  href={href}
+                  className="btn btn-primary text-sm"
+                  style={{ display: "inline-flex", textDecoration: "none" }}
+                >
+                  Expand →
+                </Link>
+              </div>
+            ) : null}
           </div>
         )}
       </Dialog>
     );
   }
+
+  const handleLinkedClick = () => {
+    if (linkedRefs && linkedRefs.length === 1) {
+      setSelectedSubject({ type: linkedRefs[0].subject_type, id: linkedRefs[0].subject_id });
+    } else {
+      setShowLinked(true);
+    }
+  };
 
   return (
     <div style={{ margin: "0.35rem 0 0" }}>
@@ -145,7 +161,7 @@ export function CommitCard({ meta, projectId }: { meta: CommitMeta; projectId?: 
             type="button"
             className="btn btn-ghost text-sm"
             style={{ padding: "0.1rem 0.4rem", fontSize: "0.7rem" }}
-            onClick={() => setShowLinked(true)}
+            onClick={handleLinkedClick}
           >
             Linked
           </button>

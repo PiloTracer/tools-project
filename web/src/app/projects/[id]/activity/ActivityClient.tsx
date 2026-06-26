@@ -554,7 +554,7 @@ export function ActivityFeed({
                     ) : null}
                   </div>
                   {a.kind === "github_commit" ? (
-                    <CommitCard meta={extractCommitMeta(a.meta_json)!} projectId={projectId} />
+                    <CommitCard meta={extractCommitMeta(a.meta_json)!} projectId={projectId} readonly={!canPost} />
                   ) : (
                     <p style={{ margin: "0.35rem 0 0", whiteSpace: "pre-wrap" }}>{a.body}</p>
                   )}

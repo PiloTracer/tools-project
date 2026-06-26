@@ -12,7 +12,7 @@ type ActivityRow = {
   meta_json: Record<string, unknown> | null;
 };
 
-export function ActivityList({ activities }: { activities: ActivityRow[] }) {
+export function ActivityList({ activities, projectId }: { activities: ActivityRow[]; projectId: string }) {
   return (
     <ul className="stack-sm" style={{ listStyle: "none", padding: 0 }}>
       {activities.map((activity) => (
@@ -27,7 +27,7 @@ export function ActivityList({ activities }: { activities: ActivityRow[] }) {
             {activity.actor_email ? <span> · {activity.actor_email}</span> : null}
           </p>
           {activity.kind === "github_commit" ? (
-            <CommitCard meta={extractCommitMeta(activity.meta_json)!} />
+            <CommitCard meta={extractCommitMeta(activity.meta_json)!} projectId={projectId} readonly />
           ) : (
             <p style={{ margin: "0.35rem 0 0", whiteSpace: "pre-wrap" }}>{activity.body}</p>
           )}

@@ -143,7 +143,7 @@ export default async function ClientProjectPage({
         {activities.length === 0 ? (
           <p className="muted">No public activity yet.</p>
         ) : (
-          <ActivityList activities={activities} />
+          <ActivityList activities={activities} projectId={id} />
         )}
       </section>
     </div>
