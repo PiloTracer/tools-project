@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-06-26T02:38:55.910624+00:00",
+  "updated_at": "2026-06-26T02:38:57.972849+00:00",
   "tasks": [
     {
       "ref": "TPR-1",
@@ -61,7 +61,7 @@
     {
       "ref": "TPR-T-6",
       "title": "fix Github history",
-      "status": "open",
+      "status": "closed",
       "project_id": "d942e263-efbc-4d96-bc9a-ea33654c3cb4"
     }
   ]
