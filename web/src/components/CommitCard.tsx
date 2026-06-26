@@ -23,6 +23,7 @@ type LinkedRef = {
   subject_ref: string | null;
   subject_title: string | null;
   subject_status: string | null;
+  subject_description: string | null;
   created_at: string;
 };
 
@@ -78,6 +79,13 @@ export function CommitCard({ meta, projectId, readonly }: { meta: CommitMeta; pr
             ) : null}
             <span className="pill pill-muted">{selectedSubject.subject_type}</span>
           </div>
+          {selectedSubject.subject_description ? (
+            <p style={{ margin: 0, whiteSpace: "pre-wrap", fontSize: "0.9rem", lineHeight: 1.5 }}>
+              {selectedSubject.subject_description.length > 300
+                ? selectedSubject.subject_description.slice(0, 300) + "…"
+                : selectedSubject.subject_description}
+            </p>
+          ) : null}
           {!readonly ? (
             <div style={{ marginTop: "0.5rem" }}>
               <Link

@@ -630,6 +630,8 @@ class CommitSubjectRefOut(BaseModel):
     subject_ref: str | None = None
     subject_title: str | None = None
     subject_status: str | None = None
+    subject_priority: str | None = None
+    subject_description: str | None = None
     created_by: uuid.UUID
     created_at: datetime
     commit: CommitBrief | None = None

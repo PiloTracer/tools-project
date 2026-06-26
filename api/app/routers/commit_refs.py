@@ -35,29 +35,29 @@ from app.services.project_access import require_project_access
 async def _enrich_subject_fields(
     db: AsyncSession,
     pairs: list[tuple[str, uuid.UUID]],
-) -> dict[tuple[str, str], tuple[str | None, str, str]]:
-    """Return a map of (type, id) → (ref, title, status) for the given subjects."""
-    out: dict[tuple[str, str], tuple[str | None, str, str]] = {}
+) -> dict[tuple[str, str], tuple[str | None, str, str, str | None, str | None]]:
+    """Return a map of (type, id) → (ref, title, status, priority, description)."""
+    out: dict[tuple[str, str], tuple[str | None, str, str, str | None, str | None]] = {}
     task_ids = [sid for st, sid in pairs if st == "task"]
     ticket_ids = [sid for st, sid in pairs if st == "ticket"]
     if task_ids:
-        for ref_val, tid, title, status in (
+        for ref_val, tid, title, status, priority, desc in (
             await db.execute(
-                select(Task.ref, Task.id, Task.title, Task.status).where(
+                select(Task.ref, Task.id, Task.title, Task.status, Task.priority, Task.description).where(
                     Task.id.in_(task_ids)
                 )
             )
         ).all():
-            out[("task", str(tid))] = (ref_val, title, status)
+            out[("task", str(tid))] = (ref_val, title, status, priority, desc)
     if ticket_ids:
-        for ref_val, tid, title, status in (
+        for ref_val, tid, title, status, priority, desc in (
             await db.execute(
-                select(Ticket.ref, Ticket.id, Ticket.title, Ticket.status).where(
+                select(Ticket.ref, Ticket.id, Ticket.title, Ticket.status, Ticket.priority, Ticket.description).where(
                     Ticket.id.in_(ticket_ids)
                 )
             )
         ).all():
-            out[("ticket", str(tid))] = (ref_val, title, status)
+            out[("ticket", str(tid))] = (ref_val, title, status, priority, desc)
     return out
 
 
@@ -115,6 +115,8 @@ async def list_commit_refs(
             subject_ref=sub[0] if sub else None,
             subject_title=sub[1] if sub else None,
             subject_status=sub[2] if sub else None,
+            subject_priority=sub[3] if sub else None,
+            subject_description=sub[4] if sub else None,
             created_by=r.created_by,
             created_at=r.created_at,
             commit=None,
@@ -194,6 +196,8 @@ async def create_commit_ref(
         subject_ref=sub[0] if sub else None,
         subject_title=sub[1] if sub else None,
         subject_status=sub[2] if sub else None,
+        subject_priority=sub[3] if sub else None,
+        subject_description=sub[4] if sub else None,
         created_by=row.created_by,
         created_at=row.created_at,
         commit=None,
@@ -301,6 +305,8 @@ async def create_pending_commit_ref(
         subject_ref=sub[0] if sub else None,
         subject_title=sub[1] if sub else None,
         subject_status=sub[2] if sub else None,
+        subject_priority=sub[3] if sub else None,
+        subject_description=sub[4] if sub else None,
         created_by=row.created_by,
         created_at=row.created_at,
         commit=None,
