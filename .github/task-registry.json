@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-06-26T00:03:42.222759+00:00",
+  "updated_at": "2026-06-26T00:03:48.770204+00:00",
   "tasks": [
     {
       "ref": "TPR-1",
@@ -23,7 +23,7 @@
     {
       "ref": "TPR-4",
       "title": "otra prueba",
-      "status": "todo",
+      "status": "done",
       "project_id": "d942e263-efbc-4d96-bc9a-ea33654c3cb4"
     }
   ],
