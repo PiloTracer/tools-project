@@ -179,13 +179,33 @@ async def sync_github_link_route(
     try:
         out = await sync_github_link(db, link_id)
     except PermissionError as e:
+        row.sync_status = "error"
+        row.last_error = str(e)[:400]
+        row.last_error_at = datetime.now(timezone.utc)
+        row.error_count = (row.error_count or 0) + 1
+        await db.commit()
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail=str(e)) from e
     except FileNotFoundError as e:
+        row.sync_status = "error"
+        row.last_error = str(e)[:400]
+        row.last_error_at = datetime.now(timezone.utc)
+        row.error_count = (row.error_count or 0) + 1
+        await db.commit()
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(e)) from e
     except ValueError as e:
+        row.sync_status = "error"
+        row.last_error = str(e)[:400]
+        row.last_error_at = datetime.now(timezone.utc)
+        row.error_count = (row.error_count or 0) + 1
+        await db.commit()
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
     except Exception as e:
         log.exception("github sync failed")
+        row.sync_status = "error"
+        row.last_error = str(e)[:400]
+        row.last_error_at = datetime.now(timezone.utc)
+        row.error_count = (row.error_count or 0) + 1
+        await db.commit()
         raise HTTPException(
             status.HTTP_502_BAD_GATEWAY,
             detail="Could not reach GitHub or parse the response",
@@ -221,6 +241,10 @@ async def sync_github_link_route(
             is_internal=False,
         )
 
+    row.sync_status = "idle"
+    row.last_error = None
+    row.last_error_at = None
+    row.error_count = 0
     row.last_synced_at = datetime.now(timezone.utc)
     row.updated_at = datetime.now(timezone.utc)
     await db.commit()

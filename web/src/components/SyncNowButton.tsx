@@ -1,17 +1,17 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "@/components/Toast";
 
 export function SyncNowButton({
   projectId,
   linkId,
-  onDone,
 }: {
   projectId: string;
   linkId: string;
-  onDone?: () => void;
 }) {
+  const router = useRouter();
   const [busy, setBusy] = useState(false);
 
   async function handleSync() {
@@ -32,7 +32,7 @@ export function SyncNowButton({
         return;
       }
       toast("Sync complete");
-      onDone?.();
+      router.refresh();
     } catch (err) {
       toast(err instanceof Error ? err.message : "Sync failed", "error");
     } finally {
