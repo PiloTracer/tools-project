@@ -255,7 +255,7 @@ export function AdminUsersPanel({
               alignItems: "center",
             }}
           >
-            <input name="is_superuser" type="checkbox" />
+            <input name="is_superuser" type="checkbox" style={{ width: "1.1rem", height: "1.1rem", cursor: "pointer" }} />
             <span className="text-sm">Superuser</span>
           </label>
           <div style={{ display: "flex", gap: "0.5rem" }}>
@@ -363,8 +363,8 @@ function UserRowView({
   useEffect(() => {
     if (contactTimer.current) clearTimeout(contactTimer.current);
     if (!contactQuery.trim() || !showContactSearch) {
-      setContactResults([]);
-      return;
+      const id = setTimeout(() => setContactResults([]), 0);
+      return () => clearTimeout(id);
     }
     contactTimer.current = setTimeout(async () => {
       setContactPending(true);
@@ -421,8 +421,8 @@ function UserRowView({
   useEffect(() => {
     if (projectTimer.current) clearTimeout(projectTimer.current);
     if (!projectQuery.trim() || !showProjectSearch) {
-      setProjectResults([]);
-      return;
+      const id = setTimeout(() => setProjectResults([]), 0);
+      return () => clearTimeout(id);
     }
     const memberProjectIds = new Set(user.memberships.map((m) => m.project_id));
     projectTimer.current = setTimeout(async () => {
@@ -511,9 +511,6 @@ function UserRowView({
 
   // ── Row data ────────────────────────────────────────────────
 
-  const statusColor = user.is_active ? "var(--success)" : "var(--err)";
-  const statusLabel = user.is_active ? "Active" : "Inactive";
-
   return (
     <>
       <tr
@@ -532,25 +529,25 @@ function UserRowView({
         </td>
         <td style={{ padding: "0.7rem 0.75rem" }}>
           <div style={{ display: "flex", gap: "0.35rem", flexWrap: "wrap" }}>
-            <span
-              className="pill"
-              style={{
-                background: statusColor,
-                color: "#fff",
-                fontSize: "0.7rem",
-              }}
-            >
-              {statusLabel}
-            </span>
-            {user.is_superuser && (
+            {user.is_active ? (
+              <span className="pill pill-ok" style={{ fontSize: "0.7rem" }}>
+                Active
+              </span>
+            ) : (
               <span
                 className="pill"
                 style={{
-                  background: "var(--accent)",
-                  color: "#fff",
+                  background: "rgb(251 113 133 / 12%)",
+                  color: "var(--danger)",
+                  borderColor: "rgb(251 113 133 / 35%)",
                   fontSize: "0.7rem",
                 }}
               >
+                Inactive
+              </span>
+            )}
+            {user.is_superuser && (
+              <span className="pill" style={{ fontSize: "0.7rem" }}>
                 Superuser
               </span>
             )}
@@ -580,7 +577,7 @@ function UserRowView({
             <div
               style={{
                 padding: "0.75rem 1rem 1rem",
-                background: "var(--bg-elevated, #fafafa)",
+                background: "var(--bg-elevated)",
                 borderBottom: "1px solid var(--border)",
               }}
             >
@@ -622,9 +619,12 @@ function UserRowView({
                     type="checkbox"
                     checked={editing ? isActive : user.is_active}
                     onChange={(e) => {
+                      if (isCurrent && !e.target.checked) return;
                       setIsActive(e.target.checked);
                       if (!editing) setEditing(true);
                     }}
+                    disabled={isCurrent}
+                    style={{ width: "1.1rem", height: "1.1rem", cursor: isCurrent ? "not-allowed" : "pointer" }}
                   />
                   Active
                 </label>
@@ -647,6 +647,7 @@ function UserRowView({
                       }
                     }}
                     disabled={isCurrent}
+                    style={{ width: "1.1rem", height: "1.1rem", cursor: "pointer" }}
                   />
                   Superuser
                 </label>
@@ -731,7 +732,7 @@ function UserRowView({
                         className="pill"
                         style={{
                           fontSize: "0.78rem",
-                          background: "var(--bg-subtle, #eee)",
+                          background: "var(--surface)",
                         }}
                       >
                         {c.name} @ {c.client_name}
@@ -860,7 +861,7 @@ function UserRowView({
                           gap: "0.5rem",
                           padding: "0.3rem 0.5rem",
                           borderRadius: 6,
-                          background: "var(--bg-subtle, #f5f5f5)",
+                          background: "var(--surface)",
                         }}
                       >
                         <span style={{ flex: 1, fontSize: "0.85rem", fontWeight: 500 }}>
@@ -903,7 +904,7 @@ function UserRowView({
                           <>
                             <span
                               className="pill"
-                              style={{ fontSize: "0.72rem", background: "var(--accent)", color: "#fff" }}
+                              style={{ fontSize: "0.72rem" }}
                             >
                               {m.role}
                             </span>

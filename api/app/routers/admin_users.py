@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 import uuid
-from typing import Annotated
-
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
-from app.deps import require_superuser
+from app.deps import get_current_user_local
+from app.models.user import User
 from app.models.client import Client
 from app.models.client_contact import ClientContact
 from app.models.project import Project
@@ -85,10 +84,12 @@ async def _enrich_users(
 
 @router.get("", response_model=AdminUserListResponse)
 async def list_users(
-    _: Annotated[User, Depends(require_superuser)],
-    db: Annotated[AsyncSession, Depends(get_db)],
+    admin: User = Depends(get_current_user_local),
+    db: AsyncSession = Depends(get_db),
     q: str | None = Query(default=None, min_length=1, max_length=200),
 ):
+    if not admin.is_superuser:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Admin privileges required")
     stmt = select(User).order_by(User.created_at.asc())
     if q:
         term = f"%{q.strip()}%"
@@ -104,9 +105,11 @@ async def list_users(
 @router.post("", response_model=AdminUserOut, status_code=status.HTTP_201_CREATED)
 async def create_user(
     body: AdminUserCreate,
-    _: Annotated[User, Depends(require_superuser)],
-    db: Annotated[AsyncSession, Depends(get_db)],
+    admin: User = Depends(get_current_user_local),
+    db: AsyncSession = Depends(get_db),
 ):
+    if not admin.is_superuser:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Admin privileges required")
     email = body.email.strip().lower()
     dup = await db.scalar(select(User).where(User.email == email))
     if dup is not None:
@@ -131,9 +134,11 @@ async def create_user(
 async def update_user(
     user_id: uuid.UUID,
     body: AdminUserUpdate,
-    admin: Annotated[User, Depends(require_superuser)],
-    db: Annotated[AsyncSession, Depends(get_db)],
+    admin: User = Depends(get_current_user_local),
+    db: AsyncSession = Depends(get_db),
 ):
+    if not admin.is_superuser:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Admin privileges required")
     user = await db.get(User, user_id)
     if user is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="User not found")
@@ -143,6 +148,11 @@ async def update_user(
     if body.display_name is not None:
         user.display_name = body.display_name
     if body.is_active is not None:
+        if user.id == admin.id and not body.is_active:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                detail="Cannot deactivate yourself",
+            )
         user.is_active = body.is_active
     if body.is_superuser is not None:
         if user.id == admin.id and not body.is_superuser:
@@ -164,14 +174,16 @@ async def update_user(
 @router.get("/{user_id}/linkable-contacts", response_model=list[AdminLinkableContactOut])
 async def list_linkable_contacts(
     user_id: uuid.UUID,
-    _: Annotated[User, Depends(require_superuser)],
-    db: Annotated[AsyncSession, Depends(get_db)],
+    admin: User = Depends(get_current_user_local),
+    db: AsyncSession = Depends(get_db),
     q: str | None = Query(default=None, min_length=1, max_length=200),
 ):
     """Search client contacts that can be linked to this user.
 
     Returns contacts that have no linked user OR are already linked to this user.
     """
+    if not admin.is_superuser:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Admin privileges required")
     stmt = select(ClientContact, Client.name).join(
         Client, ClientContact.client_id == Client.id,
     ).where(
@@ -205,14 +217,16 @@ async def list_linkable_contacts(
 async def link_contact(
     user_id: uuid.UUID,
     body: AdminLinkContactRequest,
-    _: Annotated[User, Depends(require_superuser)],
-    db: Annotated[AsyncSession, Depends(get_db)],
+    admin: User = Depends(get_current_user_local),
+    db: AsyncSession = Depends(get_db),
 ):
     """Link a user to a client contact (1-to-1).
 
     If the user was previously linked to a different contact, that link is removed.
     If the contact was previously linked to a different user, that link is removed.
     """
+    if not admin.is_superuser:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Admin privileges required")
     user = await db.get(User, user_id)
     if user is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="User not found")
@@ -248,10 +262,12 @@ async def link_contact(
 @router.delete("/{user_id}/link-contact", response_model=AdminUserOut)
 async def unlink_contact(
     user_id: uuid.UUID,
-    _: Annotated[User, Depends(require_superuser)],
-    db: Annotated[AsyncSession, Depends(get_db)],
+    admin: User = Depends(get_current_user_local),
+    db: AsyncSession = Depends(get_db),
 ):
     """Remove the user-to-contact link for this user."""
+    if not admin.is_superuser:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Admin privileges required")
     user = await db.get(User, user_id)
     if user is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="User not found")
@@ -274,10 +290,12 @@ async def unlink_contact(
 async def add_user_to_project(
     user_id: uuid.UUID,
     body: AdminAddToProjectRequest,
-    _: Annotated[User, Depends(require_superuser)],
-    db: Annotated[AsyncSession, Depends(get_db)],
+    admin: User = Depends(get_current_user_local),
+    db: AsyncSession = Depends(get_db),
 ):
     """Add a user to a project with the given role."""
+    if not admin.is_superuser:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Admin privileges required")
     user = await db.get(User, user_id)
     if user is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="User not found")
@@ -316,10 +334,12 @@ async def change_project_role(
     user_id: uuid.UUID,
     project_id: uuid.UUID,
     body: AdminChangeProjectRoleRequest,
-    _: Annotated[User, Depends(require_superuser)],
-    db: Annotated[AsyncSession, Depends(get_db)],
+    admin: User = Depends(get_current_user_local),
+    db: AsyncSession = Depends(get_db),
 ):
     """Change a user's role in a project."""
+    if not admin.is_superuser:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Admin privileges required")
     user = await db.get(User, user_id)
     if user is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="User not found")
@@ -344,10 +364,12 @@ async def change_project_role(
 async def remove_from_project(
     user_id: uuid.UUID,
     project_id: uuid.UUID,
-    _: Annotated[User, Depends(require_superuser)],
-    db: Annotated[AsyncSession, Depends(get_db)],
+    admin: User = Depends(get_current_user_local),
+    db: AsyncSession = Depends(get_db),
 ):
     """Remove a user from a project."""
+    if not admin.is_superuser:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Admin privileges required")
     user = await db.get(User, user_id)
     if user is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="User not found")
