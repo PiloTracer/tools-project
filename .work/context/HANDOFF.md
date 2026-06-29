@@ -2,7 +2,7 @@
 
 **Date:** 2026-06-18
 
-**Closed:** 2026-06-29 — 5 more improvements: CI, health checks, request IDs, pagination across all list endpoints
+**Closed:** 2026-06-29 — comprehensive documentation: tutorials, guides, references, features, architecture, article
 **Updated:** 2026-06-29
 
 Treat prior closed sessions as historical only; see "What this cycle produced" below.
@@ -220,6 +220,20 @@ All follow-ups are complete. The project has no open blocking work.
 2. @ui-director - "Add GithubBackfillSync component to activity Feed section" → Input for days + "Re-sync GitHub" button. Shown only to admin users (canPost role). Displays toast with per-link sync results.
 **Coordination notes:** `sync_github_link` now accepts optional `since: datetime | None`. GitHub API `?since=` param reduces payload to only commits after the cutoff.
 **Blockers:** none
+
+## Cross-framework action (@x-director)
+**Date:** 2026-06-29
+**Request:** "this project doesn't have any documentation on features, not even tutorials, guides, quick references... can you add all of them? I need this project properly rounded-up so I can release version 0.1.0, and write an article on this project for anyone to use."
+**Frameworks involved:** .ai, .ai.biz
+**Classified bucket(s):** cross-framework (engineering + business)
+**Routing confidence:** high
+**Preflight (frameworks installed):** .ai yes | .ai.ui yes | .ai.biz yes
+**Executed:**
+1. @ai-director - "Add comprehensive project documentation" → 12 documentation files created under `.work/docs/` (quick start, features, architecture, 4 guides, 2 tutorials, 3 reference docs); README.md overhauled.
+2. @biz-director - "Write an article about tools-project v0.1.0" → Article created at `.work.biz/docs/article-v0.1.0.md`.
+**Coordination notes:** Engineering docs first (source material for article), then article written using feature documentation as reference.
+**Blockers:** none
+**Next recommended:** Review docs for completeness, publish article.
 
 ---
 

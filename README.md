@@ -1,74 +1,86 @@
-# tools-project — project management
+# tools-project
 
-Internal **project hub**: projects, components, tasks/TODOs, support tickets, lightweight activity, and **GitHub** linkage.
+A **project management hub with integrated CRM** — manage projects, tasks, tickets, track GitHub commits, and run a sales-to-delivery pipeline. All in one self-hosted app.
 
-## Authentication
+## Features
 
-| Deploy | `AUTH_LOCAL_ENABLED` | `AUTH_OAUTH_ENABLED` | Behavior |
-|--------|----------------------|----------------------|-----------|
-| **Standalone** | `true` | `false` | Email/password, bcrypt, JWT; superuser **local user admin** (`/v1/admin/users`, `/admin/users` in web). |
-| **Integrated (SSO)** | `false` | `true` | **tools-dashboard** OAuth only (see **tools-rizervox** patterns). |
-| **Hybrid** | `true` | `true` | User chooses SSO or local sign-in on `/login`. |
+- **Project Management** — Kanban boards, task tracking, support tickets, activity feeds
+- **GitHub Integration** — Link repos, sync commits automatically, link commits to tasks/tickets
+- **CRM Pipeline** — Track prospects through sales stages, manage clients and contacts, client portal
+- **Collaboration** — Threaded comments, @mentions, markdown editor, inbox, watches
+- **Dual Auth** — Standalone (local) or OAuth 2.0 SSO, configurable per deployment
+- **Client Portal** — Limited project view for external stakeholders
 
-Public **`GET /v1/auth/config`** exposes which methods are active. Optional **`BOOTSTRAP_ADMIN_*`** seeds the first superuser when the DB is empty (use a valid email such as **`admin@example.com`**).
-
-OAuth reference: **tools-rizervox** at `/mnt/work/Projects/tools-rizervox`, IdP at `/mnt/data/Projects/EPIC/tools-dashboard`.
-
-## Tech stack
-
-| Layer | Technology | Path |
-|--------|------------|------|
-| Web | Next.js 16, React 19, TypeScript | `web/` |
-| API | Python 3.11, FastAPI, SQLAlchemy 2 async | `api/` |
-| DB | PostgreSQL 16 | Compose service `postgresql` |
-| Dev | Docker Compose (`profile: dev`) | `docker-compose.yml` |
-
-## Quick start (Docker only)
+## Quick start
 
 ```bash
-cd /mnt/work/Projects/tools-project
-# Optional: cp .env.example .env — set AUTH_*, JWT_SECRET, OAuth secrets
+cp .env.example .env
 docker compose --profile dev up --build
 ```
 
-- **App:** http://localhost:18513  
-- **API:** http://localhost:8300/healthz — OpenAPI: http://localhost:8300/docs  
-- **Postgres:** `localhost:55433` (default; see `POSTGRES_HOST_PORT`)
+- **Web:** http://localhost:18513
+- **API:** http://localhost:8300/docs
+- **Login:** `admin@example.com` / `dev-bootstrap-change-me`
 
-Default compose dev bootstrap (change in production): **`admin@example.com`** / **`dev-bootstrap-change-me`**.
+## Tech stack
 
-### CI-style checks (web only, no API/DB)
-
-```bash
-docker compose run --rm --no-deps web sh -lc "npm ci --no-audit --no-fund && npm run check && npm run build"
-```
-
-### Shells
-
-```bash
-docker compose run --rm web sh
-docker compose run --rm api sh
-```
-
-## OAuth notes (when enabled)
-
-- Redirect URI registered in dashboard must match **`OAUTH_REDIRECT_URI`** (default `http://localhost:18513/oauth/complete`).
-- **`PUBLIC_ORIGIN`** must match the hostname users type (avoid mixing `localhost` and `127.0.0.1`).
-- PKCE uses **signed `state`** (no Redis). Use a real client secret (or `OAUTH_PKCE_STATE_SECRET`) outside toy dev.
+| Layer | Technology |
+|-------|-----------|
+| Frontend | Next.js 16, React 19, TypeScript |
+| Backend | Python 3.11, FastAPI, SQLAlchemy 2 async |
+| Database | PostgreSQL 16 |
+| Auth | Local JWT (bcrypt) + OAuth 2.0 (PKCE) |
+| Schema | Declarative SQL scripts (no Alembic) |
+| Container | Docker Compose (dev + production) |
 
 ## Documentation
 
-| File | Contents |
-|------|----------|
-| `.work/context/CONTEXT.md` | Ports, stack, auth modes, OAuth |
-| `.work/context/HANDOFF.md` | What exists + next steps |
-| `.work/plans/legacy-plans/proposal/preliminary.md` | Product / UX brief |
-| `api/README.md` | Auth API summary |
+| Guide | Description |
+|-------|-------------|
+| [Quick Start](.work/docs/QUICK_START.md) | Get running in 5 minutes |
+| [Feature Overview](.work/docs/FEATURES.md) | All features explained |
+| [Architecture](.work/docs/ARCHITECTURE.md) | System design and decisions |
+| [Auth Guide](.work/docs/guides/AUTH.md) | Authentication modes |
+| [GitHub Guide](.work/docs/guides/GITHUB.md) | GitHub integration setup |
+| [CRM Guide](.work/docs/guides/CRM.md) | Sales pipeline and client management |
+| [Admin Guide](.work/docs/guides/ADMIN.md) | User management and configuration |
+| [First Project Tutorial](.work/docs/tutorials/FIRST_PROJECT.md) | Walk through creating your first project |
+| [GitHub Setup Tutorial](.work/docs/tutorials/GITHUB_SETUP.md) | Connect a GitHub repository |
+| [Configuration Reference](.work/docs/reference/CONFIGURATION.md) | All environment variables |
+| [Docker Reference](.work/docs/reference/DOCKER.md) | Docker commands and maintenance |
+| [API Reference](.work/docs/reference/API.md) | All REST API endpoints |
+| [Release Notes](CHANGELOG.md) | What's new |
 
-## Secrets
+## Deployment
 
-Never commit `.env`, `credentials/`, or tokens. Rotate **`JWT_SECRET`** and bootstrap passwords in production.
+### Development
 
-## Prueba de enlace de commit
+```bash
+docker compose --profile dev up --build
+```
 
-Commit de prueba para verificar asociación automática con TPR-T-8.
+### Production
+
+```bash
+cp .env.example .env.prd
+# Edit .env.prd with production secrets
+docker compose -f docker-compose.prd.yml --env-file .env.prd up -d --build
+```
+
+Or use the interactive menu:
+
+```bash
+./bin/start.sh
+```
+
+## Project Health
+
+| Badge | Description |
+|-------|-------------|
+| CI | Automated lint + type-check + build on every push |
+| Health | `/healthz` endpoint checks DB liveness, returns version + uptime |
+| Tracing | Every response includes `X-Request-Id` for debugging |
+
+## License
+
+Internal tool — see project owner for licensing information.
