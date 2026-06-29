@@ -10,6 +10,7 @@ type UserMembership = {
 };
 
 type UserClientContact = {
+  id: string;
   client_id: string;
   client_name: string;
   role: string;

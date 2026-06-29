@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 
 import { Dialog } from "@/components/Dialog";
 import { toast } from "@/components/Toast";
@@ -13,6 +13,7 @@ type UserMembership = {
 };
 
 type UserClientContact = {
+  id: string;
   client_id: string;
   client_name: string;
   role: string;
@@ -29,6 +30,21 @@ type UserRow = {
   is_superuser: boolean;
   memberships: UserMembership[];
   client_contacts: UserClientContact[];
+};
+
+type LinkableContact = {
+  id: string;
+  client_id: string;
+  client_name: string;
+  name: string;
+  email: string;
+  role: string;
+};
+
+type ProjectHit = {
+  id: string;
+  name: string;
+  slug: string;
 };
 
 export function AdminUsersPanel({
@@ -143,7 +159,6 @@ export function AdminUsersPanel({
         </button>
       </div>
 
-      {/* User count */}
       <p className="muted text-sm">
         {filtered.length} user{filtered.length !== 1 ? "s" : ""}
         {search.trim() && filtered.length !== users.length
@@ -187,6 +202,7 @@ export function AdminUsersPanel({
                     setExpandedId(expandedId === u.id ? null : u.id)
                   }
                   onPatch={(data) => patchUser(u.id, data)}
+                  onRefresh={refreshList}
                 />
               ))}
             </tbody>
@@ -264,6 +280,8 @@ export function AdminUsersPanel({
   );
 }
 
+// ── Single user row (with expandable detail) ──────────────────────
+
 function UserRowView({
   user,
   isCurrent,
@@ -271,6 +289,7 @@ function UserRowView({
   busy,
   onToggle,
   onPatch,
+  onRefresh,
 }: {
   user: UserRow;
   isCurrent: boolean;
@@ -278,12 +297,35 @@ function UserRowView({
   busy: boolean;
   onToggle: () => void;
   onPatch: (data: Record<string, unknown>) => void;
+  onRefresh: () => Promise<void>;
 }) {
   const [editing, setEditing] = useState(false);
   const [displayName, setDisplayName] = useState(user.display_name ?? "");
   const [isActive, setIsActive] = useState(user.is_active);
   const [isSuperuser, setIsSuperuser] = useState(user.is_superuser);
   const [password, setPassword] = useState("");
+
+  // Contact linking state
+  const [showContactSearch, setShowContactSearch] = useState(false);
+  const [contactQuery, setContactQuery] = useState("");
+  const [contactResults, setContactResults] = useState<LinkableContact[]>([]);
+  const [contactPending, setContactPending] = useState(false);
+  const contactTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Project add state
+  const [showProjectSearch, setShowProjectSearch] = useState(false);
+  const [projectQuery, setProjectQuery] = useState("");
+  const [projectResults, setProjectResults] = useState<ProjectHit[]>([]);
+  const [projectPending, setProjectPending] = useState(false);
+  const [selectedProject, setSelectedProject] = useState<ProjectHit | null>(null);
+  const [newRole, setNewRole] = useState("contributor");
+  const projectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Project membership edit state
+  const [editingRole, setEditingRole] = useState<{
+    project_id: string;
+    role: string;
+  } | null>(null);
 
   function save() {
     const payload: Record<string, unknown> = {};
@@ -315,6 +357,159 @@ function UserRowView({
     setPassword("");
     setEditing(false);
   }
+
+  // ── Contact search ──────────────────────────────────────────
+
+  useEffect(() => {
+    if (contactTimer.current) clearTimeout(contactTimer.current);
+    if (!contactQuery.trim() || !showContactSearch) {
+      setContactResults([]);
+      return;
+    }
+    contactTimer.current = setTimeout(async () => {
+      setContactPending(true);
+      try {
+        const r = await fetch(
+          `/api/admin/users/${user.id}/linkable-contacts?q=${encodeURIComponent(contactQuery)}`,
+        );
+        if (r.ok) setContactResults((await r.json()) ?? []);
+        else setContactResults([]);
+      } catch {
+        setContactResults([]);
+      } finally {
+        setContactPending(false);
+      }
+    }, 200);
+    return () => {
+      if (contactTimer.current) clearTimeout(contactTimer.current);
+    };
+  }, [contactQuery, user.id, showContactSearch]);
+
+  async function linkContact(contactId: string) {
+    const r = await fetch(`/api/admin/users/${user.id}/link-contact`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ client_contact_id: contactId }),
+    });
+    if (!r.ok) {
+      const text = await r.text();
+      toast(text, "error");
+      return;
+    }
+    toast("Contact linked");
+    setShowContactSearch(false);
+    setContactQuery("");
+    setContactResults([]);
+    await onRefresh();
+  }
+
+  async function unlinkContact() {
+    const r = await fetch(`/api/admin/users/${user.id}/link-contact`, {
+      method: "DELETE",
+    });
+    if (!r.ok) {
+      const text = await r.text();
+      toast(text, "error");
+      return;
+    }
+    toast("Contact unlinked");
+    await onRefresh();
+  }
+
+  // ── Project search ──────────────────────────────────────────
+
+  useEffect(() => {
+    if (projectTimer.current) clearTimeout(projectTimer.current);
+    if (!projectQuery.trim() || !showProjectSearch) {
+      setProjectResults([]);
+      return;
+    }
+    const memberProjectIds = new Set(user.memberships.map((m) => m.project_id));
+    projectTimer.current = setTimeout(async () => {
+      setProjectPending(true);
+      try {
+        const r = await fetch("/api/projects", { cache: "no-store" });
+        if (r.ok) {
+          const data = (await r.json()) as { items: ProjectHit[] };
+          const filtered = data.items.filter(
+            (p) =>
+              !memberProjectIds.has(p.id) &&
+              (p.name.toLowerCase().includes(projectQuery.toLowerCase()) ||
+                p.slug.toLowerCase().includes(projectQuery.toLowerCase())),
+          );
+          setProjectResults(filtered);
+        } else {
+          setProjectResults([]);
+        }
+      } catch {
+        setProjectResults([]);
+      } finally {
+        setProjectPending(false);
+      }
+    }, 200);
+    return () => {
+      if (projectTimer.current) clearTimeout(projectTimer.current);
+    };
+  }, [projectQuery, user.memberships, showProjectSearch]);
+
+  async function addToProject() {
+    if (!selectedProject) return;
+    const r = await fetch(`/api/admin/users/${user.id}/add-to-project`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        project_id: selectedProject.id,
+        role: newRole,
+      }),
+    });
+    if (!r.ok) {
+      const text = await r.text();
+      toast(text, "error");
+      return;
+    }
+    toast(`Added to ${selectedProject.name}`);
+    setShowProjectSearch(false);
+    setProjectQuery("");
+    setSelectedProject(null);
+    setProjectResults([]);
+    await onRefresh();
+  }
+
+  async function changeRole(projectId: string, role: string) {
+    const r = await fetch(
+      `/api/admin/users/${user.id}/project-membership/${projectId}`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role }),
+      },
+    );
+    if (!r.ok) {
+      const text = await r.text();
+      toast(text, "error");
+      return;
+    }
+    toast("Role updated");
+    setEditingRole(null);
+    await onRefresh();
+  }
+
+  async function removeFromProject(projectId: string, projectName: string) {
+    if (!window.confirm(`Remove this user from "${projectName}"?`)) return;
+    const r = await fetch(
+      `/api/admin/users/${user.id}/project-membership/${projectId}`,
+      { method: "DELETE" },
+    );
+    if (!r.ok) {
+      const text = await r.text();
+      toast(text, "error");
+      return;
+    }
+    toast(`Removed from ${projectName}`);
+    await onRefresh();
+  }
+
+  // ── Row data ────────────────────────────────────────────────
 
   const statusColor = user.is_active ? "var(--success)" : "var(--err)";
   const statusLabel = user.is_active ? "Active" : "Inactive";
@@ -369,7 +564,7 @@ function UserRowView({
             {user.memberships.length} project
             {user.memberships.length !== 1 ? "s" : ""}
             {user.client_contacts.length > 0 &&
-              ` · ${user.client_contacts.length} client contact${user.client_contacts.length !== 1 ? "s" : ""}`}
+              ` · ${user.client_contacts.length} contact`}
           </span>
         </td>
         <td style={{ padding: "0.7rem 0.75rem" }}>
@@ -389,7 +584,7 @@ function UserRowView({
                 borderBottom: "1px solid var(--border)",
               }}
             >
-              {/* Edit user properties */}
+              {/* ── Edit user properties ──────────────────────── */}
               <div
                 style={{
                   display: "flex",
@@ -397,6 +592,8 @@ function UserRowView({
                   gap: "0.6rem",
                   alignItems: "flex-end",
                   marginBottom: "1rem",
+                  paddingBottom: "0.75rem",
+                  borderBottom: "1px solid var(--border)",
                 }}
               >
                 <label className="stack" style={{ gap: "0.15rem", flex: "1 1 180px" }}>
@@ -492,59 +689,45 @@ function UserRowView({
                 )}
               </div>
 
-              {/* Memberships section */}
+              {/* ── Client contact linking ────────────────────── */}
               <div style={{ marginBottom: "0.75rem" }}>
-                <h4
-                  className="text-sm"
+                <div
                   style={{
-                    margin: 0,
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
                     marginBottom: "0.35rem",
-                    fontWeight: 600,
                   }}
                 >
-                  Project memberships
-                </h4>
-                {user.memberships.length === 0 ? (
-                  <p className="muted text-sm" style={{ margin: 0 }}>
-                    Not a member of any project.
-                  </p>
-                ) : (
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem" }}>
-                    {user.memberships.map((m) => (
-                      <span
-                        key={m.project_id}
-                        className="pill"
-                        style={{ fontSize: "0.78rem", background: "var(--bg-subtle, #eee)" }}
-                      >
-                        {m.project_name}{" "}
-                        <span style={{ fontWeight: 600 }}>{m.role}</span>
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
+                  <h4 className="text-sm" style={{ margin: 0, fontWeight: 600 }}>
+                    Client contact
+                  </h4>
+                  {user.client_contacts.length > 0 ? (
+                    <button
+                      type="button"
+                      className="btn btn-ghost text-sm"
+                      onClick={unlinkContact}
+                      style={{ color: "var(--err)", minHeight: "1.8rem" }}
+                    >
+                      Unlink
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn btn-ghost text-sm"
+                      onClick={() => setShowContactSearch(true)}
+                      style={{ minHeight: "1.8rem" }}
+                    >
+                      + Link contact
+                    </button>
+                  )}
+                </div>
 
-              {/* Client contacts section */}
-              <div>
-                <h4
-                  className="text-sm"
-                  style={{
-                    margin: 0,
-                    marginBottom: "0.35rem",
-                    fontWeight: 600,
-                  }}
-                >
-                  Client contacts
-                </h4>
-                {user.client_contacts.length === 0 ? (
-                  <p className="muted text-sm" style={{ margin: 0 }}>
-                    No linked client contacts.
-                  </p>
-                ) : (
+                {user.client_contacts.length > 0 ? (
                   <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem" }}>
-                    {user.client_contacts.map((c, i) => (
+                    {user.client_contacts.map((c) => (
                       <span
-                        key={`${c.client_id}-${i}`}
+                        key={c.id}
                         className="pill"
                         style={{
                           fontSize: "0.78rem",
@@ -555,6 +738,324 @@ function UserRowView({
                         <span style={{ fontWeight: 600 }}> ({c.role})</span>
                       </span>
                     ))}
+                  </div>
+                ) : (
+                  <p className="muted text-sm" style={{ margin: 0 }}>
+                    No linked client contact.
+                  </p>
+                )}
+
+                {/* Contact search dropdown */}
+                {showContactSearch && (
+                  <div style={{ marginTop: "0.5rem", position: "relative" }}>
+                    <input
+                      className="input text-sm"
+                      placeholder="Search contacts by name, email, or company…"
+                      value={contactQuery}
+                      onChange={(e) => setContactQuery(e.target.value)}
+                      autoComplete="off"
+                      style={{ width: "100%", minHeight: "2.25rem" }}
+                    />
+                    {contactPending && (
+                      <p className="muted text-sm" style={{ margin: "0.3rem 0" }}>
+                        Searching…
+                      </p>
+                    )}
+                    {contactResults.length > 0 && (
+                      <div
+                        style={{
+                          marginTop: "0.25rem",
+                          maxHeight: "12rem",
+                          overflowY: "auto",
+                          border: "1px solid var(--border)",
+                          borderRadius: 6,
+                          background: "var(--bg-elevated)",
+                        }}
+                      >
+                        {contactResults.map((c) => (
+                          <button
+                            key={c.id}
+                            type="button"
+                            className="btn-ghost"
+                            style={{
+                              display: "block",
+                              width: "100%",
+                              textAlign: "left",
+                              padding: "0.5rem",
+                              borderRadius: 0,
+                              border: "none",
+                              borderBottom: "1px solid var(--border)",
+                              cursor: "pointer",
+                              background: "transparent",
+                              fontFamily: "inherit",
+                              fontSize: "0.85rem",
+                              color: "var(--text)",
+                            }}
+                            onClick={() => linkContact(c.id)}
+                          >
+                            <div style={{ fontWeight: 600 }}>{c.name}</div>
+                            <div className="muted" style={{ fontSize: "0.78rem" }}>
+                              {c.email} · {c.client_name} ({c.role})
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {contactQuery && !contactPending && contactResults.length === 0 && (
+                      <p className="muted text-sm" style={{ margin: "0.3rem 0" }}>
+                        No matching contacts.
+                      </p>
+                    )}
+                    <button
+                      type="button"
+                      className="btn btn-ghost text-sm"
+                      onClick={() => {
+                        setShowContactSearch(false);
+                        setContactQuery("");
+                        setContactResults([]);
+                      }}
+                      style={{ marginTop: "0.3rem" }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* ── Project memberships ────────────────────────── */}
+              <div>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: "0.35rem",
+                  }}
+                >
+                  <h4 className="text-sm" style={{ margin: 0, fontWeight: 600 }}>
+                    Project memberships
+                  </h4>
+                  <button
+                    type="button"
+                    className="btn btn-ghost text-sm"
+                    onClick={() => setShowProjectSearch(true)}
+                    style={{ minHeight: "1.8rem" }}
+                  >
+                    + Add to project
+                  </button>
+                </div>
+
+                {user.memberships.length === 0 ? (
+                  <p className="muted text-sm" style={{ margin: 0 }}>
+                    Not a member of any project.
+                  </p>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
+                    {user.memberships.map((m) => (
+                      <div
+                        key={m.project_id}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "0.5rem",
+                          padding: "0.3rem 0.5rem",
+                          borderRadius: 6,
+                          background: "var(--bg-subtle, #f5f5f5)",
+                        }}
+                      >
+                        <span style={{ flex: 1, fontSize: "0.85rem", fontWeight: 500 }}>
+                          {m.project_name}
+                        </span>
+
+                        {editingRole?.project_id === m.project_id ? (
+                          <>
+                            <select
+                              className="input text-sm"
+                              value={editingRole.role}
+                              onChange={(e) =>
+                                setEditingRole({ ...editingRole, role: e.target.value })
+                              }
+                              style={{ width: "auto", minHeight: "2rem", padding: "0.2rem 0.4rem" }}
+                            >
+                              <option value="viewer">viewer</option>
+                              <option value="contributor">contributor</option>
+                              <option value="maintainer">maintainer</option>
+                              <option value="owner">owner</option>
+                            </select>
+                            <button
+                              type="button"
+                              className="btn btn-primary text-sm"
+                              onClick={() => changeRole(m.project_id, editingRole.role)}
+                              style={{ minHeight: "2rem", padding: "0.2rem 0.6rem", fontSize: "0.78rem" }}
+                            >
+                              Save
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-ghost text-sm"
+                              onClick={() => setEditingRole(null)}
+                              style={{ minHeight: "2rem", padding: "0.2rem 0.4rem", fontSize: "0.78rem" }}
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <span
+                              className="pill"
+                              style={{ fontSize: "0.72rem", background: "var(--accent)", color: "#fff" }}
+                            >
+                              {m.role}
+                            </span>
+                            <button
+                              type="button"
+                              className="btn btn-ghost text-sm"
+                              onClick={() =>
+                                setEditingRole({ project_id: m.project_id, role: m.role })
+                              }
+                              style={{ minHeight: "1.8rem", padding: "0.2rem 0.4rem", fontSize: "0.78rem" }}
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-ghost text-sm"
+                              onClick={() => removeFromProject(m.project_id, m.project_name)}
+                              style={{
+                                color: "var(--err)",
+                                minHeight: "1.8rem",
+                                padding: "0.2rem 0.4rem",
+                                fontSize: "0.78rem",
+                              }}
+                            >
+                              Remove
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Add to project search */}
+                {showProjectSearch && (
+                  <div
+                    style={{
+                      marginTop: "0.5rem",
+                      padding: "0.5rem",
+                      border: "1px solid var(--border)",
+                      borderRadius: 6,
+                      background: "var(--bg-elevated)",
+                    }}
+                  >
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", alignItems: "flex-end" }}>
+                      <label className="stack" style={{ flex: "1 1 200px", gap: "0.15rem" }}>
+                        <span className="text-sm muted">Search project</span>
+                        <input
+                          className="input text-sm"
+                          value={
+                            selectedProject
+                              ? selectedProject.name
+                              : projectQuery
+                          }
+                          onChange={(e) => {
+                            setSelectedProject(null);
+                            setProjectQuery(e.target.value);
+                          }}
+                          placeholder="Type to search…"
+                          autoComplete="off"
+                          style={{ minHeight: "2.25rem" }}
+                        />
+                      </label>
+                      <label className="stack" style={{ gap: "0.15rem" }}>
+                        <span className="text-sm muted">Role</span>
+                        <select
+                          className="input text-sm"
+                          value={newRole}
+                          onChange={(e) => setNewRole(e.target.value)}
+                          style={{ minHeight: "2.25rem" }}
+                        >
+                          <option value="viewer">viewer</option>
+                          <option value="contributor">contributor</option>
+                          <option value="maintainer">maintainer</option>
+                          <option value="owner">owner</option>
+                        </select>
+                      </label>
+                      <button
+                        type="button"
+                        className="btn btn-primary text-sm"
+                        disabled={!selectedProject}
+                        onClick={addToProject}
+                        style={{ minHeight: "2.25rem" }}
+                      >
+                        Add
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-ghost text-sm"
+                        onClick={() => {
+                          setShowProjectSearch(false);
+                          setProjectQuery("");
+                          setSelectedProject(null);
+                          setProjectResults([]);
+                        }}
+                        style={{ minHeight: "2.25rem" }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+
+                    {selectedProject ? (
+                      <p className="text-sm" style={{ margin: "0.3rem 0 0", color: "var(--muted)" }}>
+                        Selected: <strong>{selectedProject.name}</strong>
+                      </p>
+                    ) : projectPending ? (
+                      <p className="muted text-sm" style={{ margin: "0.3rem 0 0" }}>
+                        Searching…
+                      </p>
+                    ) : projectResults.length > 0 ? (
+                      <div
+                        style={{
+                          marginTop: "0.3rem",
+                          maxHeight: "10rem",
+                          overflowY: "auto",
+                          border: "1px solid var(--border)",
+                          borderRadius: 6,
+                        }}
+                      >
+                        {projectResults.map((p) => (
+                          <button
+                            key={p.id}
+                            type="button"
+                            className="btn-ghost"
+                            style={{
+                              display: "block",
+                              width: "100%",
+                              textAlign: "left",
+                              padding: "0.4rem 0.5rem",
+                              borderRadius: 0,
+                              border: "none",
+                              borderBottom: "1px solid var(--border)",
+                              cursor: "pointer",
+                              background: "transparent",
+                              fontFamily: "inherit",
+                              fontSize: "0.85rem",
+                              color: "var(--text)",
+                            }}
+                            onClick={() => {
+                              setSelectedProject(p);
+                              setProjectResults([]);
+                            }}
+                          >
+                            {p.name}
+                          </button>
+                        ))}
+                      </div>
+                    ) : projectQuery && !selectedProject && (
+                      <p className="muted text-sm" style={{ margin: "0.3rem 0 0" }}>
+                        No matching projects.
+                      </p>
+                    )}
                   </div>
                 )}
               </div>

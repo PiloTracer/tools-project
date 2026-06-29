@@ -89,11 +89,34 @@ class UserMembershipOut(BaseModel):
 
 
 class UserClientContactOut(BaseModel):
+    id: uuid.UUID
     client_id: uuid.UUID
     client_name: str
     role: str  # contact's descriptive role at the company
     email: str
     name: str
+
+
+class AdminLinkContactRequest(BaseModel):
+    client_contact_id: uuid.UUID
+
+
+class AdminLinkableContactOut(BaseModel):
+    id: uuid.UUID
+    client_id: uuid.UUID
+    client_name: str
+    name: str
+    email: str
+    role: str
+
+
+class AdminAddToProjectRequest(BaseModel):
+    project_id: uuid.UUID
+    role: str = Field(min_length=2, max_length=20)
+
+
+class AdminChangeProjectRoleRequest(BaseModel):
+    role: str = Field(min_length=2, max_length=20)
 
 
 class ProjectCreate(BaseModel):
