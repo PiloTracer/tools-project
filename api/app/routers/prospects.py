@@ -5,7 +5,7 @@ from datetime import date
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
@@ -55,23 +55,33 @@ async def list_prospects(
     stage: str | None = Query(default=None, max_length=20),
     source: str | None = Query(default=None, max_length=30),
     created_by: uuid.UUID | None = Query(default=None),
+    limit: int = Query(default=200, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
 ):
-    q = select(Prospect).order_by(Prospect.created_at.desc())
+    base = select(Prospect)
     if stage:
         if stage not in VALID_PIPELINE_STAGES:
             raise HTTPException(status_code=422, detail=f"Invalid stage filter: {stage}")
-        q = q.where(Prospect.pipeline_stage == stage)
+        base = base.where(Prospect.pipeline_stage == stage)
     if source:
-        q = q.where(Prospect.source == source)
+        base = base.where(Prospect.source == source)
     if created_by:
-        q = q.where(Prospect.created_by == created_by)
+        base = base.where(Prospect.created_by == created_by)
+
+    total = (await db.scalar(base.with_only_columns(func.count()).order_by(None))) or 0
+
+    q = base.order_by(Prospect.created_at.desc()).offset(offset).limit(limit)
     result = await db.scalars(q)
     rows = list(result.all())
     client_map = await _enrich_list_client_ids(db, rows)
-    return ProspectListResponse(items=[
-        ProspectOut.model_validate(r).model_copy(update={"client_id": client_map.get(r.id)})
-        for r in rows
-    ])
+    return ProspectListResponse(
+        items=[
+            ProspectOut.model_validate(r).model_copy(update={"client_id": client_map.get(r.id)})
+            for r in rows
+        ],
+        total=total,
+        has_more=(offset + len(rows)) < total,
+    )
 
 
 @router.post("", response_model=ProspectOut, status_code=status.HTTP_201_CREATED)

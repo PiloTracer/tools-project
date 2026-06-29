@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
@@ -61,6 +61,8 @@ async def list_tasks(
     component_id: uuid.UUID | None = None,
     is_todo: bool | None = Query(default=None),
     q: str | None = None,
+    limit: int = Query(default=200, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
 ):
     acc = await require_project_access(db, user, project_id)
     if not can_view_tasks(acc):
@@ -68,26 +70,33 @@ async def list_tasks(
             status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to view tasks in this project",
         )
-    stmt = select(Task).where(Task.project_id == project_id)
+
+    base = select(Task).where(Task.project_id == project_id)
     if q:
         like = f"%{q.strip()}%"
-        stmt = stmt.where(or_(Task.title.ilike(like), Task.ref.ilike(like)))
+        base = base.where(or_(Task.title.ilike(like), Task.ref.ilike(like)))
     if task_status:
-        stmt = stmt.where(Task.status == task_status.strip())
+        base = base.where(Task.status == task_status.strip())
     if assignee_id is not None:
-        stmt = stmt.where(Task.assignee_id == assignee_id)
+        base = base.where(Task.assignee_id == assignee_id)
     if component_id is not None:
-        stmt = stmt.where(Task.component_id == component_id)
+        base = base.where(Task.component_id == component_id)
     if is_todo is not None:
-        stmt = stmt.where(Task.is_todo == is_todo)
+        base = base.where(Task.is_todo == is_todo)
     if is_client_participant(acc):
-        # Client participants see tasks assigned to them or their client company contacts (SPEC FR-5).
         peer_ids = await client_company_user_ids(db, acc)
-        stmt = stmt.where(Task.assignee_id.in_(peer_ids))
-    stmt = stmt.order_by(Task.updated_at.desc())
+        base = base.where(Task.assignee_id.in_(peer_ids))
+
+    total = (await db.scalar(base.with_only_columns(func.count()).order_by(None))) or 0
+
+    stmt = base.order_by(Task.updated_at.desc()).offset(offset).limit(limit)
     result = await db.scalars(stmt)
     rows = list(result.all())
-    return TaskListResponse(items=[TaskOut.model_validate(r) for r in rows])
+    return TaskListResponse(
+        items=[TaskOut.model_validate(r) for r in rows],
+        total=total,
+        has_more=(offset + len(rows)) < total,
+    )
 
 
 @project_router.post("", response_model=TaskOut, status_code=status.HTTP_201_CREATED)

@@ -4,8 +4,8 @@ import uuid
 from datetime import datetime, timezone
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
-from sqlalchemy import case, or_, select
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from sqlalchemy import case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
@@ -54,6 +54,8 @@ async def list_tickets(
     queue_slug: str | None = None,
     ticket_status: str | None = None,
     q: str | None = None,
+    limit: int = Query(default=200, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
 ):
     acc = await require_project_access(db, user, project_id)
     if not can_view_tickets(acc):
@@ -61,28 +63,34 @@ async def list_tickets(
             status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to view tickets in this project",
         )
-    stmt = select(Ticket).where(Ticket.project_id == project_id)
+
+    base = select(Ticket).where(Ticket.project_id == project_id)
     if q:
         like = f"%{q.strip()}%"
-        stmt = stmt.where(or_(Ticket.title.ilike(like), Ticket.ref.ilike(like)))
+        base = base.where(or_(Ticket.title.ilike(like), Ticket.ref.ilike(like)))
     if queue_slug:
-        stmt = stmt.where(Ticket.queue_slug == queue_slug.strip())
+        base = base.where(Ticket.queue_slug == queue_slug.strip())
     if ticket_status:
-        stmt = stmt.where(Ticket.status == ticket_status.strip())
+        base = base.where(Ticket.status == ticket_status.strip())
     if is_client_participant(acc):
-        # Client participants see tickets assigned to them or their client company contacts (SPEC FR-5).
         peer_ids = await client_company_user_ids(db, acc)
-        stmt = stmt.where(Ticket.assignee_id.in_(peer_ids))
-    # Support queue: open work first, oldest first (age / triage); terminal tickets sink.
-    stmt = stmt.order_by(
+        base = base.where(Ticket.assignee_id.in_(peer_ids))
+
+    total = (await db.scalar(base.with_only_columns(func.count()).order_by(None))) or 0
+
+    stmt = base.order_by(
         case(
             (Ticket.status.in_(("resolved", "closed")), 1),
             else_=0,
         ),
         Ticket.created_at.asc(),
-    )
+    ).offset(offset).limit(limit)
     rows = list((await db.scalars(stmt)).all())
-    return TicketListResponse(items=[TicketOut.model_validate(r) for r in rows])
+    return TicketListResponse(
+        items=[TicketOut.model_validate(r) for r in rows],
+        total=total,
+        has_more=(offset + len(rows)) < total,
+    )
 
 
 @router.post("", response_model=TicketOut, status_code=status.HTTP_201_CREATED)

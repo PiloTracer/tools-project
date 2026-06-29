@@ -4,8 +4,8 @@ import uuid
 from datetime import datetime, timezone
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
@@ -25,18 +25,20 @@ router = APIRouter(prefix="/v1/inbox", tags=["inbox"])
 async def list_inbox(
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
+    limit: int = Query(default=200, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
 ):
-    rows = list(
-        (
-            await db.scalars(
-                select(InboxItem)
-                .where(InboxItem.owner_id == user.id, InboxItem.triaged_to_id.is_(None))
-                .order_by(InboxItem.created_at.desc())
-                .limit(200)
-            )
-        ).all()
+    base = select(InboxItem).where(
+        InboxItem.owner_id == user.id, InboxItem.triaged_to_id.is_(None)
     )
-    return InboxListResponse(items=[InboxOut.model_validate(r) for r in rows])
+    total = (await db.scalar(base.with_only_columns(func.count()).order_by(None))) or 0
+    stmt = base.order_by(InboxItem.created_at.desc()).offset(offset).limit(limit)
+    rows = list((await db.scalars(stmt)).all())
+    return InboxListResponse(
+        items=[InboxOut.model_validate(r) for r in rows],
+        total=total,
+        has_more=(offset + len(rows)) < total,
+    )
 
 
 @router.post("", response_model=InboxOut, status_code=status.HTTP_201_CREATED)

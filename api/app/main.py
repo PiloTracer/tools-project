@@ -1,12 +1,17 @@
 import asyncio
 import logging
 import os
+import time
+import uuid
 from contextlib import asynccontextmanager
 
 logging.basicConfig(level=logging.INFO)
+log = logging.getLogger(__name__)
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+
+from sqlalchemy import select
 
 from app.bootstrap import run_bootstrap
 from app.config import get_settings
@@ -72,6 +77,8 @@ async def lifespan(app: FastAPI):
         _retention_purge_task = None
 
 
+_start_time: float = time.time()
+
 app = FastAPI(
     title="tools-project API",
     description="Project management hub — backend",
@@ -92,6 +99,17 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def request_id_middleware(request: Request, call_next):
+    rid = request.headers.get("X-Request-Id") or str(uuid.uuid4())
+    start = time.time()
+    response = await call_next(request)
+    response.headers["X-Request-Id"] = rid
+    elapsed = time.time() - start
+    log.info("%s %s %s %.0fms", request.method, request.url.path, response.status_code, elapsed * 1000)
+    return response
 
 app.include_router(auth.router)
 app.include_router(admin_users.router)
@@ -122,5 +140,20 @@ app.include_router(reports.router)
 
 
 @app.get("/healthz")
-def healthz() -> dict[str, str]:
-    return {"status": "ok"}
+async def healthz() -> dict[str, object]:
+    db_ok = False
+    try:
+        from app.db import session_factory
+
+        fac = session_factory()
+        async with fac() as session:
+            await session.execute(select(1))
+            db_ok = True
+    except Exception:
+        db_ok = False
+    return {
+        "status": "ok" if db_ok else "degraded",
+        "db": "ok" if db_ok else "unreachable",
+        "version": "0.1.0",
+        "uptime_seconds": int(time.time() - _start_time),
+    }

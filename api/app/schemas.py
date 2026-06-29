@@ -285,6 +285,8 @@ class TaskOut(BaseModel):
 
 class TaskListResponse(BaseModel):
     items: list[TaskOut]
+    total: int | None = None
+    has_more: bool = False
 
 
 # --- Batch F: activity, tickets, /me today & mentions ---
@@ -331,6 +333,8 @@ class ActivityOut(BaseModel):
 
 class ActivityListResponse(BaseModel):
     items: list[ActivityOut]
+    total: int | None = None
+    has_more: bool = False
 
 
 class AttachmentOut(BaseModel):
@@ -401,6 +405,8 @@ class TodayTicketBundle(BaseModel):
 
 class TicketListResponse(BaseModel):
     items: list[TicketOut]
+    total: int | None = None
+    has_more: bool = False
 
 
 class MentionWithContext(BaseModel):
@@ -477,6 +483,8 @@ class InboxOut(BaseModel):
 
 class InboxListResponse(BaseModel):
     items: list[InboxOut]
+    total: int | None = None
+    has_more: bool = False
 
 
 class UserSearchResult(BaseModel):
@@ -778,6 +786,8 @@ class ProspectStageChangeResponse(ProspectOut):
 
 class ProspectListResponse(BaseModel):
     items: list[ProspectOut]
+    total: int | None = None
+    has_more: bool = False
 
 
 # --- M2: Clients + Contacts ---
@@ -817,6 +827,8 @@ class ClientOut(BaseModel):
 
 class ClientListResponse(BaseModel):
     items: list[ClientOut]
+    total: int | None = None
+    has_more: bool = False
 
 
 class ClientContactCreate(BaseModel):

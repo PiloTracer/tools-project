@@ -3,8 +3,8 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
@@ -40,11 +40,18 @@ async def _unique_slug(db: AsyncSession, base: str) -> str:
 async def list_clients(
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
+    limit: int = Query(default=200, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
 ):
-    q = select(Client).order_by(Client.created_at.desc())
+    total = (await db.scalar(select(func.count()).select_from(Client))) or 0
+    q = select(Client).order_by(Client.created_at.desc()).offset(offset).limit(limit)
     result = await db.scalars(q)
     rows = list(result.all())
-    return ClientListResponse(items=[ClientOut.model_validate(r) for r in rows])
+    return ClientListResponse(
+        items=[ClientOut.model_validate(r) for r in rows],
+        total=total,
+        has_more=(offset + len(rows)) < total,
+    )
 
 @router.post("", response_model=ClientOut, status_code=status.HTTP_201_CREATED)
 async def create_client(

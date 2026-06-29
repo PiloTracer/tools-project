@@ -2,7 +2,7 @@
 
 **Date:** 2026-06-18
 
-**Closed:** 2026-06-29 — 8 improvements: retention purge, PATCH links, commit pagination, ruff/pyright, About page
+**Closed:** 2026-06-29 — 5 more improvements: CI, health checks, request IDs, pagination across all list endpoints
 **Updated:** 2026-06-29
 
 Treat prior closed sessions as historical only; see "What this cycle produced" below.
@@ -176,6 +176,20 @@ All follow-ups are complete. The project has no open blocking work.
 | `web/src/app/projects/[id]/settings/GitHubSettingsForm.tsx` | Inline poll interval editor with save/cancel |
 | `web/src/app/projects/[id]/github/CommitsTable.tsx` | "Load more" client component for commit pagination |
 | `web/package.json` | Added `react-markdown` dependency
+
+## What this cycle produced (2026-06-29 — session 2)
+
+| Artifact | Description |
+|----------|-------------|
+| `.github/workflows/ci.yml` | CI workflow: ruff lint, pyright type-check, web lint + build on push/PR |
+| `api/app/main.py` | Request ID middleware (X-Request-Id), rich health check (async + DB ping + uptime), request logging |
+| `api/app/routers/tasks.py` | Added `limit`, `offset`, `total`, `has_more` to task list |
+| `api/app/routers/tickets.py` | Added `limit`, `offset`, `total`, `has_more` to ticket list |
+| `api/app/routers/activities.py` | Added `offset`, `total`, `has_more` to activity list |
+| `api/app/routers/prospects.py` | Added `limit`, `offset`, `total`, `has_more` to prospect list |
+| `api/app/routers/clients.py` | Added `limit`, `offset`, `total`, `has_more` to client list |
+| `api/app/routers/inbox.py` | Added `limit`, `offset`, `total`, `has_more` to inbox list |
+| `api/app/schemas.py` | Added `total` + `has_more` fields to 6 list response models
 
 | Artifact | Description |
 |----------|-------------|

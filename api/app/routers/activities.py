@@ -7,7 +7,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -229,6 +229,7 @@ async def list_activities(
         pattern=r"^(internal|external)$",
     ),
     limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
 ):
     acc = await require_project_access(db, user, project_id)
     client_participant = is_client_participant(acc)
@@ -237,24 +238,24 @@ async def list_activities(
             status.HTTP_403_FORBIDDEN,
             detail="Client participants cannot view internal activities",
         )
-    stmt = (
-        select(Activity)
-        .where(Activity.project_id == project_id)
-        .order_by(Activity.created_at.desc())
-        .limit(limit)
-    )
+
+    base = select(Activity).where(Activity.project_id == project_id)
     if subject_type:
-        stmt = stmt.where(Activity.subject_type == subject_type.strip().lower())
+        base = base.where(Activity.subject_type == subject_type.strip().lower())
     if subject_id is not None:
-        stmt = stmt.where(Activity.subject_id == subject_id)
+        base = base.where(Activity.subject_id == subject_id)
     if kind is not None:
-        stmt = stmt.where(Activity.kind == kind.strip().lower())
+        base = base.where(Activity.kind == kind.strip().lower())
     if client_participant:
-        stmt = stmt.where(Activity.is_internal.is_(False))
+        base = base.where(Activity.is_internal.is_(False))
     elif visibility == "internal":
-        stmt = stmt.where(Activity.is_internal.is_(True))
+        base = base.where(Activity.is_internal.is_(True))
     elif visibility == "external":
-        stmt = stmt.where(Activity.is_internal.is_(False))
+        base = base.where(Activity.is_internal.is_(False))
+
+    total = (await db.scalar(base.with_only_columns(func.count()).order_by(None))) or 0
+
+    stmt = base.order_by(Activity.created_at.desc()).offset(offset).limit(limit)
     rows = list((await db.scalars(stmt)).all())
     lookup = await _enrich_subject_titles(db, rows)
     items = []
@@ -269,7 +270,11 @@ async def list_activities(
                 }
             )
         )
-    return ActivityListResponse(items=items)
+    return ActivityListResponse(
+        items=items,
+        total=total,
+        has_more=(offset + len(items)) < total,
+    )
 
 
 @router.post("", response_model=ActivityOut, status_code=status.HTTP_201_CREATED)

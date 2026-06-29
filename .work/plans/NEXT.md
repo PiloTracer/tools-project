@@ -6,7 +6,7 @@
 
 **Schema:** declarative **`sql/`** only — no Alembic. On API startup: `schema_changes.sql` → `schema_indexes.sql` → bootstrap → `schema_backfill.sql` → `schema_inserts.sql`.
 
-****Latest (repo):** **2026-06-29** — 8 improvements: retention purge, PATCH links, commit pagination, ruff/pyright configs, About page with release notes. All previous batches complete.
+****Latest (repo):** **2026-06-29** — 5 more improvements: CI pipeline, rich health checks, request ID middleware, pagination (total/has_more) on all list endpoints. All previous batches complete.
 
 ### Status at a glance (visual)
 
@@ -17,7 +17,8 @@ Phase 2 (H)     ████████████████████  5/
 Phase 3 (I)     ████████████████████  6/6   Done (I10a–I10g)
 ────────────────────────────────────────────────
 Matrix (G+H+P)  ████████████████████  14/14 Done
-Improvements    ████████████████████  8/8   Done (2026-06-29)
+Improvements    ████████████████████  8/8   Done (2026-06-29 sess 1)
+Improvements    ████████████████████  5/5   Done (2026-06-29 sess 2)
 
 Open: none — all follow-ups resolved
 Active: none — all session follow-ups done
