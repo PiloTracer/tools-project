@@ -5,7 +5,7 @@
 **Closed:** 2026-06-23 — prospect-to-client conversion UX: API returns promoted client, UI shows confirmation dialog with "View client" link; commit message readability policy
 **Updated:** 2026-06-25
 
-**Open:** 2026-06-25 - goal: fix/improve something in the project
+**Open:** 2026-06-29 - goal: review user roles (global/per-project/per-company) + add single-page user administration UI
 
 Treat prior closed sessions as historical only; see "What this cycle produced" below.
 

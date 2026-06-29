@@ -1,0 +1,469 @@
+$ bash tmp/verify-uncommitted.sh
+[exit 0]
+=== 1. Check new endpoints in OpenAPI ===
+/v1/me/refs/search ['get']
+/v1/projects/{project_id}/github/links/{link_id}/test ['post']
+/v1/projects/{project_id}/github/readiness ['get']
+/v1/projects/{project_id}/github/refs ['get', 'post']
+/v1/projects/{project_id}/github/refs/{ref_id} ['delete']
+
+=== 2. Test GET /readiness ===
+{
+    "ready": true,
+    "score": "5/5",
+    "checks": [
+        {
+            "id": "project_key",
+            "label": "Project key set",
+            "met": true,
+            "action": "Set a project key in settings (e.g. PROJ) so task/ticket refs can be generated.",
+            "api": "/v1/projects/dedca048-04b9-481a-aa9b-aa8649bba6f9"
+        },
+        {
+            "id": "github_link",
+            "label": "GitHub repository linked",
+            "met": true,
+            "action": "Add a GitHub repository link with a valid PAT.",
+            "api": "/v1/projects/dedca048-04b9-481a-aa9b-aa8649bba6f9/github/links"
+        },
+        {
+            "id": "commits_synced",
+            "label": "Commits synced from GitHub",
+            "met": true,
+            "action": "Sync the linked repository to pull in commit history.",
+            "api": "/v1/projects/dedca048-04b9-481a-aa9b-aa8649bba6f9/github/links/089a108a-9d4b-4ae6-87a5-4df7d58bb55c/sync"
+        },
+        {
+            "id": "registry_enabled",
+            "label": "Task registry enabled",
+            "met": true,
+            "action": "Enable the GitHub task registry setting so task/ticket refs are pushed to the linked repo.",
+            "api": "/v1/projects/dedca048-04b9-481a-aa9b-aa8649bba6f9"
+        },
+        {
+            "id": "auto_prefix",
+            "label": "Auto-prefix enabled",
+            "met": true,
+            "action": "Enable auto-prefix so new tasks/tickets get automatic refs (e.g. PROJ-123).",
+            "api": "/v1/projects/dedca048-04b9-481a-aa9b-aa8649bba6f9"
+        }
+    ]
+}
+
+=== 3. Test GET /refs ===
+{
+    "items": [
+        {
+            "id": "d80146c3-d54c-4d34-a870-226cb9e8b549",
+            "github_commit_id": "a6bd125a-ed36-4beb-b553-79d70fec9cce",
+            "sha": "634bb59cfac4674a79dd2c73add8b5f7e432326a",
+            "project_id": "dedca048-04b9-481a-aa9b-aa8649bba6f9",
+            "subject_type": "ticket",
+            "subject_id": "4f945d84-1b96-41cf-87b1-daa035d9ca49",
+            "subject_ref": "TPR-T-8",
+            "subject_title": "tiquete de prueba",
+            "subject_status": "open",
+            "subject_priority": "normal",
+            "subject_description": "esto es solo para probar si el commit se asocia a este tiquete.",
+            "created_by": "56bcc0dc-d0b5-41f5-bc03-7f2b1ef0d037",
+            "created_at": "2026-06-26T06:16:02.850627Z",
+            "commit": {
+                "sha": "634bb59cfac4674a79dd2c73add8b5f7e432326a",
+                "short_sha": "634bb59",
+                "message_preview": "TPR-T-8: Add missing BFF proxy route for GitHub sync\n\nPOST /api/projects/[id]/github/links/[linkId]/sync was missing,\nca\u2026",
+                "html_url": "https://github.com/PiloTracer/tools-project/commit/634bb59cfac4674a79dd2c73add8b5f7e432326a",
+                "author_name": "PiloTracer",
+                "committed_at": "2026-06-26T06:11:37Z",
+                "owner": "pilotracer",
+                "repo": "tools-project"
+            }
+        },
+        {
+            "id": "2d7ffb3e-d799-4e56-86e0-7719284fa95d",
+            "github_commit_id": "5665f4bf-d079-4598-9c83-6f1224da3c90",
+            "sha": "0129a6fad5d5f7ded86a30000b6f1f55f9088dfd",
+            "project_id": "dedca048-04b9-481a-aa9b-aa8649bba6f9",
+            "subject_type": "ticket",
+            "subject_id": "8592a23d-53bd-48c4-a5fc-b58b1ec21e31",
+            "subject_ref": "TPR-T-9",
+            "subject_title": "Improvement: GitHub Sync Health Dashboard with Persistent Error Tracking",
+            "subject_status": "open",
+            "subject_priority": "normal",
+            "subject_description": "### Problem\n\nThe background GitHub poller is completely opaque to users:\n- When a sync fails (401 bad token, 404 repo deleted, rate limit, network timeout), the only evidence is a server log line \u2014 `log.exception(\"GitHub poll failed for link_id=%s\", lid)`.\n- The `GithubLink` model has `last_synced_at` but **zero error-tracking columns** (`last_error`, `last_error_at`, `error_count`).\n- The UI shows `last_synced_at` as a date or `\u2014`, with no error indicator. A link that has been failing for days looks identical to one that never synced.\n- There is **no manual \"Sync now\" button** in the GitHub tab \u2014 users must go to Settings > CommitReadinessCard and click \"Fix\" (which calls the sync API), or use the raw API directly.\n- Readiness checks only verify `last_synced_at IS NOT NULL` \u2014 they don't check if the last sync failed.\n\n### Design\n\n**Backend (3 changes):**\n\n1. **Add error-tracking columns to `GithubLink` model and DDL:**\n   - `last_error TEXT` \u2014 human-readable error message from the last failed sync\n   - `last_error_at TIMESTAMPTZ` \u2014 when the last failure occurred\n   - `error_count INT DEFAULT 0` \u2014 consecutive failure count\n   - `sync_status VARCHAR(20) DEFAULT 'idle'` \u2014 `idle` | `syncing` | `error` | `disabled` (so the UI can always show current status without hitting the GitHub API)\n\n2. **Update `github_background.py` catch block** to persist error state to the DB on failure instead of just logging and rolling back silently.\n\n3. **Add `GET /v1/projects/{id}/github/sync-status` endpoint** that returns per-link sync health (status, last_synced_at, last_error, last_error_at, error_count) \u2014 a lightweight read endpoint the UI can poll without triggering a sync.\n\n**Frontend (3 changes):**\n\n4. **GitHub tab** (`/projects/[id]/github/page.tsx`): Add a \"Sync now\" button next to each linked repo that calls `POST /sync`. Show sync status per repo as a colored badge (green/idle, yellow/syncing, red/error with the error message on hover).\n\n5. **GitHub Settings** (`GitHubSettingsForm.tsx`): Replace the bare `last_synced_at` column with a sync status badge + relative time. Show `last_error` inline for errored links.\n\n6. **DateDisplay** \u2014 actually use the existing `DateDisplay` component for timestamps so users see \"2m ago\" instead of absolute UTC dates (the original TPR-T-5 fix).\n\n### Why this solves the user's real pain\n\nWhen the user asks \"why are commits not being pulled\" or \"is this an error?\", the system currently has no answer beyond server logs. With this dashboard:\n- The user sees instantly that a link is in `error` status with \"401 \u2014 token expired\"\n- They can click \"Sync now\" to retry without leaving the page\n- The error count shows whether the problem is transient or persistent\n- In production, ops can check sync health at a glance rather than grepping logs\n\n### Effort estimate\n\n| Component | Files to change | Complexity |\n|-----------|----------------|------------|",
+            "created_by": "56bcc0dc-d0b5-41f5-bc03-7f2b1ef0d037",
+            "created_at": "2026-06-26T06:11:01.395785Z",
+            "commit": {
+                "sha": "0129a6fad5d5f7ded86a30000b6f1f55f9088dfd",
+                "short_sha": "0129a6f",
+                "message_preview": "registry: update ticket TPR-T-9",
+                "html_url": "https://github.com/PiloTracer/tools-project/commit/0129a6fad5d5f7ded86a30000b6f1f55f9088dfd",
+                "author_name": "Logic Bison",
+                "committed_at": "2026-06-26T06:08:10Z",
+                "owner": "pilotracer",
+                "repo": "tools-project"
+            }
+        },
+        {
+            "id": "d121c23f-d9f2-4167-b275-322dabe86ae3",
+            "github_commit_id": "b577344c-a978-41b0-b5dc-a13b3586199a",
+            "sha": "c0ab3f4bbb4ebc45dbdb5fe20bef83cae8784168",
+            "project_id": "dedca048-04b9-481a-aa9b-aa8649bba6f9",
+            "subject_type": "ticket",
+            "subject_id": "629bac8c-d2fb-4800-a0c9-322dca0ce6d0",
+            "subject_ref": "TPR-T-7",
+            "subject_title": "Under settings, visually differentiate between Client and Contact",
+            "subject_status": "open",
+            "subject_priority": "normal",
+            "subject_description": null,
+            "created_by": "56bcc0dc-d0b5-41f5-bc03-7f2b1ef0d037",
+            "created_at": "2026-06-26T06:11:01.395785Z",
+            "commit": {
+                "sha": "c0ab3f4bbb4ebc45dbdb5fe20bef83cae8784168",
+                "short_sha": "c0ab3f4",
+                "message_preview": "registry: update ticket TPR-T-7",
+                "html_url": "https://github.com/PiloTracer/tools-project/commit/c0ab3f4bbb4ebc45dbdb5fe20bef83cae8784168",
+                "author_name": "Logic Bison",
+                "committed_at": "2026-06-26T06:07:58Z",
+                "owner": "pilotracer",
+                "repo": "tools-project"
+            }
+        },
+        {
+            "id": "3fe8fb3d-b07e-47c3-98d2-f7073eda1484",
+            "github_commit_id": "d647614d-688e-4662-8d20-b1ddf4eab20c",
+            "sha": "62f01244d546f9ad9d3bc12052d055cf3a106d1f",
+            "project_id": "dedca048-04b9-481a-aa9b-aa8649bba6f9",
+            "subject_type": "ticket",
+            "subject_id": "4f945d84-1b96-41cf-87b1-daa035d9ca49",
+            "subject_ref": "TPR-T-8",
+            "subject_title": "tiquete de prueba",
+            "subject_status": "open",
+            "subject_priority": "normal",
+            "subject_description": "esto es solo para probar si el commit se asocia a este tiquete.",
+            "created_by": "56bcc0dc-d0b5-41f5-bc03-7f2b1ef0d037",
+            "created_at": "2026-06-26T06:11:01.395785Z",
+            "commit": {
+                "sha": "62f01244d546f9ad9d3bc12052d055cf3a106d1f",
+                "short_sha": "62f0124",
+                "message_preview": "registry: update ticket TPR-T-8",
+                "html_url": "https://github.com/PiloTracer/tools-project/commit/62f01244d546f9ad9d3bc12052d055cf3a106d1f",
+                "author_name": "Logic Bison",
+                "committed_at": "2026-06-26T06:08:01Z",
+                "owner": "pilotracer",
+                "repo": "tools-project"
+            }
+        },
+        {
+            "id": "74acff41-cf6c-4b9c-a579-eb06fd5b59b1",
+            "github_commit_id": "1032d2d8-c044-46f4-9620-80687592a61c",
+            "sha": "71a4e76f7d3ba45cf848c66109c07663d0460874",
+            "project_id": "dedca048-04b9-481a-aa9b-aa8649bba6f9",
+            "subject_type": "ticket",
+            "subject_id": "4550baae-7793-466e-b50e-d41aa2004dc0",
+            "subject_ref": "TPR-T-10",
+            "subject_title": "\"Sync now\" button on the GitHub tab",
+            "subject_status": "open",
+            "subject_priority": "normal",
+            "subject_description": "Problem: When commits aren't showing, the user's only recourse is navigating to Settings \u2192 Commit Readiness \u2192 click \"Fix\" (which triggers a sync). The GitHub tab itself \u2014 where the user sees missing commits \u2014 has no sync control.\nChange: Add a \"Sync now\" button per linked repo on the GitHub tab page (/projects/[id]/github/page.tsx), calling POST /v1/projects/{id}/github/links/{link_id}/sync. Show a spinner while syncing and a brief success/error toast.\nWhy small & impactful:\n- ~20 lines added to a single file (page.tsx)\n- No backend changes needed (the sync endpoint already exists)\n- Gives users immediate control: they see missing commits \u2192 click \"Sync now\" \u2192 commits appear\n- Solves the trust problem: the user can verify the pipe works right from the page that shows the data\nTradeoff: No persistent error tracking (that's the medium/large proposal). This is just a trigger button \u2014 it doesn't tell you why a previous sync failed.",
+            "created_by": "56bcc0dc-d0b5-41f5-bc03-7f2b1ef0d037",
+            "created_at": "2026-06-26T06:11:01.395785Z",
+            "commit": {
+                "sha": "71a4e76f7d3ba45cf848c66109c07663d0460874",
+                "short_sha": "71a4e76",
+                "message_preview": "registry: update ticket TPR-T-10",
+                "html_url": "https://github.com/PiloTracer/tools-project/commit/71a4e76f7d3ba45cf848c66109c07663d0460874",
+                "author_name": "Logic Bison",
+                "committed_at": "2026-06-26T06:08:12Z",
+                "owner": "pilotracer",
+                "repo": "tools-project"
+            }
+        },
+        {
+            "id": "a37ecd1a-97c1-4912-b6c1-676ebe365655",
+            "github_commit_id": "dc241911-57dc-410c-8312-0427b50c4810",
+            "sha": "555a6c1637220da97a2be6f32319ecdec69dbd6e",
+            "project_id": "dedca048-04b9-481a-aa9b-aa8649bba6f9",
+            "subject_type": "ticket",
+            "subject_id": "4f945d84-1b96-41cf-87b1-daa035d9ca49",
+            "subject_ref": "TPR-T-8",
+            "subject_title": "tiquete de prueba",
+            "subject_status": "open",
+            "subject_priority": "normal",
+            "subject_description": "esto es solo para probar si el commit se asocia a este tiquete.",
+            "created_by": "56bcc0dc-d0b5-41f5-bc03-7f2b1ef0d037",
+            "created_at": "2026-06-26T06:05:59.780327Z",
+            "commit": {
+                "sha": "555a6c1637220da97a2be6f32319ecdec69dbd6e",
+                "short_sha": "555a6c1",
+                "message_preview": "TPR-T-8: Include subject description and priority in refs response\n\n_enrich_subject_fields now queries priority and desc\u2026",
+                "html_url": "https://github.com/PiloTracer/tools-project/commit/555a6c1637220da97a2be6f32319ecdec69dbd6e",
+                "author_name": "PiloTracer",
+                "committed_at": "2026-06-26T06:01:10Z",
+                "owner": "pilotracer",
+                "repo": "tools-project"
+            }
+        },
+        {
+            "id": "c89773e7-aa79-4083-9254-102676e19128",
+            "github_commit_id": "b1ce9f25-4f1c-4b10-9903-8264702d58b4",
+            "sha": "3a4f55de10fa681a61f1185d1eb515e2b3252b1a",
+            "project_id": "dedca048-04b9-481a-aa9b-aa8649bba6f9",
+            "subject_type": "ticket",
+            "subject_id": "4f945d84-1b96-41cf-87b1-daa035d9ca49",
+            "subject_ref": "TPR-T-8",
+            "subject_title": "tiquete de prueba",
+            "subject_status": "open",
+            "subject_priority": "normal",
+            "subject_description": "esto es solo para probar si el commit se asocia a este tiquete.",
+            "created_by": "56bcc0dc-d0b5-41f5-bc03-7f2b1ef0d037",
+            "created_at": "2026-06-26T05:56:15.810470Z",
+            "commit": {
+                "sha": "3a4f55de10fa681a61f1185d1eb515e2b3252b1a",
+                "short_sha": "3a4f55d",
+                "message_preview": "TPR-T-8: Enrich refs response with subject info, remove detail fetch\n\nRefs endpoint now returns subject_ref, subject_tit\u2026",
+                "html_url": "https://github.com/PiloTracer/tools-project/commit/3a4f55de10fa681a61f1185d1eb515e2b3252b1a",
+                "author_name": "PiloTracer",
+                "committed_at": "2026-06-26T05:52:38Z",
+                "owner": "pilotracer",
+                "repo": "tools-project"
+            }
+        },
+        {
+            "id": "ab55e0c5-a841-4e7a-a57e-6ce8eee12c4c",
+            "github_commit_id": "22fec309-1a0f-4fc6-8bff-76fd98432232",
+            "sha": "180aa8b1c975b7584be882d8ed562ceb2562e9f5",
+            "project_id": "dedca048-04b9-481a-aa9b-aa8649bba6f9",
+            "subject_type": "ticket",
+            "subject_id": "4f945d84-1b96-41cf-87b1-daa035d9ca49",
+            "subject_ref": "TPR-T-8",
+            "subject_title": "tiquete de prueba",
+            "subject_status": "open",
+            "subject_priority": "normal",
+            "subject_description": "esto es solo para probar si el commit se asocia a este tiquete.",
+            "created_by": "56bcc0dc-d0b5-41f5-bc03-7f2b1ef0d037",
+            "created_at": "2026-06-26T05:37:53.331923Z",
+            "commit": {
+                "sha": "180aa8b1c975b7584be882d8ed562ceb2562e9f5",
+                "short_sha": "180aa8b",
+                "message_preview": "TPR-T-8: Graceful fallback when Linked detail fetch fails\n\nWhen the task/ticket detail fetch fails (common in production\u2026",
+                "html_url": "https://github.com/PiloTracer/tools-project/commit/180aa8b1c975b7584be882d8ed562ceb2562e9f5",
+                "author_name": "PiloTracer",
+                "committed_at": "2026-06-26T05:33:19Z",
+                "owner": "pilotracer",
+                "repo": "tools-project"
+            }
+        },
+        {
+            "id": "6be03cbf-7781-4064-8770-be68332ced87",
+            "github_commit_id": "3430850e-00ef-4e33-a722-abb986e13358",
+            "sha": "25446cfb33d413d2290dd06eda8a75d452e1b0e7",
+            "project_id": "dedca048-04b9-481a-aa9b-aa8649bba6f9",
+            "subject_type": "ticket",
+            "subject_id": "4f945d84-1b96-41cf-87b1-daa035d9ca49",
+            "subject_ref": "TPR-T-8",
+            "subject_title": "tiquete de prueba",
+            "subject_status": "open",
+            "subject_priority": "normal",
+            "subject_description": "esto es solo para probar si el commit se asocia a este tiquete.",
+            "created_by": "56bcc0dc-d0b5-41f5-bc03-7f2b1ef0d037",
+            "created_at": "2026-06-26T05:22:49.001767Z",
+            "commit": {
+                "sha": "25446cfb33d413d2290dd06eda8a75d452e1b0e7",
+                "short_sha": "25446cf",
+                "message_preview": "TPR-T-8: Fix Linked modal for client portal and viewer role\n\nClient portal ActivityList now receives projectId so Commit\u2026",
+                "html_url": "https://github.com/PiloTracer/tools-project/commit/25446cfb33d413d2290dd06eda8a75d452e1b0e7",
+                "author_name": "PiloTracer",
+                "committed_at": "2026-06-26T05:21:49Z",
+                "owner": "pilotracer",
+                "repo": "tools-project"
+            }
+        },
+        {
+            "id": "3205c1e6-ccd8-4df3-894b-5c744df7d590",
+            "github_commit_id": "eb5958f8-deef-48a5-a6d0-f6a3402fa9f5",
+            "sha": "096e1d2053fa2e605ef68b55ad83642249113b14",
+            "project_id": "dedca048-04b9-481a-aa9b-aa8649bba6f9",
+            "subject_type": "ticket",
+            "subject_id": "4f945d84-1b96-41cf-87b1-daa035d9ca49",
+            "subject_ref": "TPR-T-8",
+            "subject_title": "tiquete de prueba",
+            "subject_status": "open",
+            "subject_priority": "normal",
+            "subject_description": "esto es solo para probar si el commit se asocia a este tiquete.",
+            "created_by": "56bcc0dc-d0b5-41f5-bc03-7f2b1ef0d037",
+            "created_at": "2026-06-26T04:56:00.389187Z",
+            "commit": {
+                "sha": "096e1d2053fa2e605ef68b55ad83642249113b14",
+                "short_sha": "096e1d2",
+                "message_preview": "TPR-T-8: Fix CommitSubjectRefOut nullable fields and CommitCard error state\n\nSchema: sha and project_id are nullable in \u2026",
+                "html_url": "https://github.com/PiloTracer/tools-project/commit/096e1d2053fa2e605ef68b55ad83642249113b14",
+                "author_name": "PiloTracer",
+                "committed_at": "2026-06-26T04:53:00Z",
+                "owner": "pilotracer",
+                "repo": "tools-project"
+            }
+        },
+        {
+            "id": "6350be1d-b3c3-46d6-9e47-f97b7175e4b9",
+            "github_commit_id": "d73a8595-0288-4f8f-902f-4bc0c430b916",
+            "sha": "b5a33a31752aba2dbe173e41be20282edf00645b",
+            "project_id": "dedca048-04b9-481a-aa9b-aa8649bba6f9",
+            "subject_type": "ticket",
+            "subject_id": "4f945d84-1b96-41cf-87b1-daa035d9ca49",
+            "subject_ref": "TPR-T-8",
+            "subject_title": "tiquete de prueba",
+            "subject_status": "open",
+            "subject_priority": "normal",
+            "subject_description": "esto es solo para probar si el commit se asocia a este tiquete.",
+            "created_by": "56bcc0dc-d0b5-41f5-bc03-7f2b1ef0d037",
+            "created_at": "2026-06-26T04:47:06.839604Z",
+            "commit": {
+                "sha": "b5a33a31752aba2dbe173e41be20282edf00645b",
+                "short_sha": "b5a33a3",
+                "message_preview": "TPR-T-8: fix: persist sync error state on manual sync; auto-refresh after sync\n\nThe manual sync route (POST /links/{link\u2026",
+                "html_url": "https://github.com/PiloTracer/tools-project/commit/b5a33a31752aba2dbe173e41be20282edf00645b",
+                "author_name": "PiloTracer",
+                "committed_at": "2026-06-26T04:46:52Z",
+                "owner": "pilotracer",
+                "repo": "tools-project"
+            }
+        },
+        {
+            "id": "06b72336-d1a4-4484-9d6b-d83d3c1f7451",
+            "github_commit_id": "3ddb2ff2-9945-421b-9f89-f37e012bd994",
+            "sha": "959cca1a4df8434deb7db768f006fa569fb83178",
+            "project_id": "dedca048-04b9-481a-aa9b-aa8649bba6f9",
+            "subject_type": "ticket",
+            "subject_id": "4550baae-7793-466e-b50e-d41aa2004dc0",
+            "subject_ref": "TPR-T-10",
+            "subject_title": "\"Sync now\" button on the GitHub tab",
+            "subject_status": "open",
+            "subject_priority": "normal",
+            "subject_description": "Problem: When commits aren't showing, the user's only recourse is navigating to Settings \u2192 Commit Readiness \u2192 click \"Fix\" (which triggers a sync). The GitHub tab itself \u2014 where the user sees missing commits \u2014 has no sync control.\nChange: Add a \"Sync now\" button per linked repo on the GitHub tab page (/projects/[id]/github/page.tsx), calling POST /v1/projects/{id}/github/links/{link_id}/sync. Show a spinner while syncing and a brief success/error toast.\nWhy small & impactful:\n- ~20 lines added to a single file (page.tsx)\n- No backend changes needed (the sync endpoint already exists)\n- Gives users immediate control: they see missing commits \u2192 click \"Sync now\" \u2192 commits appear\n- Solves the trust problem: the user can verify the pipe works right from the page that shows the data\nTradeoff: No persistent error tracking (that's the medium/large proposal). This is just a trigger button \u2014 it doesn't tell you why a previous sync failed.",
+            "created_by": "56bcc0dc-d0b5-41f5-bc03-7f2b1ef0d037",
+            "created_at": "2026-06-26T04:46:10.976249Z",
+            "commit": {
+                "sha": "959cca1a4df8434deb7db768f006fa569fb83178",
+                "short_sha": "959cca1",
+                "message_preview": "registry: add ticket TPR-T-10",
+                "html_url": "https://github.com/PiloTracer/tools-project/commit/959cca1a4df8434deb7db768f006fa569fb83178",
+                "author_name": "Logic Bison",
+                "committed_at": "2026-06-26T04:44:12Z",
+                "owner": "pilotracer",
+                "repo": "tools-project"
+            }
+        },
+        {
+            "id": "69fdf467-cdfe-4b42-8260-2cb574010b80",
+            "github_commit_id": "4d133f55-628c-403a-96a7-1255721b3f08",
+            "sha": "2eb584e256ebe9f1150b9f03438eb9a49128ebca",
+            "project_id": "dedca048-04b9-481a-aa9b-aa8649bba6f9",
+            "subject_type": "ticket",
+            "subject_id": "4f945d84-1b96-41cf-87b1-daa035d9ca49",
+            "subject_ref": "TPR-T-8",
+            "subject_title": "tiquete de prueba",
+            "subject_status": "open",
+            "subject_priority": "normal",
+            "subject_description": "esto es solo para probar si el commit se asocia a este tiquete.",
+            "created_by": "56bcc0dc-d0b5-41f5-bc03-7f2b1ef0d037",
+            "created_at": "2026-06-26T04:41:09.621153Z",
+            "commit": {
+                "sha": "2eb584e256ebe9f1150b9f03438eb9a49128ebca",
+                "short_sha": "2eb584e",
+                "message_preview": "TPR-T-8: Fix missing sync health fields in settings page type\n\nGithubLinkRow in settings page was missing sync_status, l\u2026",
+                "html_url": "https://github.com/PiloTracer/tools-project/commit/2eb584e256ebe9f1150b9f03438eb9a49128ebca",
+                "author_name": "PiloTracer",
+                "committed_at": "2026-06-26T04:39:17Z",
+                "owner": "pilotracer",
+                "repo": "tools-project"
+            }
+        },
+        {
+            "id": "42c754a5-ceb0-4446-b96a-06f9437d201b",
+            "github_commit_id": "ae88ebef-46de-464b-86b5-6f76b1b2f1e9",
+            "sha": "ac8a6879c093ce861a10969e359a479e3c9cef5a",
+            "project_id": "dedca048-04b9-481a-aa9b-aa8649bba6f9",
+            "subject_type": "ticket",
+            "subject_id": "4f945d84-1b96-41cf-87b1-daa035d9ca49",
+            "subject_ref": "TPR-T-8",
+            "subject_title": "tiquete de prueba",
+            "subject_status": "open",
+            "subject_priority": "normal",
+            "subject_description": "esto es solo para probar si el commit se asocia a este tiquete.",
+            "created_by": "56bcc0dc-d0b5-41f5-bc03-7f2b1ef0d037",
+            "created_at": "2026-06-26T04:36:08.157792Z",
+            "commit": {
+                "sha": "ac8a6879c093ce861a10969e359a479e3c9cef5a",
+                "short_sha": "ac8a687",
+                "message_preview": "TPR-T-8: Fix and harden commit-to-task association pipeline\n\nHook fixes: prepare-commit-msg now prepends ref with sed to\u2026",
+                "html_url": "https://github.com/PiloTracer/tools-project/commit/ac8a6879c093ce861a10969e359a479e3c9cef5a",
+                "author_name": "PiloTracer",
+                "committed_at": "2026-06-26T04:32:50Z",
+                "owner": "pilotracer",
+                "repo": "tools-project"
+            }
+        },
+        {
+            "id": "a24e1035-2b2e-4421-b2bd-531395da0af4",
+            "github_commit_id": "b7324b03-d8ea-4587-aba0-f48bb676c1f9",
+            "sha": "02d687bcac62c54215f467ef5e0eeea69c7a43f0",
+            "project_id": "dedca048-04b9-481a-aa9b-aa8649bba6f9",
+            "subject_type": "ticket",
+            "subject_id": "4f945d84-1b96-41cf-87b1-daa035d9ca49",
+            "subject_ref": "TPR-T-8",
+            "subject_title": "tiquete de prueba",
+            "subject_status": "open",
+            "subject_priority": "normal",
+            "subject_description": "esto es solo para probar si el commit se asocia a este tiquete.",
+            "created_by": "56bcc0dc-d0b5-41f5-bc03-7f2b1ef0d037",
+            "created_at": "2026-06-26T04:22:39.417908Z",
+            "commit": {
+                "sha": "02d687bcac62c54215f467ef5e0eeea69c7a43f0",
+                "short_sha": "02d687b",
+                "message_preview": "TPR-T-8: include linked_refs in activity meta_json so CommitCard works without fetch",
+                "html_url": "https://github.com/PiloTracer/tools-project/commit/02d687bcac62c54215f467ef5e0eeea69c7a43f0",
+                "author_name": "PiloTracer",
+                "committed_at": "2026-06-26T04:18:05Z",
+                "owner": "pilotracer",
+                "repo": "tools-project"
+            }
+        },
+        {
+            "id": "9e461c67-cd5e-4c3a-a98d-d3ccd5ec2324",
+            "github_commit_id": "08769666-eed2-443d-8d39-889d831dde5e",
+            "sha": "76bacc1e2ed8a1030e8174a3421b16e5f9198e1c",
+            "project_id": "dedca048-04b9-481a-aa9b-aa8649bba6f9",
+            "subject_type": "ticket",
+            "subject_id": "4f945d84-1b96-41cf-87b1-daa035d9ca49",
+            "subject_ref": "TPR-T-8",
+            "subject_title": "tiquete de prueba",
+            "subject_status": "open",
+            "subject_priority": "normal",
+            "subject_description": "esto es solo para probar si el commit se asocia a este tiquete.",
+            "created_by": "56bcc0dc-d0b5-41f5-bc03-7f2b1ef0d037",
+            "created_at": "2026-06-26T04:05:45.346102Z",
+            "commit": {
+                "sha": "76bacc1e2ed8a1030e8174a3421b16e5f9198e1c",
+                "short_sha": "76bacc1",
+                "message_preview": "TPR-T-8: GitHub Sync Health Dashboard: error tracking + sync-status endpoint",
+                "html_url": "https://github.com/PiloTracer/tools-project/commit/76bacc1e2ed8a1030e8174a3421b16e5f9198e1c",
+                "author_name": "PiloTracer",
+                "committed_at": "2026-06-26T04:05:29Z",
+                "owner": "pilotracer",
+                "repo": "tools-project"
+            }
+        },
+        {
+            "id": "a73c4203-fedd-472e-87c3-220ec528ca98",
+            "github_commit_id": "393d19bb-502e-4803-89fc-1d5db6fe91dc",
+            "sha": "38704a1c6743cd4a4b382ea8ee5525ceece18d7a",
+            "project_id": "dedca048-04b9-481a-aa9b-aa8649bba6f9",
+            "subject_type": "ticket",
+            "subject_id": "8592a23d-53bd-48c4-a5fc-b58b1ec21e31",
+            "subject_ref": "TPR-T-9",
+            "subject_title": "Improvement: GitHub Sync Health Dashboard with Persistent Error Tracking",
+            "subject_status": "open",
+            "subject_priority": "normal",
+            "subject_description": "### Problem\n\nThe background GitHub poller is completely opaque to users:\n- When a sync fails (401 bad token, 404 repo deleted, rate limit, network timeout), the only evidence is a server log line \u2014 `log.exception(\"GitHub poll failed for link_id=%s\", lid)`.\n- The `GithubLink` model has `last_synced_at` but **zero error-tracking columns** (`last_error`, `last_error_at`, `error_count`).\n- The UI shows `last_synced_at` as a date or `\u2014`, with no error indicator. A link that has been failing for days looks identical to one that never synced.\n- There is **no manual \"Sync now\" button** in the GitHub tab \u2014 users must go to Settings > CommitReadinessCard and click \"Fix\" (which calls the sync API), or use the raw API directly.\n- Readiness checks only verify `last_synced_at IS NOT NULL` \u2014 they don't check if the last sync failed.\n\n### Design\n\n**Backend (3 changes):**\n\n1. **Add error-tracking columns to `GithubLink` model and DDL:**\n   - `last_error TEXT` \u2014 human-readable error message from the last failed sync\n   - `last_error_at TIMESTAMPTZ` \u2014 when the last failure occurred\n   - `error_count INT DEFAULT 0` \u2014 consecutive failure count\n   - `sync_status VARCHAR(20) DEFAULT 'idle'` \u2014 `idle` | `syncing` | `error` | `disabled` (so the UI can always show current status without hitting the GitHub API)\n\n2. **Update `github_background.py` catch block** to persist error state to the DB on failure instead of just logging and rolling back silently.\n\n3. **Add `GET /v1/projects/{id}/github/sync-status` endpoint** that returns per-link sync health (status, last_synced_at, last_error, last_error_at, error_count) \u2014 a lightweight read endpoint the UI can poll without triggering a sync.\n\n**Frontend (3 changes):**\n\n4. **GitHub tab** (`/projects/[id]/github/page.tsx`): Add a \"Sync now\" button next to each linked repo that calls `POST /sync`. Show sync status per repo as a colored badge (green/idle, yellow/syncing, red/error with the error message on hover).\n\n5. **GitHub Settings** (`GitHubSettingsForm.tsx`): Replace the bare `last_synced_at` column with a sync status badge + relative time. Show `last_error` inline for errored links.\n\n6. **DateDisplay** \u2014 actually use the existing `DateDisplay` component for timestamps so users see \"2m ago\" instead of absolute UTC dates (the original TPR-T-5 fix).\n\n### Why this solves the user's real pain\n\nWhen the user asks \"why are commits not being pulled\" or \"is this an error?\", the system currently has no answer beyond server logs. With this dashboard:\n- The user sees instantly that a link is in `error` status with \"401 \u2014 token expired\"\n- They can click \"Sync now\" to retry without leaving the page\n- The error count shows whether the problem is tr
+
+[… truncated 41001 chars …]

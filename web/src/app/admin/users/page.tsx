@@ -3,6 +3,20 @@ import { cookies } from "next/headers";
 
 import { AdminUsersPanel } from "./AdminUsersPanel";
 
+type UserMembership = {
+  project_id: string;
+  project_name: string;
+  role: string;
+};
+
+type UserClientContact = {
+  client_id: string;
+  client_name: string;
+  role: string;
+  email: string;
+  name: string;
+};
+
 type UserRow = {
   id: string;
   email: string;
@@ -10,6 +24,8 @@ type UserRow = {
   auth_source: string;
   is_active: boolean;
   is_superuser: boolean;
+  memberships: UserMembership[];
+  client_contacts: UserClientContact[];
 };
 
 export default async function AdminUsersPage() {
@@ -50,12 +66,12 @@ export default async function AdminUsersPage() {
     return (
       <div className="page-inner">
         <main className="card stack wide">
-          <h1>User management</h1>
+          <h1>User administration</h1>
           <p>
             This screen requires a <strong>local superuser</strong> session (JWT issued by this app).
             SSO access tokens are intentionally <strong>not</strong> accepted on{" "}
             <code>/v1/admin/users</code> — operate via a local bootstrap/admin account, or adjust this
-            policy when IdP admin claims are wired (see repo <code>.ai/context/HANDOFF.md</code>).
+            policy when IdP admin claims are wired.
           </p>
           <p>
             <Link className="btn btn-primary" href="/login">
@@ -70,11 +86,11 @@ export default async function AdminUsersPage() {
 
   return (
     <div className="page-inner">
-      <main className="stack-lg wide" style={{ maxWidth: "920px", margin: "0 auto" }}>
+      <main className="stack-lg wide" style={{ maxWidth: "960px", margin: "0 auto" }}>
         <div>
-          <h1>Local users</h1>
+          <h1>User administration</h1>
           <p className="muted text-sm">
-            Create and patch users via OpenAPI-backed forms (local JWT only).
+            Manage all users, their roles, and project memberships.
           </p>
         </div>
         <AdminUsersPanel initialUsers={rows} currentUserId={meId} />

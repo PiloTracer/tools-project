@@ -72,12 +72,28 @@ class AdminUserOut(BaseModel):
     auth_source: str = "local"
     is_active: bool
     is_superuser: bool
+    memberships: list["UserMembershipOut"] = Field(default_factory=list)
+    client_contacts: list["UserClientContactOut"] = Field(default_factory=list)
 
     model_config = {"from_attributes": True}
 
 
 class AdminUserListResponse(BaseModel):
     items: list[AdminUserOut]
+
+
+class UserMembershipOut(BaseModel):
+    project_id: uuid.UUID
+    project_name: str
+    role: str
+
+
+class UserClientContactOut(BaseModel):
+    client_id: uuid.UUID
+    client_name: str
+    role: str  # contact's descriptive role at the company
+    email: str
+    name: str
 
 
 class ProjectCreate(BaseModel):

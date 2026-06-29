@@ -1,6 +1,0 @@
-download_batch_date=YYYY-MM-DD
-base_pack=<short label for this vendor pack, optional>
-
-# One artifact per line: canonical_url<TAB>relative_path_from_repo_root
-# Example:
-# https://api.example.com/openapi.json	.ai/docs/integration/example/openapi.json

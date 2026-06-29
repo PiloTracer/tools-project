@@ -35,9 +35,14 @@ export function GithubTokenBanner({ projectId }: { projectId: string }) {
 
   useEffect(() => {
     let cancelled = false;
-    setDismissed(false);
-    check().then(() => { if (cancelled) return; });
-    return () => { cancelled = true; };
+    const id = setTimeout(() => {
+      check().then(() => { if (cancelled) return; });
+    }, 0);
+    return () => {
+      cancelled = true;
+      clearTimeout(id);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
   const badLinks = (links ?? []).filter((l) => !l.ok);

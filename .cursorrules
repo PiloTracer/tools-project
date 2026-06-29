@@ -63,20 +63,20 @@ These principles override all other instructions. They are non-negotiable.
 
 ## Required Context Files
 
-**Lost or unsure what to do? Read `.ai/START_HERE.md` first** — operator decision tree and recovery guide.
+**Lost or unsure what to do? Read `/mnt/work/Projects/.ai/START_HERE.md` first** — operator decision tree and recovery guide.
 
 Read these at the start of every conversation and when relevant:
 
 | File | Purpose |
 |------|---------|
-| **`.ai/START_HERE.md`** | What to invoke right now; forgetfulness checklist |
-| **`.ai/PROCESS_ROUTER.md`** | Process Q&A; `@process-router` vs `@session-control status` |
+| **`/mnt/work/Projects/.ai/START_HERE.md`** | What to invoke right now; forgetfulness checklist |
+| **`/mnt/work/Projects/.ai/PROCESS_ROUTER.md`** | Process Q&A; `@process-router` vs `@session-control status` |
 | **`.work/plans/foundation/20260618-04-architecture.md`** | Technology stack |
-| **`.ai/standards/CONVENTIONS.md`** | Code layout, naming, maintainability |
-| **`.ai/standards/FEATURE_STANDARD.md`** | Feature SPEC lifecycle |
-| **`.ai/standards/DIRECTORY_MAP.md`** | Repository layout and boundaries |
+| **`/mnt/work/Projects/.ai/standards/CONVENTIONS.md`** | Code layout, naming, maintainability |
+| **`/mnt/work/Projects/.ai/standards/FEATURE_STANDARD.md`** | Feature SPEC lifecycle |
+| **`/mnt/work/Projects/.ai/standards/DIRECTORY_MAP.md`** | Repository layout and boundaries |
 | **`.work/context/HANDOFF.md`** | Session handoff (session-control read/write) |
-| **`.ai/docs/guides/workflows/README.md`** | Workflow index and artifact matrix |
+| **`/mnt/work/Projects/.ai/docs/guides/workflows/README.md`** | Workflow index and artifact matrix |
 | **`/mnt/work/Projects/.ai.ui/START_HERE.md`** | UI operator decision tree (via `@ui-director`) |
 | **`/mnt/work/Projects/.ai.biz/START_HERE.md`** | Business operator decision tree (via `@biz-director`) |
 
@@ -84,9 +84,9 @@ Read these at the start of every conversation and when relevant:
 
 ### Workflow bootstrap (concepts + guides)
 
-Portable process docs: **`.ai/docs/guides/workflows/README.md`** (artifact matrix). Curriculum: **`20260518-guide-workflows-index.md`** (when present). Tutorials: **`20260518-tutorial-*`**. Reference guides: **`20260518-guide-*`**.
+Portable process docs: **`/mnt/work/Projects/.ai/docs/guides/workflows/README.md`** (artifact matrix). Curriculum: **`20260518-guide-workflows-index.md`** (when present). Tutorials: **`20260518-tutorial-*`**. Reference guides: **`20260518-guide-*`**.
 
-**Concept pack:** `.ai/concepts/README.md` (MOD-01–MOD-06). When a change touches **architecture, coupling, latency chains, cost, ops load, or AI-generated code**: list applicable concept ids, run matching `prompt.md` under `.ai/concepts/<name>/`, attach outputs to the PR or **`### Concept / NFR registry`** in `.work/plans/NEXT.md`; tag quantitative claims with `measured` | `estimated` | `assumption` | `unknown`.
+**Concept pack:** `/mnt/work/Projects/.ai/concepts/README.md` (MOD-01–MOD-06). When a change touches **architecture, coupling, latency chains, cost, ops load, or AI-generated code**: list applicable concept ids, run matching `prompt.md` under `/mnt/work/Projects/.ai/concepts/<name>/`, attach outputs to the PR or **`### Concept / NFR registry`** in `.work/plans/NEXT.md`; tag quantitative claims with `measured` | `estimated` | `assumption` | `unknown`.
 
 **Placeholder quick map (customize for this repository):**
 
@@ -100,10 +100,10 @@ Portable process docs: **`.ai/docs/guides/workflows/README.md`** (artifact matri
 | `{ITERATION_CARRIER}` | `.work/plans/NEXT.md` |
 | `{MASTER_PLAN}` | `.work/plans/full/*-full-plan.md` (latest **Approved**) |
 | `{HANDOFF}` | `.work/context/HANDOFF.md` |
-| `{CONCEPTS_ROOT}` | `.ai/concepts/` |
-| `{SKILLS_ROOT}` | `.ai/skills/` |
+| `{CONCEPTS_ROOT}` | `/mnt/work/Projects/.ai/concepts/` |
+| `{SKILLS_ROOT}` | `/mnt/work/Projects/.ai/skills/` |
 | `{OBSERVABILITY_SPEC}` | (not yet defined — add when observability spec is created) |
-| `{BOUNDARY_MAP}` | `.ai/standards/DIRECTORY_MAP.md` |
+| `{BOUNDARY_MAP}` | `/mnt/work/Projects/.ai/standards/DIRECTORY_MAP.md` |
 | `{AGENT_RULES_FILE}` | **`.cursorrules` (this file)** — `AGENTS.md` is NOT used unless the owner explicitly adopts it |
 | `{UI_ROOT}` | `/mnt/work/Projects/.ai.ui/` (sibling directory, not inside repo) |
 | `{UI_WORK_ROOT}` | `.work.ui/` (created by `.ai.ui` bootstrap) |
@@ -131,30 +131,30 @@ Portable process docs: **`.ai/docs/guides/workflows/README.md`** (artifact matri
 
 ## Skills
 
-Reusable agent skills live under `.ai/skills/`. Each skill is a subfolder containing a `skill.md` file. The folder name is the skill identifier.
+Reusable agent skills live under `/mnt/work/Projects/.ai/skills/`. Each skill is a subfolder containing a `skill.md` file. The folder name is the skill identifier.
 
 **Available skills:**
 
 | Skill | Folder | Purpose |
 |-------|--------|---------|
-| plan-foundation | `.ai/skills/plan-foundation/` | P0–P6 orchestration; certify plan-master-ready |
-| plan-master | `.ai/skills/plan-master/` | Master implementation plan; certify implementation-ready |
-| plan-verify | `.ai/skills/plan-verify/` | Plan audits: foundation, master, alignment, **coverage** (code→SPEC), **brownfield** |
-| plan-repair | `.ai/skills/plan-repair/` | Remediate plan gaps; **brownfield synthesis** from repo evidence; mandatory re-verify |
-| session-control | `.ai/skills/session-control/` | Session open/close; HANDOFF, NEXT; optional git |
-| db-migration | `.ai/skills/db-migration/` | Idempotent numbered SQL migration scripts |
-| code-implementation | `.ai/skills/code-implementation/` | Iteration execution from NEXT.md |
-| code-verify | `.ai/skills/code-verify/` | Milestone/uncommitted/last audits; open-language → Request interpretation |
-| code-repair | `.ai/skills/code-repair/` | Fix verify/SPEC/migration findings; open-language → R0-free alignment map |
-| dev-stack | `.ai/skills/dev-stack/` | Isolated Docker Compose dev stack helper (`bin/start.sh`) |
-| process-router | `.ai/skills/process-router/` | Read-only process Q&A router |
-| feature-spec | `.ai/skills/feature-spec/` | Author, review, amend feature SPECs |
-| concept-run | `.ai/skills/concept-run/` | Run MOD-01…MOD-06 concept prompts |
-| project-bootstrap | `.ai/skills/project-bootstrap/` | Copy `.work/` skeleton, `.cursorrules`, stack doc from templates |
+| plan-foundation | `/mnt/work/Projects/.ai/skills/plan-foundation/` | P0–P6 orchestration; certify plan-master-ready |
+| plan-master | `/mnt/work/Projects/.ai/skills/plan-master/` | Master implementation plan; certify implementation-ready |
+| plan-verify | `/mnt/work/Projects/.ai/skills/plan-verify/` | Plan audits: foundation, master, alignment, **coverage** (code→SPEC), **brownfield** |
+| plan-repair | `/mnt/work/Projects/.ai/skills/plan-repair/` | Remediate plan gaps; **brownfield synthesis** from repo evidence; mandatory re-verify |
+| session-control | `/mnt/work/Projects/.ai/skills/session-control/` | Session open/close; HANDOFF, NEXT; optional git |
+| db-migration | `/mnt/work/Projects/.ai/skills/db-migration/` | Idempotent numbered SQL migration scripts |
+| code-implementation | `/mnt/work/Projects/.ai/skills/code-implementation/` | Iteration execution from NEXT.md |
+| code-verify | `/mnt/work/Projects/.ai/skills/code-verify/` | Milestone/uncommitted/last audits; open-language → Request interpretation |
+| code-repair | `/mnt/work/Projects/.ai/skills/code-repair/` | Fix verify/SPEC/migration findings; open-language → R0-free alignment map |
+| dev-stack | `/mnt/work/Projects/.ai/skills/dev-stack/` | Isolated Docker Compose dev stack helper (`bin/start.sh`) |
+| process-router | `/mnt/work/Projects/.ai/skills/process-router/` | Read-only process Q&A router |
+| feature-spec | `/mnt/work/Projects/.ai/skills/feature-spec/` | Author, review, amend feature SPECs |
+| concept-run | `/mnt/work/Projects/.ai/skills/concept-run/` | Run MOD-01…MOD-06 concept prompts |
+| project-bootstrap | `/mnt/work/Projects/.ai/skills/project-bootstrap/` | Copy `.work/` skeleton, `.cursorrules`, stack doc from templates |
 
 **Usage:** When a task matches a skill's purpose, read `skill.md` and follow the workflow. Skills are tool-agnostic (Cursor, Claude Code, Codex, opencode, etc.).
 
-**Creating new skills:** Add `.ai/skills/<skill-name>/skill.md`; register in the table above. **Naming:** `.ai/skills/README.md` § Naming protocol (`{domain}-{role}`, kebab-case).
+**Creating new skills:** Add `/mnt/work/Projects/.ai/skills/<skill-name>/skill.md`; register in the table above. **Naming:** `/mnt/work/Projects/.ai/skills/README.md` § Naming protocol (`{domain}-{role}`, kebab-case).
 
 ---
 
@@ -164,12 +164,12 @@ This `.cursorrules` is **automatically aware** of all three frameworks and their
 
 | Director | Framework | Purpose | Invocation |
 |----------|-----------|---------|------------|
-| `@ai-director` | `.ai/` (Agent OS) | Engineering: planning, coding, DB, dev stack, sessions | `@ai-director - <describe what you want>` |
+| `@ai-director` | `/mnt/work/Projects/.ai/` (Agent OS) | Engineering: planning, coding, DB, dev stack, sessions | `@ai-director - <describe what you want>` |
 | `@ui-director` | `/mnt/work/Projects/.ai.ui/` (UI Design OS) | UI: design tokens, screen specs, components, visual/a11y verify | `@ui-director - <describe what you want>` |
 | `@biz-director` | `/mnt/work/Projects/.ai.biz/` (Business OS) | Business: strategy, brand, content, sales, pricing | `@biz-director - <describe what you want>` |
 | `@x-director` | Cross-framework | Coordinates across ≥2 of `.ai` / `.ai.ui` / `.ai.biz` | `@x-director - <describe what you want>` |
 
-**Skill files:** `.ai/skills/ai-director/skill.md` · `.ai/skills/x-director/skill.md` · `/mnt/work/Projects/.ai.ui/skills/ui-director/skill.md` · `/mnt/work/Projects/.ai.biz/skills/biz-director/skill.md`
+**Skill files:** `/mnt/work/Projects/.ai/skills/ai-director/skill.md` · `/mnt/work/Projects/.ai/skills/x-director/skill.md` · `/mnt/work/Projects/.ai.ui/skills/ui-director/skill.md` · `/mnt/work/Projects/.ai.biz/skills/biz-director/skill.md`
 
 ### Routing rules
 
@@ -192,18 +192,18 @@ Free-text request
 
 - `@x-director` classifies intent, determines dependency order (e.g. API before UI), and invokes each framework's director sequentially.
 - Do not bypass directors by invoking framework-specific skills directly.
-- Do not reimplement another framework's skills inside `.ai/`.
+- Do not reimplement another framework's skills inside `/mnt/work/Projects/.ai/`.
 
 ---
 
 ## External integration documentation (optional)
 
-When this project integrates with **vendor-published APIs, XSDs, PDFs, or OpenAPI/HTML specs**, cache reference artifacts under **`.ai/docs/integration/`**.
+When this project integrates with **vendor-published APIs, XSDs, PDFs, or OpenAPI/HTML specs**, cache reference artifacts under **`/mnt/work/Projects/.ai/docs/integration/`**.
 
 Rules:
 
-1. **Subfolders:** Organize by source and version (e.g. `.ai/docs/integration/vendor-v1/`) so upgrades do not silently overwrite pinned files.
-2. **Manifest:** Record every download in `.ai/docs/integration/MANIFEST.txt` (source URL, local path, batch date).
+1. **Subfolders:** Organize by source and version (e.g. `/mnt/work/Projects/.ai/docs/integration/vendor-v1/`) so upgrades do not silently overwrite pinned files.
+2. **Manifest:** Record every download in `/mnt/work/Projects/.ai/docs/integration/MANIFEST.txt` (source URL, local path, batch date).
 3. **Sources:** Prefer official vendor domains; third-party mirrors only with an explicit manifest note.
 4. **Secrets:** Never place keys, PEM/P12, passwords, tokens, or `.env` content in this directory.
 5. **Verification:** After download, confirm file type (not an HTML error page masquerading as a PDF).
@@ -283,7 +283,7 @@ Customize paths and ORM for your project.
 
 ### Migration policy (canonical)
 
-Numbered SQL under **`sql/`** is the default schema path. Procedure: `@db-migration` (`.ai/skills/db-migration/skill.md`).
+Numbered SQL under **`sql/`** is the default schema path. Procedure: `@db-migration` (`/mnt/work/Projects/.ai/skills/db-migration/skill.md`).
 
 1. **Startup:** `app/schema_sql.py` runs all scripts in alphanumeric order on **every application start**, before the HTTP server accepts traffic. Each script must be idempotent (safe to re-run N times).
 2. **Verify idempotency:** After creating or changing a script, run `@db-migration verify` (or run the full runner twice in a dev DB) before claiming the migration is done.
@@ -382,7 +382,7 @@ A `prepare-commit-msg` hook is installed at `.git/hooks/prepare-commit-msg`. Whe
 
 ### Git
 - NEVER execute `git commit` or `git push` unless the user explicitly requests it in the same message.
-- **`@session-control close commit` / `close commit push` (mandatory):** When the user invokes session-control **close** with **`commit`** (and optional **`push`**), you **MUST** run shell `git add` + `git commit` per `.ai/skills/session-control/skill.md` § C4b **before** finishing your reply — stage all **safe** dirty paths (default scope), not HANDOFF/NEXT only. If **`push`** was requested, run `git push` after a successful commit. Show `git log -1 --oneline` and `git status -sb`; do not claim close commit succeeded without a commit SHA when the tree was dirty.
+- **`@session-control close commit` / `close commit push` (mandatory):** When the user invokes session-control **close** with **`commit`** (and optional **`push`**), you **MUST** run shell `git add` + `git commit` per `/mnt/work/Projects/.ai/skills/session-control/skill.md` § C4b **before** finishing your reply — stage all **safe** dirty paths (default scope), not HANDOFF/NEXT only. If **`push`** was requested, run `git push` after a successful commit. Show `git log -1 --oneline` and `git status -sb`; do not claim close commit succeeded without a commit SHA when the tree was dirty.
 - **`prepare-commit-msg` hook is installed** at `.git/hooks/prepare-commit-msg`. It auto-prepends the task ref (e.g. `PROJ-456:`) to every commit subject when the branch name contains a ref pattern. Do not bypass it unless the user explicitly requests `--no-verify`.
 - Otherwise provide commit commands for the user when they will commit themselves.
 - Never modify git history (rebase, force-push) without explicit user request.
@@ -425,7 +425,7 @@ If the team uses OpenSpec:
 
 - **Proposals first** for new features or significant changes.
 - Implement exactly as defined in the approved proposal.
-- Document lifecycle commands under `.ai/commands/openspec/` when that tree exists.
+- Document lifecycle commands under `/mnt/work/Projects/.ai/commands/openspec/` when that tree exists.
 
 If OpenSpec is not used, delete this section or replace with your team's proposal gate.
 
@@ -456,9 +456,9 @@ If OpenSpec is not used, delete this section or replace with your team's proposa
 
 ---
 
-## Documentation layout (`.ai/` vs `.work/`)
+## Documentation layout (`/mnt/work/Projects/.ai/` vs `.work/`)
 
-**`.ai/`** — agnostic: skills, standards, concepts, workflow guides, integration mirror, `START_HERE.md`, `PROCESS_ROUTER.md`, **`templates/`** (including this file's source). Pointer READMEs only under `.ai/plans/`, `.ai/features/`, etc.
+**`/mnt/work/Projects/.ai/`** — agnostic: skills, standards, concepts, workflow guides, integration mirror, `START_HERE.md`, `PROCESS_ROUTER.md`, **`templates/`** (including this file's source). Pointer READMEs only under `/mnt/work/Projects/.ai/plans/`, `/mnt/work/Projects/.ai/features/`, etc.
 
 **`.work/`** — project-specific: plans, SPECs, ADRs, prompts, `HANDOFF.md`.
 
@@ -471,11 +471,11 @@ Generated filenames under `.work/` use the `YYYYMMDD-` prefix unless documented 
 | `.work/decisions/` | ADRs |
 | `.work/prompts/` | Questionnaires; user scratch |
 | `.work/context/HANDOFF.md` | Session handoff |
-| `.ai/standards/` | Binding engineering standards |
-| `.ai/skills/` | Portable agent skills |
-| `.ai/templates/cursorrules.template` | **Copy to repo root as `.cursorrules`** when bootstrapping |
+| `/mnt/work/Projects/.ai/standards/` | Binding engineering standards |
+| `/mnt/work/Projects/.ai/skills/` | Portable agent skills |
+| `/mnt/work/Projects/.ai/templates/cursorrules.template` | **Copy to repo root as `.cursorrules`** when bootstrapping |
 
-Canonical map: `.ai/README.md` · Working tree: `.work/README.md`.
+Canonical map: `/mnt/work/Projects/.ai/README.md` · Working tree: `.work/README.md`.
 
 <!-- UI_DESIGN_OS_BEGIN -->
 <!-- Merged by setup-target.sh into existing .cursorrules after Agent OS. Core Principles §1–7 above apply to all UI work. -->
@@ -542,7 +542,7 @@ UI milestone work is not done until: UI lint/type/tests pass; `@ui-visual-verify
 | ui-concept-run | UIS-01…07 |
 | ui-process-router | UI Q&A (read-only) |
 
-**Sessions:** `@session-control` (`.ai/`) · **Backend:** `@code-implementation` (`.ai/`) · **UIS-06** + **UIS-07** (tier ≥ refined) before `ui-component-build complete`.
+**Sessions:** `@session-control` (`/mnt/work/Projects/.ai/`) · **Backend:** `@code-implementation` (`/mnt/work/Projects/.ai/`) · **UIS-06** + **UIS-07** (tier ≥ refined) before `ui-component-build complete`.
 
 ### UI protected files (union with existing list)
 

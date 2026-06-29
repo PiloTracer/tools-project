@@ -23,7 +23,6 @@ type ReadinessResponse = {
 export function CommitReadinessCard({ projectId }: { projectId: string }) {
   const router = useRouter();
   const [data, setData] = useState<ReadinessResponse | null>(null);
-  const [busy, setBusy] = useState(false);
   const [testingId, setTestingId] = useState<string | null>(null);
 
   useEffect(() => {

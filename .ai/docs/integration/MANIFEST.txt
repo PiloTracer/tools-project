@@ -1,3 +1,0 @@
-# No vendor artifacts in the Agent OS framework repo.
-# When adopting into an application project, replace this file using MANIFEST.template.txt
-# and record one canonical_url<TAB>relative_path per mirrored file.

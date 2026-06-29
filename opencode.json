@@ -1,0 +1,27 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+
+  "instructions": [
+    ".cursorrules",
+    "/mnt/work/Projects/.ai/START_HERE.md",
+    "/mnt/work/Projects/.ai/PROCESS_ROUTER.md",
+    "/mnt/work/Projects/.ai.ui/START_HERE.md",
+    "/mnt/work/Projects/.ai.ui/COHABITATION.md",
+    "/mnt/work/Projects/.ai.biz/START_HERE.md"
+  ],
+
+  "references": {
+    "ai": {
+      "path": "/mnt/work/Projects/.ai",
+      "description": "Agent OS: skills, standards, concepts, workflow guides"
+    },
+    "ai-ui": {
+      "path": "/mnt/work/Projects/.ai.ui",
+      "description": "UI Design OS: UI component specs, design tokens, accessibility"
+    },
+    "ai-biz": {
+      "path": "/mnt/work/Projects/.ai.biz",
+      "description": "Business OS: strategy, brand, content, pricing"
+    }
+  }
+}
