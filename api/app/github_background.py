@@ -106,3 +106,29 @@ async def github_poll_loop() -> None:
             log.exception("Attachment retention purge failed")
 
         await asyncio.sleep(float(get_settings().github_poll_interval_seconds))
+
+
+async def attachment_retention_purge_loop() -> None:
+    """Background loop that periodically purges expired attachments.
+
+    Runs independently of the GitHub poll loop and ``github_sync_enabled``.
+    Sleeps ``attachment_retention_purge_interval_seconds`` between cycles.
+    Exits immediately if ``attachment_retention_days`` is 0 or not set.
+    """
+    settings = get_settings()
+    if settings.attachment_retention_days <= 0:
+        return
+
+    while True:
+        try:
+            fac = session_factory()
+            async with fac() as session:
+                purged = await run_attachment_retention_purge(session)
+                if purged:
+                    log.info("Purge removed %s expired attachments", purged)
+                await session.commit()
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            log.exception("Attachment retention purge loop error")
+        await asyncio.sleep(max(60.0, float(settings.attachment_retention_purge_interval_seconds)))

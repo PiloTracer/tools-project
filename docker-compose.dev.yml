@@ -51,6 +51,7 @@ services:
       SQL_SCHEMA_DIR: ${SQL_SCHEMA_DIR:-/sql}
       SQL_SCHEMA_APPLY: ${SQL_SCHEMA_APPLY:-true}
       ATTACHMENTS_DIR: ${ATTACHMENTS_DIR:-/data/attachments}
+      ATTACHMENT_RETENTION_DAYS: ${ATTACHMENT_RETENTION_DAYS:-0}
       AUTH_LOCAL_ENABLED: ${AUTH_LOCAL_ENABLED:-true}
       AUTH_OAUTH_ENABLED: ${AUTH_OAUTH_ENABLED:-true}
       JWT_SECRET: ${JWT_SECRET:-change_me_generate_a_long_random_secret}

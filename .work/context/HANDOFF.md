@@ -2,7 +2,7 @@
 
 **Date:** 2026-06-18
 
-**Closed:** 2026-06-29 — fix admin page bugs: API 422, self-deactivation, theme colors, checkbox size
+**Closed:** 2026-06-29 — 8 improvements: retention purge, PATCH links, commit pagination, ruff/pyright, About page
 **Updated:** 2026-06-29
 
 Treat prior closed sessions as historical only; see "What this cycle produced" below.
@@ -157,6 +157,25 @@ All follow-ups are complete. The project has no open blocking work.
 | `bin/start.sh` | Backup/restore overhaul: no pg_dump, .tar.gz volume-only backup; restore now removes+recreates volumes to overwrite existing data |
 
 ## What this cycle produced (2026-06-23)
+
+| Artifact | Description |
+|----------|-------------|
+| `web/src/app/about/CHANGELOG.md` | Release notes covering last 3 weeks of improvements |
+| `web/src/app/about/page.tsx` | New `/about` page rendering CHANGELOG.md with react-markdown |
+| `web/src/components/AppShell.tsx` | Added "About" link to top navigation |
+| `CHANGELOG.md` | Repository-root changelog (discoverable) |
+| `pyrightconfig.json` | Pyright type checker configuration for Python 3.11 |
+| `api/pyproject.toml` | Added ruff linter config (line-length 120, Python 3.11) |
+| `api/app/github_background.py` | Added standalone `attachment_retention_purge_loop()` |
+| `api/app/main.py` | Always starts retention purge loop (independent of GitHub sync) |
+| `api/app/config.py` | Added `attachment_retention_purge_interval_seconds` setting |
+| `docker-compose.dev.yml`, `docker-compose.prd.yml` | Wired `ATTACHMENT_RETENTION_DAYS` env var |
+| `api/app/routers/github.py` | Added `PATCH /links/{link_id}` + offset pagination on `/commits` |
+| `api/app/schemas.py` | Added `GithubLinkPatch` schema + pagination fields |
+| `web/src/app/api/projects/[id]/github/links/route.ts` | Added `PATCH` proxy handler |
+| `web/src/app/projects/[id]/settings/GitHubSettingsForm.tsx` | Inline poll interval editor with save/cancel |
+| `web/src/app/projects/[id]/github/CommitsTable.tsx` | "Load more" client component for commit pagination |
+| `web/package.json` | Added `react-markdown` dependency
 
 | Artifact | Description |
 |----------|-------------|

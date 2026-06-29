@@ -28,6 +28,7 @@ from app.schemas import (
     GithubCommitListResponse,
     GithubLinkCreate,
     GithubLinkOut,
+    GithubLinkPatch,
     GithubSyncResult,
     GithubSyncStatusResponse,
 )
@@ -161,6 +162,38 @@ async def delete_github_link(
     await db.delete(row)
     await db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.patch("/links/{link_id}", response_model=GithubLinkOut)
+async def patch_github_link(
+    project_id: uuid.UUID,
+    link_id: uuid.UUID,
+    body: GithubLinkPatch,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Update a repo link's token or poll interval (partial update)."""
+    acc = await require_project_access(db, user, project_id)
+    if not can_edit_project_meta(acc.role):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+    row = await db.get(GithubLink, link_id)
+    if row is None or row.project_id != project_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Link not found")
+
+    updated = False
+    if body.github_token is not None:
+        row.token_cipher = encrypt_github_token(body.github_token)
+        updated = True
+    if body.poll_interval_seconds is not None:
+        row.poll_interval_seconds = body.poll_interval_seconds
+        updated = True
+    if not updated:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="No updatable fields provided")
+
+    row.updated_at = datetime.now(timezone.utc)
+    await db.commit()
+    await db.refresh(row)
+    return GithubLinkOut.model_validate(row)
 
 
 @router.post("/links/{link_id}/sync", response_model=GithubSyncResult)
@@ -407,8 +440,31 @@ async def list_github_commits(
     link_id: uuid.UUID | None = Query(default=None),
     q: str | None = Query(default=None),
     limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
 ):
     await require_project_access(db, user, project_id)
+
+    base = (
+        select(GithubCommit)
+        .join(GithubLink)
+        .where(GithubLink.project_id == project_id)
+    )
+    if link_id is not None:
+        base = base.where(GithubCommit.github_link_id == link_id)
+    if q:
+        like = f"%{q}%"
+        base = base.where(
+            GithubCommit.sha.ilike(like)
+            | GithubCommit.message.ilike(like)
+            | GithubLink.owner.ilike(like)
+            | GithubLink.repo.ilike(like)
+        )
+
+    from sqlalchemy import func
+
+    count_stmt = base.with_only_columns(func.count()).order_by(None)
+    total = (await db.scalar(count_stmt)) or 0
+
     stmt = (
         select(GithubCommit, Project.name)
         .join(GithubLink, GithubLink.id == GithubCommit.github_link_id)
@@ -416,12 +472,12 @@ async def list_github_commits(
         .where(GithubLink.project_id == project_id)
         .options(joinedload(GithubCommit.link))
         .order_by(GithubCommit.committed_at.desc())
+        .offset(offset)
         .limit(limit)
     )
     if link_id is not None:
         stmt = stmt.where(GithubCommit.github_link_id == link_id)
     if q:
-        like = f"%{q}%"
         stmt = stmt.where(
             GithubCommit.sha.ilike(like)
             | GithubCommit.message.ilike(like)
@@ -430,7 +486,11 @@ async def list_github_commits(
         )
     result = await db.execute(stmt)
     items = [_to_commit_summary(c, project_id, pname) for c, pname in result.all()]
-    return GithubCommitListResponse(items=items)
+    return GithubCommitListResponse(
+        items=items,
+        total=total,
+        has_more=(offset + len(items)) < total,
+    )
 
 
 @router.get("/task-registry", response_model=dict)

@@ -555,6 +555,13 @@ class GithubLinkCreate(BaseModel):
         )
 
 
+class GithubLinkPatch(BaseModel):
+    """Partial update for a repo link. All fields are optional."""
+
+    github_token: str | None = Field(default=None, min_length=8, max_length=4000)
+    poll_interval_seconds: int | None = Field(default=None, ge=60, le=86400)
+
+
 class GithubLinkOut(BaseModel):
     id: uuid.UUID
     project_id: uuid.UUID
@@ -623,6 +630,8 @@ class CommitSummary(BaseModel):
 
 class GithubCommitListResponse(BaseModel):
     items: list[CommitSummary]
+    total: int | None = None
+    has_more: bool = False
 
 
 class CommitSubjectRefCreate(BaseModel):

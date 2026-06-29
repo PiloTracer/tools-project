@@ -1,0 +1,12 @@
+{
+  "include": ["api/app"],
+  "exclude": ["**/migrations"],
+  "pythonVersion": "3.11",
+  "typeCheckingMode": "basic",
+  "reportMissingImports": "warning",
+  "reportMissingTypeStubs": "none",
+  "reportPrivateUsage": "none",
+  "reportOptionalMemberAccess": "warning",
+  "reportOptionalSubscript": "warning",
+  "reportUnusedImport": "warning"
+}

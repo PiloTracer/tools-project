@@ -6,7 +6,7 @@
 
 **Schema:** declarative **`sql/`** only — no Alembic. On API startup: `schema_changes.sql` → `schema_indexes.sql` → bootstrap → `schema_backfill.sql` → `schema_inserts.sql`.
 
-****Latest (repo):** **2026-06-20** — All follow-ups complete. SPEC FR-5 runtime-verified. App logger cosmetic gap fixed. `commit_subject_refs` + watcher hooks (I10f) implemented. Inbox `c` shortcut confirmed already present. Batch I (GitHub) + Batch J (CRM) complete. UI design foundation complete; all CRM screens delivered.
+****Latest (repo):** **2026-06-29** — 8 improvements: retention purge, PATCH links, commit pagination, ruff/pyright configs, About page with release notes. All previous batches complete.
 
 ### Status at a glance (visual)
 
@@ -17,9 +17,10 @@ Phase 2 (H)     ████████████████████  5/
 Phase 3 (I)     ████████████████████  6/6   Done (I10a–I10g)
 ────────────────────────────────────────────────
 Matrix (G+H+P)  ████████████████████  14/14 Done
+Improvements    ████████████████████  8/8   Done (2026-06-29)
 
 Open: none — all follow-ups resolved
-Active: none — all session follow-ups done; web lint gate clean
+Active: none — all session follow-ups done
 ```
 
 ---

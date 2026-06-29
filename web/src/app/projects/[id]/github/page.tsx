@@ -6,6 +6,7 @@ import { apiServerFetch, fetchMe } from "@/shared/server/session";
 import { DateDisplay } from "@/components/DateDisplay";
 import { SyncNowButton } from "@/components/SyncNowButton";
 import { SyncStatusBadge } from "@/components/SyncStatusBadge";
+import { CommitsTable } from "./CommitsTable";
 import { ProjectSubNav } from "../ProjectSubNav";
 
 type GithubLinkRow = {
@@ -64,13 +65,13 @@ export default async function ProjectGithubPage({
 
   const [linksRes, commitsRes] = await Promise.all([
     apiServerFetch(`/v1/projects/${id}/github/links`),
-    apiServerFetch(`/v1/projects/${id}/github/commits?limit=50`),
+    apiServerFetch(`/v1/projects/${id}/github/commits?limit=50&offset=0`),
   ]);
 
   const links: GithubLinkRow[] = linksRes.ok ? await linksRes.json() : [];
-  const commits: CommitRow[] = commitsRes.ok
-    ? (await commitsRes.json()).items
-    : [];
+  const commitsData = commitsRes.ok ? await commitsRes.json() : null;
+  const commits: CommitRow[] = commitsData?.items ?? [];
+  const hasMore: boolean = commitsData?.has_more ?? false;
 
   return (
     <div className="page-inner stack-lg">
@@ -130,34 +131,11 @@ export default async function ProjectGithubPage({
 
       <div className="card wide stack">
         <h2 style={{ marginTop: 0 }}>Recent Commits</h2>
-        {commits.length === 0 ? (
-          <p className="muted text-sm">No commits found.</p>
-        ) : (
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border)" }}>
-                <th style={{ padding: "0.5rem 0" }}>SHA</th>
-                <th>Message</th>
-                <th>Author</th>
-                <th>Time</th>
-              </tr>
-            </thead>
-            <tbody>
-              {commits.map((c) => (
-                <tr key={c.id} style={{ borderBottom: "1px solid var(--border)" }}>
-                  <td style={{ padding: "0.35rem 0" }}>
-                    <a href={c.html_url} target="_blank" rel="noopener noreferrer">
-                      <code>{c.short_sha}</code>
-                    </a>
-                  </td>
-                  <td>{c.message_preview}</td>
-                  <td>{c.author_name ?? "—"}</td>
-                  <td><DateDisplay date={c.committed_at} /></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+        <CommitsTable
+          projectId={id}
+          initialCommits={commits}
+          initialHasMore={hasMore}
+        />
       </div>
     </div>
   );

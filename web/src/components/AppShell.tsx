@@ -45,6 +45,7 @@ export async function AppShell({ children }: { children: ReactNode }) {
                   <Link href="/client/dashboard">Client Portal</Link>
                 ) : null}
                 <Link href="/reports">Reports</Link>
+                <Link href="/about">About</Link>
                 {me.is_superuser ? (
                   <Link href="/admin/users">Admin</Link>
                 ) : null}

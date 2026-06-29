@@ -37,3 +37,23 @@ export async function DELETE(
     method: "DELETE",
   });
 }
+
+export async function PATCH(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const { id } = await params;
+  const url = new URL(req.url);
+  const linkId = url.searchParams.get("link_id");
+  if (!linkId) {
+    return new Response(JSON.stringify({ detail: "link_id query param required" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+  const body = await req.text();
+  return proxyToApi(`/v1/projects/${id}/github/links/${linkId}`, {
+    method: "PATCH",
+    body,
+  });
+}

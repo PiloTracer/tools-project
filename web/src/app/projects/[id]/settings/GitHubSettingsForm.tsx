@@ -18,6 +18,7 @@ type LinkRow = {
   last_error_at: string | null;
   error_count: number;
   last_synced_at: string | null;
+  poll_interval_seconds: number;
 };
 
 export function GitHubSettingsForm({
@@ -34,6 +35,8 @@ export function GitHubSettingsForm({
   const [repoUrl, setRepoUrl] = useState("");
   const [pat, setPat] = useState("");
   const [removeLinkId, setRemoveLinkId] = useState<string | null>(null);
+  const [editingPoll, setEditingPoll] = useState<string | null>(null);
+  const [pollValue, setPollValue] = useState("300");
 
   if (!canEdit) {
     return (
@@ -102,6 +105,29 @@ export function GitHubSettingsForm({
     router.refresh();
   }
 
+  async function handleSavePoll(linkId: string) {
+    const val = parseInt(pollValue, 10);
+    if (isNaN(val) || val < 60 || val > 86400) {
+      toast("Poll interval must be between 60 and 86400 seconds", "error");
+      return;
+    }
+    const r = await apiRequest(
+      `/api/projects/${projectId}/github/links?link_id=${linkId}`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ poll_interval_seconds: val }),
+      },
+    );
+    if (!r.ok) { toast(r.error, "error"); return; }
+    setLinks((prev) =>
+      prev.map((l) => (l.id === linkId ? { ...l, poll_interval_seconds: val } : l)),
+    );
+    setEditingPoll(null);
+    toast("Poll interval updated");
+    router.refresh();
+  }
+
   return (
     <div>
       <h2 style={{ marginTop: 0 }}>GitHub Repositories</h2>
@@ -112,6 +138,7 @@ export function GitHubSettingsForm({
             <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border)" }}>
               <th style={{ padding: "0.5rem 0" }}>Repository</th>
               <th>Status</th>
+              <th>Poll interval</th>
               <th>Last synced</th>
               <th></th>
             </tr>
@@ -134,6 +161,47 @@ export function GitHubSettingsForm({
                   ) : null}
                 </td>
                 <td><SyncStatusBadge status={l.sync_status} error={l.last_error} errorCount={l.error_count} /></td>
+                <td>
+                  {editingPoll === l.id ? (
+                    <span style={{ display: "flex", gap: "0.2rem", alignItems: "center" }}>
+                      <input
+                        className="input"
+                        type="number"
+                        min={60}
+                        max={86400}
+                        value={pollValue}
+                        onChange={(e) => setPollValue(e.target.value)}
+                        style={{ width: "5rem", fontSize: "0.72rem", padding: "0.15rem 0.3rem" }}
+                      />
+                      <span className="text-sm muted">s</span>
+                      <button
+                        className="btn btn-ghost"
+                        style={{ fontSize: "0.72rem" }}
+                        onClick={() => handleSavePoll(l.id)}
+                      >
+                        Save
+                      </button>
+                      <button
+                        className="btn btn-ghost"
+                        style={{ fontSize: "0.72rem" }}
+                        onClick={() => setEditingPoll(null)}
+                      >
+                        Cancel
+                      </button>
+                    </span>
+                  ) : (
+                    <span
+                      style={{ cursor: "pointer", fontSize: "0.85rem" }}
+                      onClick={() => {
+                        setPollValue(String(l.poll_interval_seconds));
+                        setEditingPoll(l.id);
+                      }}
+                      title="Click to edit poll interval"
+                    >
+                      {l.poll_interval_seconds}s
+                    </span>
+                  )}
+                </td>
                 <td suppressHydrationWarning>
                   {l.last_synced_at
                     ? new Date(l.last_synced_at).toLocaleString()

@@ -31,6 +31,7 @@ type GithubLinkRow = {
   last_error: string | null;
   last_error_at: string | null;
   error_count: number;
+  poll_interval_seconds: number;
 };
 
 export default async function ProjectSettingsPage({

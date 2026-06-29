@@ -45,6 +45,8 @@ class Settings(BaseSettings):
     # a scheduled job (0 = never delete). The hook point lives in
     # `app/services/attachment_storage.py:retention_cutoff()`.
     attachment_retention_days: int = 0
+    # How often the retention purge background loop runs (seconds, default 1h).
+    attachment_retention_purge_interval_seconds: int = 3600
 
     # GitHub (Batch I): background poll + REST page size for commit sync.
     github_sync_enabled: bool = True
