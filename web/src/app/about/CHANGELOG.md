@@ -1,5 +1,34 @@
 # Changelog
 
+## v0.1.3 — 2026-06-29
+
+### Opportunity-to-Project Automation
+- When a prospect reaches `won`, the system auto-creates an onboarding project named "{Company} Onboarding" with 7 starter tasks (welcome call, contract, deposit, repo setup, comms channel, milestone planning, stakeholder intros).
+- The client is automatically linked to the project, client contacts with user accounts get `contribute` access, and an activity entry records the conversion.
+- Promotion success dialogs (detail page + list/board view) now show both "View client" and "View project" links.
+
+### Client Health Dashboard
+- New `GET /v1/clients/health` endpoint computes a weighted health score per client (task completion rate 40%, ticket burden 25%, activity recency 20%, project update recency 15%).
+- Scores map to green (≥80), yellow (50-79), red (<50) labels.
+- The clients page has a "Health"/"List" toggle with summary stat cards and color-coded health card list.
+
+### Security
+- Weak JWT secret and database password detection on startup with clear warnings.
+- `require_superuser` now works with OAuth-authenticated users (not just local auth).
+- GitHub `task-registry` and `sync-status` endpoints now require project access authentication.
+- Ref search (`/v1/me/refs/search`) now scoped to the user's project memberships.
+
+### Infrastructure
+- Web healthchecks added to both dev and production compose files.
+- Production CORS now uses fail-fast env var (`CORS_ALLOWED_ORIGINS:?`).
+- Backup path changed from hardcoded `/mnt/data` to `$REPO_ROOT/.backups`.
+- CI workflow pins ruff and pyright versions, adds pip/npm caching.
+- Report generation uses tempfile instead of hardcoded `/tmp/_report.xlsx`.
+- GitHub backfill endpoint handles transaction cleanup after errors (rollback + begin).
+- Schema DDL idempotent: `ALTER COLUMN DROP NOT NULL` wrapped in `DO $$` blocks.
+
+---
+
 ## 2026-06-29 — Admin tools & GitHub association
 
 ### Admin page overhaul

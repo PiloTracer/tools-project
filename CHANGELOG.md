@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.1.3 — 2026-06-29
+
+### What is included in v0.1.3
+
+- **Opportunity-to-Project Automation:** When a prospect reaches `won`, the system now auto-scaffolds an onboarding project with 7 starter tasks (welcome call, contract, deposit, repo setup, channel setup, milestone planning, stakeholder intros), links the client, grants access to contacts, and records the conversion in the activity feed.
+- **Client Health Dashboard:** New `GET /v1/clients/health` endpoint computes a weighted health score (task completion, ticket backlog, activity recency) per client. The clients page has a "Health"/"List" toggle showing color-coded cards (green/yellow/red) with per-client metrics.
+- **Security hardening:** Weak JWT/DB secret detection on startup, OAuth superuser support, auth checks on previously open GitHub endpoints (task-registry, sync-status), project-scoped ref search to prevent cross-project data leakage.
+- **Infrastructure:** Web healthchecks in dev and production compose files, fail-fast CORS in production (`CORS_ALLOWED_ORIGINS` required), portable backup path (`$REPO_ROOT/.backups`), pinned CI tool versions with pip/npm caching, concurrent-safe tempfile report generation.
+
+---
+
 ## v0.1.2 — 2026-06-29 (first public release)
 
 This is the first public, tagged release of tools-project. It is a **first draft** that will be improved consistently and regularly.
