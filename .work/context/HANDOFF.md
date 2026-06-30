@@ -2,13 +2,14 @@
 
 **Date:** 2026-06-18
 
+**Closed:** 2026-06-29 — opp-to-project automation + client health dashboard + security hardening
 **Closed:** 2026-06-29 — comprehensive documentation: tutorials, guides, references, features, architecture, article
 **Closed:** 2026-06-29 (session 3) — v0.1.2 public release: MIT LICENSE, LinkedIn + dev.to/Medium articles, infographic, version bump, GitHub release tag v0.1.2, director feedback applied (split article)
 **Updated:** 2026-06-29
 
 Treat prior closed sessions as historical only; see "What this cycle produced" below.
 
-****Repository state:** All follow-ups complete. SPEC FR-5 runtime-verified (Alice sees Bob's company-scoped tasks). App logger cosmetic gap fixed (`logging.basicConfig` in `main.py`). `commit_subject_refs` normalized cross-link table + watcher hooks (I10f) implemented. Inbox `c` shortcut confirmed already implemented. Batch I (GitHub) + Batch J (CRM) complete. UI design foundation complete; all CRM screens delivered.
+****Repository state:** Batches K (Opp-to-Project Automation) + L (Client Health Dashboard) complete. Security hardening: weak secret detection, OAuth superuser fix, GitHub endpoint auth, project-scoped ref search. All gates green.
 
 ## Start here (new session)
 
@@ -63,7 +64,7 @@ Treat prior closed sessions as historical only; see "What this cycle produced" b
 
 ## Recommended next work
 
-All follow-ups are complete. The project has no open blocking work.
+Restart the dev stack and test the opp-to-project promotion flow and client health dashboard end-to-end. All work verified (API compile, web lint, web build pass).
 
 ---
 
@@ -254,6 +255,47 @@ All follow-ups are complete. The project has no open blocking work.
 **Next recommended:** Review the article; if approved, upload/paste into LinkedIn's article composer, or run `@content-writing repurpose` to spin a short LinkedIn post from the strongest insight.
 
 ---
+
+## Cross-framework action (@x-director)
+**Date:** 2026-06-29
+**Request:** "add 2 new features that bring the CRM and the Project tracking together, what do you suggest?"
+**Frameworks involved:** .ai, .ai.ui
+**Classified bucket(s):** cross-framework (engineering + ui)
+**Routing confidence:** high
+**Preflight (frameworks installed):** .ai yes | .ai.ui yes | .ai.biz yes
+**Executed:**
+1. Created feature SPECs for both features under `.work/features/`
+2. @ai-director - Backend: Opp-to-Project Automation + Client Health Dashboard
+3. @ui-director - Frontend: promotion flow project link + health dashboard cards
+**Coordination notes:** Backend implemented first (pipeline_service, client_health router, schemas), then frontend wired to consume both new APIs. API compile, web lint, web build all pass.
+**Blockers:** none
+**Next recommended:** Restart the dev stack and test the promotion flow end-to-end.
+
+## What this cycle produced (2026-06-29 — session 4)
+
+| Artifact | Description |
+|----------|-------------|
+| `.work/features/opp-to-project-auto/20260629-SPEC.md` | Feature SPEC: auto-scaffold project on prospect-to-client promotion — **Approved** |
+| `.work/features/client-health-dashboard/20260629-SPEC.md` | Feature SPEC: client health dashboard with weighted scoring — **Approved** |
+| `api/app/services/pipeline_service.py` | Extended with `auto_scaffold_onboarding_project()` — 7 onboarding tasks, client link, access grants, activity |
+| `api/app/routers/prospects.py` | Stage transition + promote endpoints return `promoted_project` |
+| `api/app/schemas.py` | Added `ProspectStageChangeResponse.promoted_project`, `ProspectPromoteResponse`, `ClientHealthItem` |
+| `api/app/routers/client_health.py` | New router: `GET /v1/clients/health` with weighted scoring |
+| `api/app/main.py` | Registered `client_health` router |
+| `web/src/app/prospects/[id]/page.tsx` | Promotion dialog shows "View project" link |
+| `web/src/app/prospects/page.tsx` | Promotion dialog in list/board view |
+| `web/src/app/clients/page.tsx` | Health dashboard toggle: stat cards + color-coded health card list |
+| `api/app/config.py` | Weak JWT/DB secret detection |
+| `api/app/deps.py` | `require_superuser` uses `get_current_user` (OAuth support) |
+| `api/app/routers/github.py` | Auth on `task-registry` + `sync-status`; transaction fix on backfill rollback |
+| `api/app/routers/me_focus.py` | `search_refs` scoped to user's project memberships |
+| `api/app/routers/reports.py` | `tempfile` for report generation |
+| `sql/schema_changes.sql` | Idempotent `DROP NOT NULL` via `DO $$` blocks |
+| `web/src/app/_components/DashboardCrm.tsx` | BFF proxy instead of direct API call |
+| `docker-compose.dev.yml`, `docker-compose.prd.yml` | Web healthchecks, fail-fast CORS in production |
+| `bin/start.sh` | Portable backup path, menu range fix |
+| `.github/workflows/ci.yml` | Pinned ruff/pyright versions, pip/npm caching |
+| Various web components | JSON.parse safety, WatchButtons refresh on success only, useDownload error handling |
 
 ## Latest action (@biz-director — repurpose pass)
 **Date:** 2026-06-29

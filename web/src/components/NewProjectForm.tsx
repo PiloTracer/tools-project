@@ -63,7 +63,13 @@ export function NewProjectForm() {
             catch { setError(ut || `Upload failed (${ur.status})`); }
             return;
           }
-          const row = JSON.parse(ut) as { id: string };
+          let row: { id: string };
+          try {
+            row = JSON.parse(ut) as { id: string };
+          } catch {
+            setError("Unexpected response from upload");
+            return;
+          }
           uploadedIds.push(row.id);
         }
         const mdLines = uploadedIds.map((aid, i) => {

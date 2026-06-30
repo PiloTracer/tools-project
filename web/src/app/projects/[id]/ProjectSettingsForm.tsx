@@ -61,7 +61,13 @@ export function ProjectSettingsForm({
           catch { toast(ut || `Upload failed (${ur.status})`, "error"); }
           return;
         }
-        const row = JSON.parse(ut) as { id: string };
+        let row: { id: string };
+        try {
+          row = JSON.parse(ut) as { id: string };
+        } catch {
+          toast("Unexpected response from upload", "error");
+          return;
+        }
         uploadedIds.push(row.id);
       }
       const mdLines = uploadedIds.map((aid, i) => {

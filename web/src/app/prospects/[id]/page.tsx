@@ -70,7 +70,7 @@ export default function ProspectDetailPage() {
   const [editNotes, setEditNotes] = useState("");
   const [editErr, setEditErr] = useState<string | null>(null);
 
-  const [promotedClient, setPromotedClient] = useState<{ id: string; name: string } | null>(null);
+  const [promotedResult, setPromotedResult] = useState<{ client: { id: string; name: string }; project: { id: string; name: string } } | null>(null);
 
   const fetchProspect = async () => {
     setLoading(true);
@@ -106,7 +106,7 @@ export default function ProspectDetailPage() {
     }
     const data = await r.json();
     if (data.promoted_client) {
-      setPromotedClient(data.promoted_client);
+      setPromotedResult({ client: data.promoted_client, project: data.promoted_project });
     } else {
       toast(prospect ? `Moved to ${STAGE_LABELS[stage] ?? stage}` : "Stage updated");
     }
@@ -154,8 +154,8 @@ export default function ProspectDetailPage() {
       toast(err.detail, "error");
       return;
     }
-    const client = await r.json();
-    setPromotedClient(client);
+    const data = await r.json();
+    setPromotedResult(data);
     fetchProspect();
   };
 
@@ -317,28 +317,43 @@ export default function ProspectDetailPage() {
       ) : null}
 
       <Dialog
-        open={promotedClient !== null}
-        onClose={() => setPromotedClient(null)}
+        open={promotedResult !== null}
+        onClose={() => setPromotedResult(null)}
         title="Prospect converted to client"
         actions={
           <>
-            <button type="button" className="btn btn-ghost" onClick={() => setPromotedClient(null)}>
+            <button type="button" className="btn btn-ghost" onClick={() => setPromotedResult(null)}>
               Stay on prospect
             </button>
             <Link
-              href={`/clients/${promotedClient?.id}`}
+              href={`/clients/${promotedResult?.client.id}`}
               className="btn btn-primary"
               style={{ textDecoration: "none" }}
-              onClick={() => setPromotedClient(null)}
+              onClick={() => setPromotedResult(null)}
             >
               View client
             </Link>
+            {promotedResult?.project ? (
+              <Link
+                href={`/projects/${promotedResult.project.id}`}
+                className="btn btn-secondary"
+                style={{ textDecoration: "none" }}
+                onClick={() => setPromotedResult(null)}
+              >
+                View project
+              </Link>
+            ) : null}
           </>
         }
       >
         <p className="text-sm">
           <strong>{prospect.company_name}</strong> has been converted to a client.
         </p>
+        {promotedResult?.project ? (
+          <p className="text-sm muted" style={{ marginTop: "0.5rem" }}>
+            An onboarding project &ldquo;{promotedResult.project.name}&rdquo; has been created with starter tasks.
+          </p>
+        ) : null}
       </Dialog>
 
       <Dialog

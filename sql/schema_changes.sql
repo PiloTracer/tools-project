@@ -99,7 +99,14 @@ ALTER TABLE activities ADD COLUMN IF NOT EXISTS meta_json JSONB;
 -- Plan §5.1 / §11.4: internal vs external (customer-visible) note distinction on ticket / task threads.
 ALTER TABLE activities ADD COLUMN IF NOT EXISTS is_internal BOOLEAN NOT NULL DEFAULT FALSE;
 -- System-generated activities (e.g. github_commit) have no human actor.
-ALTER TABLE activities ALTER COLUMN actor_id DROP NOT NULL;
+DO $$ BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'activities' AND column_name = 'actor_id' AND is_nullable = 'NO'
+  ) THEN
+    ALTER TABLE activities ALTER COLUMN actor_id DROP NOT NULL;
+  END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS mentions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -157,7 +164,14 @@ CREATE TABLE IF NOT EXISTS attachments (
 );
 
 -- Task + inbox + project-level attachments; watchers (Batch G/H parity).
-ALTER TABLE attachments ALTER COLUMN ticket_id DROP NOT NULL;
+DO $$ BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'attachments' AND column_name = 'ticket_id' AND is_nullable = 'NO'
+  ) THEN
+    ALTER TABLE attachments ALTER COLUMN ticket_id DROP NOT NULL;
+  END IF;
+END $$;
 ALTER TABLE attachments ADD COLUMN IF NOT EXISTS task_id UUID REFERENCES tasks (id) ON DELETE CASCADE;
 
 CREATE TABLE IF NOT EXISTS inbox_items (

@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
   }
   const storedVerifier = await resolvePkceVerifier(receivedState);
   if (!storedVerifier) {
-    const isExternalLaunchState = /^[a-fA-F0-9]{48,}$/.test(receivedState);
+    const isExternalLaunchState = !receivedState.startsWith("v1");
     if (isExternalLaunchState) {
       return NextResponse.redirect(absoluteUrl(req, "/sign-in"));
     }

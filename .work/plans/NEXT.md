@@ -20,10 +20,31 @@ Matrix (G+H+P)  ████████████████████  14
 Improvements    ████████████████████  8/8   Done (2026-06-29 sess 1)
 Improvements    ████████████████████  5/5   Done (2026-06-29 sess 2)
 Documentation   ████████████████████  12/12 Done (2026-06-29 sess 3)
+Batch K         ████████████████████  3/3   Done (opp-to-project automation)
+Batch L         ████████████████████  3/3   Done (client health dashboard)
+Security fixes  ████████████████████  8/8   Done (config, auth, endpoint hardening)
 
 Open: none — all follow-ups resolved
 Active: none — all session follow-ups done
-```
+
+### Recommended next
+Restart the dev stack (`docker compose --profile dev up --build`) and test the promotion flow end-to-end. Verify a prospect → won → promote creates the onboarding project with 7 tasks and the "View project" link appears. Check `/api/clients/health` returns correct scores.
+
+## New features (2026-06-29)
+
+### K — Opportunity-to-Project Automation
+| ID | Scope | Status | Evidence |
+|----|-------|--------|----------|
+| K1 | Auto-scaffold project + tasks on prospect promotion | **Done** | `api/app/services/pipeline_service.py` — 7 onboarding tasks, client link, access grants, activity entry |
+| K2 | Return project info in promotion response (API) | **Done** | `ProspectStageChangeResponse.promoted_project`, `ProspectPromoteResponse` |
+| K3 | Frontend: "View project" link in success dialog | **Done** | Detail page + list page both show project link alongside client link |
+
+### L — Client Health Dashboard
+| ID | Scope | Status | Evidence |
+|----|-------|--------|----------|
+| L1 | `GET /v1/clients/health` endpoint with scoring | **Done** | `api/app/routers/client_health.py` — task completion, ticket burden, activity recency weighted score |
+| L2 | Health dashboard UI on `/clients` | **Done** | Toggle "Health"/"List" view, stat cards, color-coded health cards with scores |
+| L3 | Feature SPECs reviewed and Approved | **Done** | `.work/features/opp-to-project-auto/` + `client-health-dashboard/` |
 
 ---
 

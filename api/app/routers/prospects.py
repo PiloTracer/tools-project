@@ -27,9 +27,11 @@ from app.schemas import (
     ProspectOut,
     ProspectStageChange,
     ProspectStageChangeResponse,
+    ProjectOut,
+    ProspectPromoteResponse,
     ProspectUpdate,
 )
-from app.services.pipeline_service import promote_prospect_to_client
+from app.services.pipeline_service import auto_scaffold_onboarding_project, promote_prospect_to_client
 
 
 async def _enrich_client_id(db, prospect) -> uuid.UUID | None:
@@ -209,11 +211,16 @@ async def transition_prospect_stage(
     row.pipeline_stage = target_stage
 
     promoted_client = None
+    promoted_project = None
     if target_stage == "won":
         client = await promote_prospect_to_client(db, row)
         await db.flush()
         await db.refresh(client)
         promoted_client = ClientOut.model_validate(client)
+        project = await auto_scaffold_onboarding_project(db, client, row, user.id)
+        await db.flush()
+        await db.refresh(project)
+        promoted_project = ProjectOut.model_validate(project)
 
     await db.commit()
     await db.refresh(row)
@@ -221,21 +228,22 @@ async def transition_prospect_stage(
     return ProspectStageChangeResponse(
         **ProspectOut.model_validate(row).model_copy(update={"client_id": client_id}).model_dump(),
         promoted_client=promoted_client,
+        promoted_project=promoted_project,
     )
 
 
-@router.post("/{prospect_id}/promote", response_model=ClientOut)
+@router.post("/{prospect_id}/promote", response_model=ProspectPromoteResponse)
 async def promote_prospect(
     prospect_id: uuid.UUID,
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    """Promote a won prospect to a client.
+    """Promote a won prospect to a client and auto-scaffold an onboarding project.
 
     Only works when:
       - prospect is in 'won' stage
       - no client record already exists for this prospect
-    Returns the newly created Client record.
+    Returns the newly created Client and Project records.
     """
     row = await db.get(Prospect, prospect_id)
     if not row:
@@ -254,5 +262,11 @@ async def promote_prospect(
     client = await promote_prospect_to_client(db, row)
     await db.flush()
     await db.refresh(client)
+    project = await auto_scaffold_onboarding_project(db, client, row, user.id)
+    await db.flush()
+    await db.refresh(project)
     await db.commit()
-    return ClientOut.model_validate(client)
+    return ProspectPromoteResponse(
+        client=ClientOut.model_validate(client),
+        project=ProjectOut.model_validate(project),
+    )

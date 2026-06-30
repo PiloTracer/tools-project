@@ -6,7 +6,6 @@ export function StatCard({
   label: string;
   value: string | number;
   secondary?: string;
-  icon?: string;
 }) {
   return (
     <div

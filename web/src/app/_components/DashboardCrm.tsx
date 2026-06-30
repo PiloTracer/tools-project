@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { PipelineFunnel } from "@/components/PipelineFunnel";
 import type { PipelineStageRow } from "@/components/PipelineFunnel";
+import { apiServerFetch } from "@/shared/server/session";
 
 type PipelineData = {
   by_stage: PipelineStageRow[];
@@ -13,11 +14,10 @@ type PipelineData = {
 };
 
 export async function DashboardCrm() {
-  const base = process.env.API_INTERNAL_URL?.replace(/\/+$/, "") || "http://api:8300";
   let pipeline: PipelineData | null = null;
 
   try {
-    const r = await fetch(`${base}/v1/stats/pipeline`, { cache: "no-store" });
+    const r = await apiServerFetch("/v1/stats/pipeline");
     if (r.ok) {
       const json = (await r.json()) as PipelineData;
       pipeline = json;

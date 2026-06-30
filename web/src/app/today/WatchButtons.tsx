@@ -12,21 +12,21 @@ export function WatchButtons({
   const router = useRouter();
 
   async function watch() {
-    await fetch("/api/me/watch", {
+    const r = await fetch("/api/me/watch", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ subject_type: subjectType, subject_id: subjectId }),
     });
-    router.refresh();
+    if (r.ok) router.refresh();
   }
 
   async function unwatch() {
-    await fetch("/api/me/watch", {
+    const r = await fetch("/api/me/watch", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ subject_type: subjectType, subject_id: subjectId }),
     });
-    router.refresh();
+    if (r.ok) router.refresh();
   }
 
   return (

@@ -85,7 +85,7 @@ load_env() {
   POSTGRES_USER="${POSTGRES_USER:-prj}"
   POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-prj_dev_change_me}"
   POSTGRES_DB="${POSTGRES_DB:-tools_project}"
-  GLOBAL_BASE_PATH="${GLOBAL_BASE_PATH:-/mnt/data}"
+  GLOBAL_BASE_PATH="${GLOBAL_BASE_PATH:-$REPO_ROOT/.backups}"
   BOOTSTRAP_ADMIN_EMAIL="${BOOTSTRAP_ADMIN_EMAIL:-}"
   BOOTSTRAP_ADMIN_PASSWORD="${BOOTSTRAP_ADMIN_PASSWORD:-}"
   if [[ -f "$envf" ]]; then
@@ -643,7 +643,7 @@ main() {
       MENU_QUIET=0
       while true; do
         show_menu
-        read -r -p 'Choose [0-13]: ' choice || true
+        read -r -p 'Choose [0-14]: ' choice || true
         set +e
         case "$choice" in
           1) cmd_start_attached ;;
@@ -671,7 +671,7 @@ main() {
       MENU_QUIET=0
       while true; do
         show_menu
-        read -r -p 'Choose [0-13]: ' choice || true
+        read -r -p 'Choose [0-14]: ' choice || true
         set +e
         case "$choice" in
           1) cmd_start_attached ;;
@@ -701,7 +701,7 @@ main() {
       MENU_QUIET=0
       while true; do
         show_menu
-        read -r -p 'Choose [0-13]: ' choice || true
+        read -r -p 'Choose [0-14]: ' choice || true
         set +e
         case "$choice" in
           1) cmd_start_attached ;;

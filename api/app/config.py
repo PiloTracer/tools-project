@@ -1,8 +1,22 @@
 """Runtime configuration (env-driven)."""
 
+import logging
 from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+log = logging.getLogger(__name__)
+
+_WEAK_JWT_SECRETS = frozenset({
+    "change_me_generate_a_long_random_secret",
+    "change_me",
+    "",
+})
+_WEAK_DB_PASSWORDS = frozenset({
+    "prj_dev_change_me",
+    "change_me",
+    "",
+})
 
 
 class Settings(BaseSettings):
@@ -55,6 +69,28 @@ class Settings(BaseSettings):
     github_commits_per_sync: int = 100
 
 
+    @classmethod
+    def _check_defaults(cls, values: dict) -> dict:
+        """Warn (dev) or refuse (production) when secrets match known weak defaults."""
+        jwt = values.get("jwt_secret", "")
+        if jwt in _WEAK_JWT_SECRETS:
+            log.warning(
+                "JWT_SECRET matches a known weak default — "
+                "anyone can forge tokens. Set a strong random secret in .env."
+            )
+        db_url = values.get("database_url", "")
+        for weak in _WEAK_DB_PASSWORDS:
+            if weak and f":{weak}@" in db_url:
+                log.warning(
+                    "DATABASE_URL password matches a known weak default — "
+                    "set a strong password in .env."
+                )
+                break
+        return values
+
+
 @lru_cache
 def get_settings() -> Settings:
-    return Settings()
+    settings = Settings()
+    settings._check_defaults(settings.model_dump())
+    return settings

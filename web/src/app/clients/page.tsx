@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 import { DataTable, type Column } from "@/components/DataTable";
 import { Dialog } from "@/components/Dialog";
@@ -18,16 +19,38 @@ type ClientRow = {
   created_at: string;
 };
 
+type HealthItem = {
+  client_id: string;
+  client_name: string;
+  client_slug: string;
+  project_count: number;
+  task_completion_pct: number | null;
+  open_ticket_count: number;
+  days_since_last_activity: number | null;
+  days_since_project_update: number | null;
+  health_score: number | null;
+  health_label: string | null;
+};
+
 function formatDate(d: string) {
   return new Date(d).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+}
+
+function healthColor(label: string | null): string {
+  if (label === "green") return "var(--success)";
+  if (label === "yellow") return "rgb(250 204 21)";
+  if (label === "red") return "var(--danger)";
+  return "var(--muted)";
 }
 
 export default function ClientsPage() {
   const router = useRouter();
   const [rows, setRows] = useState<ClientRow[]>([]);
+  const [healthItems, setHealthItems] = useState<HealthItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [healthTab, setHealthTab] = useState(false);
   const download = useDownload();
 
   const [showCreate, setShowCreate] = useState(false);
@@ -51,9 +74,21 @@ export default function ClientsPage() {
     }
   }, []);
 
+  const fetchHealth = useCallback(async () => {
+    try {
+      const r = await fetch("/api/clients/health");
+      if (!r.ok) return;
+      const data = await r.json() as { items: HealthItem[] };
+      setHealthItems(data.items ?? []);
+    } catch {
+      // health data is secondary
+    }
+  }, []);
+
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchRows();
+    fetchHealth();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -128,6 +163,14 @@ export default function ClientsPage() {
     },
   ];
 
+  const healthCounts = { green: 0, yellow: 0, red: 0, none: 0 };
+  for (const h of healthItems) {
+    if (h.health_label === "green") healthCounts.green++;
+    else if (h.health_label === "yellow") healthCounts.yellow++;
+    else if (h.health_label === "red") healthCounts.red++;
+    else healthCounts.none++;
+  }
+
   return (
     <div className="page-inner">
       <header className="page-header">
@@ -137,45 +180,111 @@ export default function ClientsPage() {
           <p className="muted page-header__lead">Company clients and organizations</p>
         </div>
         <div className="page-header__actions">
+          <button className="btn btn-sm" style={{ marginRight: "0.5rem" }} onClick={() => { setHealthTab(!healthTab); if (!healthTab) fetchHealth(); }}>
+            {healthTab ? "List" : "Health"}
+          </button>
           <button className="btn btn-primary" onClick={() => { setFormName(""); setFormIndustry(""); setFormNotes(""); setFormErr(null); setShowCreate(true); }}>
             New client
           </button>
         </div>
       </header>
 
-      <section className="page-body" aria-label="Client list">
-        {error ? (
-          <div style={{
-            padding: "0.75rem 1rem", background: "rgb(251 113 133 / 10%)", border: "1px solid rgb(251 113 133 / 30%)",
-            borderRadius: "var(--radius)", marginBottom: "1rem", display: "flex", justifyContent: "space-between", alignItems: "center",
-          }}>
-            <span style={{ color: "var(--danger)", fontSize: "0.9rem" }}>{error}</span>
-            <button className="btn btn-sm btn-secondary" onClick={() => fetchRows()}>Retry</button>
+      {healthTab ? (
+        <section className="page-body" aria-label="Client health dashboard">
+          <div className="stat-card-row" style={{ marginBottom: "1rem" }}>
+            <div className="stat-card">
+              <span className="text-sm muted">Healthy</span>
+              <span className="stat-value" style={{ color: "var(--success)" }}>{healthCounts.green}</span>
+            </div>
+            <div className="stat-card">
+              <span className="text-sm muted">At risk</span>
+              <span className="stat-value" style={{ color: "rgb(250 204 21)" }}>{healthCounts.yellow}</span>
+            </div>
+            <div className="stat-card">
+              <span className="text-sm muted">Critical</span>
+              <span className="stat-value" style={{ color: "var(--danger)" }}>{healthCounts.red}</span>
+            </div>
+            <div className="stat-card">
+              <span className="text-sm muted">No projects</span>
+              <span className="stat-value">{healthCounts.none}</span>
+            </div>
           </div>
-        ) : null}
+          {healthItems.length === 0 ? (
+            <p className="muted text-sm">No health data yet.</p>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+              {healthItems.map((h) => (
+                <Link
+                  key={h.client_id}
+                  href={h.project_count > 0 ? `/clients/${h.client_id}` : "#"}
+                  style={{ textDecoration: "none", color: "inherit" }}
+                >
+                  <div className="card" style={{ display: "flex", alignItems: "center", gap: "1rem", padding: "0.75rem 1rem", cursor: h.project_count > 0 ? "pointer" : "default" }}>
+                    <div style={{
+                      width: "0.6rem", height: "0.6rem", borderRadius: "50%",
+                      background: healthColor(h.health_label), flexShrink: 0,
+                    }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 600, fontSize: "0.9rem" }}>{h.client_name}</div>
+                      <div className="text-sm muted" style={{ marginTop: "0.1rem" }}>
+                        {h.project_count > 0
+                          ? `${h.project_count} project${h.project_count !== 1 ? "s" : ""} · ${h.task_completion_pct != null ? Math.round(h.task_completion_pct * 100) + "% tasks done" : "no tasks"} · ${h.open_ticket_count} open ticket${h.open_ticket_count !== 1 ? "s" : ""}`
+                          : "No linked projects"}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: "right", flexShrink: 0 }}>
+                      {h.health_score != null ? (
+                        <>
+                          <div style={{ fontWeight: 700, fontSize: "1.1rem", color: healthColor(h.health_label) }}>
+                            {h.health_score}
+                          </div>
+                          <div className="text-sm muted" style={{ textTransform: "capitalize" }}>{h.health_label}</div>
+                        </>
+                      ) : (
+                        <span className="muted text-sm">N/A</span>
+                      )}
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </section>
+      ) : (
+        <section className="page-body" aria-label="Client list">
+          {error ? (
+            <div style={{
+              padding: "0.75rem 1rem", background: "rgb(251 113 133 / 10%)", border: "1px solid rgb(251 113 133 / 30%)",
+              borderRadius: "var(--radius)", marginBottom: "1rem", display: "flex", justifyContent: "space-between", alignItems: "center",
+            }}>
+              <span style={{ color: "var(--danger)", fontSize: "0.9rem" }}>{error}</span>
+              <button className="btn btn-sm btn-secondary" onClick={() => fetchRows()}>Retry</button>
+            </div>
+          ) : null}
 
-        <div className="filter-bar" style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", alignItems: "center", marginBottom: "1rem" }}>
-          <input
-            className="input"
-            placeholder="Search by name or slug…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={{ maxWidth: "260px", fontSize: "0.88rem" }}
-            aria-label="Search clients"
+          <div className="filter-bar" style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", alignItems: "center", marginBottom: "1rem" }}>
+            <input
+              className="input"
+              placeholder="Search by name or slug…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={{ maxWidth: "260px", fontSize: "0.88rem" }}
+              aria-label="Search clients"
+            />
+            <button className="btn btn-sm btn-secondary" style={{ marginLeft: "auto" }} onClick={() => download("/api/reports/clients", "clients-report.xlsx")} title="Export to Excel">
+              Export
+            </button>
+          </div>
+
+          <DataTable
+            columns={columns}
+            rows={filtered}
+            loading={loading}
+            onRowClick={(r) => router.push(`/clients/${r.id}`)}
+            emptyMessage="No clients yet."
           />
-          <button className="btn btn-sm btn-secondary" style={{ marginLeft: "auto" }} onClick={() => download("/api/reports/clients", "clients-report.xlsx")} title="Export to Excel">
-            Export
-          </button>
-        </div>
-
-        <DataTable
-          columns={columns}
-          rows={filtered}
-          loading={loading}
-          onRowClick={(r) => router.push(`/clients/${r.id}`)}
-          emptyMessage="No clients yet."
-        />
-      </section>
+        </section>
+      )}
 
       <Dialog
         open={showCreate}

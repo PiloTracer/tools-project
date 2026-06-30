@@ -264,10 +264,12 @@ async def search_refs(
     term = q.strip()
     results: list[RefSearchResult] = []
 
+    member_subq = select(ProjectMember.project_id).where(ProjectMember.user_id == user.id)
     task_stmt = (
         select(Task.id, Task.ref, Task.title, Task.project_id, Project.name)
         .join(Project, Task.project_id == Project.id)
         .where(
+            Task.project_id.in_(member_subq),
             (Task.ref.ilike(f"{term}%")) | (Task.title.ilike(f"%{term}%"))
         )
         .order_by(Task.updated_at.desc())
@@ -285,6 +287,7 @@ async def search_refs(
             select(Ticket.id, Ticket.ref, Ticket.title, Ticket.project_id, Project.name)
             .join(Project, Ticket.project_id == Project.id)
             .where(
+                Ticket.project_id.in_(member_subq),
                 (Ticket.ref.ilike(f"{term}%")) | (Ticket.title.ilike(f"%{term}%"))
             )
             .order_by(Ticket.updated_at.desc())

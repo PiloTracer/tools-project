@@ -13,7 +13,7 @@ from pydantic import BaseModel, EmailStr, Field, field_validator, model_validato
 TASK_STATUSES: frozenset[str] = frozenset({"todo", "in_progress", "blocked", "done", "cancelled"})
 TICKET_STATUSES: frozenset[str] = frozenset({"open", "in_progress", "waiting_customer", "resolved", "closed"})
 ACTIVITY_KINDS: frozenset[str] = frozenset({
-    "comment", "status_change", "assignment", "attachment", "github_commit", "mention", "system",
+    "comment", "status_change", "assignment", "attachment", "github_commit", "mention", "system", "transition",
 })
 
 
@@ -782,6 +782,12 @@ class ProspectOut(BaseModel):
 
 class ProspectStageChangeResponse(ProspectOut):
     promoted_client: ClientOut | None = None
+    promoted_project: ProjectOut | None = None
+
+
+class ProspectPromoteResponse(BaseModel):
+    client: ClientOut
+    project: ProjectOut
 
 
 class ProspectListResponse(BaseModel):
@@ -829,6 +835,26 @@ class ClientListResponse(BaseModel):
     items: list[ClientOut]
     total: int | None = None
     has_more: bool = False
+
+
+# --- Client Health Dashboard ---
+
+
+class ClientHealthItem(BaseModel):
+    client_id: uuid.UUID
+    client_name: str
+    client_slug: str
+    project_count: int
+    task_completion_pct: float | None = None
+    open_ticket_count: int
+    days_since_last_activity: int | None = None
+    days_since_project_update: int | None = None
+    health_score: int | None = None
+    health_label: str | None = None  # green / yellow / red / null
+
+
+class ClientHealthListResponse(BaseModel):
+    items: list[ClientHealthItem]
 
 
 class ClientContactCreate(BaseModel):

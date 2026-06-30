@@ -122,6 +122,12 @@ services:
       - "dev.aiepic.app:host-gateway"
       - "host.docker.internal:host-gateway"
     command: sh -lc "npm ci --no-audit --no-fund && npm run dev"
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/', r => { process.exit(r.statusCode < 500 ? 0 : 1) })"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 30s
     depends_on:
       api:
         condition: service_healthy

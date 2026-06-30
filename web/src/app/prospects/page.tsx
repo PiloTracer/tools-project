@@ -90,7 +90,7 @@ export default function ProspectsPage() {
   const [showEdit, setShowEdit] = useState<ProspectRow | null>(null);
   const [showDelete, setShowDelete] = useState<ProspectRow | null>(null);
   const [view, setView] = useState<"board" | "table">("table");
-  const [promotedClient, setPromotedClient] = useState<{ id: string; name: string } | null>(null);
+  const [promotedResult, setPromotedResult] = useState<{ client: { id: string; name: string }; project: { id: string; name: string } } | null>(null);
 
   const [formName, setFormName] = useState("");
   const [formStage, setFormStage] = useState("target");
@@ -140,8 +140,8 @@ export default function ProspectsPage() {
       toast(err.detail, "error");
       return;
     }
-    const client = await r.json();
-    setPromotedClient(client);
+    const data = await r.json();
+    setPromotedResult(data);
     fetchRows({ stage: filterStage || undefined, source: filterSource || undefined });
   };
 
@@ -176,7 +176,7 @@ export default function ProspectsPage() {
     const data = await r.json();
     const prospect = rows.find((p) => p.id === prospectId);
     if (data.promoted_client) {
-      setPromotedClient(data.promoted_client);
+      setPromotedResult({ client: data.promoted_client, project: data.promoted_project });
     } else {
       toast(`Moved ${prospect?.company_name ?? "prospect"} to ${STAGE_LABELS[newStage] ?? newStage}`);
     }
@@ -577,27 +577,41 @@ export default function ProspectsPage() {
       </Dialog>
 
       <Dialog
-        open={promotedClient !== null}
-        onClose={() => setPromotedClient(null)}
+        open={promotedResult !== null}
+        onClose={() => setPromotedResult(null)}
         title="Prospect converted to client"
         actions={
           <>
-            <button type="button" className="btn btn-ghost" onClick={() => setPromotedClient(null)}>
+            <button type="button" className="btn btn-ghost" onClick={() => setPromotedResult(null)}>
               Stay on prospects
             </button>
             <button
               type="button"
               className="btn btn-primary"
-              onClick={() => { router.push(`/clients/${promotedClient?.id}`); setPromotedClient(null); }}
+              onClick={() => { router.push(`/clients/${promotedResult?.client.id}`); setPromotedResult(null); }}
             >
               View client
             </button>
+            {promotedResult?.project ? (
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => { router.push(`/projects/${promotedResult.project.id}`); setPromotedResult(null); }}
+              >
+                View project
+              </button>
+            ) : null}
           </>
         }
       >
         <p className="text-sm">
-          <strong>{promotedClient?.name}</strong> has been converted to a client.
+          <strong>{promotedResult?.client.name}</strong> has been converted to a client.
         </p>
+        {promotedResult?.project ? (
+          <p className="text-sm muted" style={{ marginTop: "0.5rem" }}>
+            An onboarding project &ldquo;{promotedResult.project.name}&rdquo; has been created with starter tasks.
+          </p>
+        ) : null}
       </Dialog>
     </div>
   );

@@ -24,6 +24,7 @@ from app.routers import (
     attachments,
     auth,
     client_contacts,
+    client_health,
     client_portal,
     clients,
     commit_refs,
@@ -130,6 +131,7 @@ app.include_router(attachments.file_router)
 app.include_router(me_focus.router)
 app.include_router(inbox.router)
 app.include_router(prospects.router)
+app.include_router(client_health.router)
 app.include_router(clients.router)
 app.include_router(client_contacts.router)
 app.include_router(client_portal.router)

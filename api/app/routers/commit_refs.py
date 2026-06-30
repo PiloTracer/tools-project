@@ -28,7 +28,6 @@ from app.schemas import (
     CommitSubjectRefCreate,
     CommitSubjectRefListResponse,
     CommitSubjectRefOut,
-    CommitSubjectRefPendingCreate,
 )
 from app.services.project_access import require_project_access
 
@@ -203,7 +202,10 @@ async def create_commit_ref(
         commit=None,
     )
 
-async def create_pending_commit_ref(
+# NOTE: create_pending_commit_ref removed — dead code (never registered on any router).
+# Pending commit ref processing is handled by services/commit_ref_pending_processor.py.
+
+async def _dead_create_pending_commit_ref(
     project_id: uuid.UUID,
     body: CommitSubjectRefPendingCreate,
     user: Annotated[User, Depends(get_current_user)],

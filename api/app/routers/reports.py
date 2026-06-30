@@ -69,9 +69,13 @@ def _build_workbook(headers: list[str], rows: list[list]) -> bytes:
         ws.column_dimensions[col_letter].width = min(max_len + 3, 60)
 
     ws.freeze_panes = "A2"
-    wb.save("/tmp/_report.xlsx")
-    with open("/tmp/_report.xlsx", "rb") as f:
-        return f.read()
+    import tempfile
+
+    with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tf:
+        wb.save(tf.name)
+        tf.seek(0)
+        data = tf.read()
+    return data
 
 
 @router.get("/pipeline")

@@ -98,7 +98,7 @@ async def get_current_user(
 
 
 async def require_superuser(
-    user: Annotated[User, Depends(get_current_user_local)],
+    user: Annotated[User, Depends(get_current_user)],
 ) -> User:
     if not user.is_superuser:
         raise HTTPException(
