@@ -3,7 +3,7 @@
 **Date:** 2026-06-18
 
 **Closed:** 2026-06-29 — comprehensive documentation: tutorials, guides, references, features, architecture, article
-**Open:** 2026-06-29 — goal: not specified
+**Closed:** 2026-06-29 (session 3) — v0.1.2 public release: MIT LICENSE, LinkedIn + dev.to/Medium articles, infographic, version bump, GitHub release tag v0.1.2, director feedback applied (split article)
 **Updated:** 2026-06-29
 
 Treat prior closed sessions as historical only; see "What this cycle produced" below.

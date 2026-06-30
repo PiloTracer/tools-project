@@ -6,7 +6,7 @@
 
 **Schema:** declarative **`sql/`** only — no Alembic. On API startup: `schema_changes.sql` → `schema_indexes.sql` → bootstrap → `schema_backfill.sql` → `schema_inserts.sql`.
 
-****Latest (repo):** **2026-06-29** — comprehensive documentation: quick start, features overview, architecture, auth/github/crm/admin guides, tutorials, configuration/docker/api references, v0.1.0 article. All previous work complete. Ready for v0.1.0 release.
+****Latest (repo):** **2026-06-29** — v0.1.2 public release shipped: MIT LICENSE, version bump (web + api → 0.1.2), CHANGELOG v0.1.2 entry, LinkedIn short article + dev.to/Medium full article + infographic HTML, GitHub release tag v0.1.2 created, director feedback applied (article split). All previous work complete.
 
 ### Status at a glance (visual)
 
