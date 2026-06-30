@@ -1,6 +1,10 @@
 # tools-project
 
-A **project management hub with integrated CRM** — manage projects, tasks, tickets, track GitHub commits, and run a sales-to-delivery pipeline. All in one self-hosted app.
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+A **project management hub with integrated CRM** — manage projects, tasks, tickets, track GitHub commits, and run a sales-to-delivery pipeline. All in one self-hosted app. **Free and open source under the MIT License.**
+
+**Repository:** <https://github.com/PiloTracer/tools-project>
 
 ## Features
 
@@ -10,6 +14,10 @@ A **project management hub with integrated CRM** — manage projects, tasks, tic
 - **Collaboration** — Threaded comments, @mentions, markdown editor, inbox, watches
 - **Dual Auth** — Standalone (local) or OAuth 2.0 SSO, configurable per deployment
 - **Client Portal** — Limited project view for external stakeholders
+
+## License
+
+MIT — free for personal and commercial use. See [LICENSE](LICENSE) for the full text.
 
 ## Quick start
 
@@ -83,4 +91,4 @@ Or use the interactive menu:
 
 ## License
 
-Internal tool — see project owner for licensing information.
+MIT — see [LICENSE](LICENSE). Free for personal and commercial use.

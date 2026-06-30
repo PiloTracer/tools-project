@@ -1,5 +1,38 @@
 # Changelog
 
+## v0.1.2 — 2026-06-29 (first public release)
+
+This is the first public, tagged release of tools-project. It is a **first draft** that will be improved consistently and regularly.
+
+### What is included in v0.1.2
+
+- **Project management:** Projects, Kanban boards, tasks, support tickets, threading, @mentions, activity feeds, inbox, watches.
+- **CRM pipeline:** 9-stage prospect pipeline, prospect-to-client promotion, client contacts, client portal, granular access roles (view/contribute/decision-maker/billing).
+- **GitHub integration:** Multi-repo linking per project, encrypted PAT storage (Fernet), background commit sync, commit picker, commit-to-task auto-association, backfill (365 days), sync health dashboard.
+- **AI-agent-friendly commits:** `prepare-commit-msg` git hook + `commit_subject_refs` — commits by humans **and** AI coding agents auto-link to tasks/tickets.
+- **Auth:** Dual-mode — local (email/password + JWT) or OAuth 2.0 + PKCE; both can run simultaneously.
+- **Platform:** Health checks, request tracing, pagination on all lists, structured logging, CI pipeline (lint + type-check + build).
+- **Documentation:** Quick start, feature overview, architecture, 4 guides (auth/github/crm/admin), 2 tutorials, 3 reference docs (config/docker/api).
+- **Agent OS frameworks:** Built using `.ai` (Agent OS), `.ai.ui` (UI Design OS), `.ai.biz` (Business OS) for structured planning, spec, implementation, and verification.
+
+### What is deliberately not here (next on the roadmap)
+
+- GitHub webhook integration (replacing polling for instant updates)
+- Email and calendar notifications
+- Mobile-friendly surfaces
+- Reporting dashboards
+- Richer onboarding checklists
+- OpenAPI-first plugin system
+
+### License
+
+MIT — free for personal and commercial use.
+
+**Live demo:** <https://logicbison.com/work/tools-project-hub>  
+**Repository:** <https://github.com/PiloTracer/tools-project>
+
+---
+
 ## 2026-06-29 — Admin tools & GitHub association
 
 ### Admin page overhaul

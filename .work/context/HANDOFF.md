@@ -3,6 +3,7 @@
 **Date:** 2026-06-18
 
 **Closed:** 2026-06-29 — comprehensive documentation: tutorials, guides, references, features, architecture, article
+**Open:** 2026-06-29 — goal: not specified
 **Updated:** 2026-06-29
 
 Treat prior closed sessions as historical only; see "What this cycle produced" below.
@@ -234,6 +235,23 @@ All follow-ups are complete. The project has no open blocking work.
 **Coordination notes:** Engineering docs first (source material for article), then article written using feature documentation as reference.
 **Blockers:** none
 **Next recommended:** Review docs for completeness, publish article.
+
+## Latest action (@biz-director)
+**Date:** 2026-06-29
+**Request:** "write a compelling/professional/natural/honest article about this project... aimed at non-technical and technical audience for linkedin. it must highlight why this is useful (tasks/tickets, clients/projects, attach anything to any ticket/task, automatic GitHub↔ticket association via .ai/.ai.ui/.ai.biz agent OS). You should know where to place the article, generate it as .odt or .docx"
+**Frameworks involved:** .ai, .ai.biz
+**Classified intent:** content-writing (craft)
+**Routing:** `@content-writing write` (gate-exempt per biz-director §I2)
+**Executed:**
+1. `@content-writing write` → long-form LinkedIn article (~1,400 words) authored. Evidence sourced from: HANDOFF, NEXT, FEATURES.md, README, prior v0.1.0 article, `.git/hooks/prepare-commit-msg` source, recent commit log (`TPR-T-8:` prefixed commits).
+2. Verified host document tooling: `pandoc 2.9.2.1`, `libreoffice`, `python-docx`, `odfpy`.
+3. Generated `.docx` (15 KB; 40 paragraphs; first heading verified via python-docx) **and** `.odt` (14 KB) — user can choose either format.
+**Artifacts produced:**
+- `.work.biz/docs/article-linkedin-v0.1.0.md` (markdown source)
+- `.work.biz/docs/article-linkedin-v0.1.0.docx` (LinkedIn-friendly, primary)
+- `.work.biz/docs/article-linkedin-v0.1.0.odt` (alternate)
+**Blockers:** none
+**Next recommended:** Review the article; if approved, upload/paste into LinkedIn's article composer, or run `@content-writing repurpose` to spin a short LinkedIn post from the strongest insight.
 
 ---
 
