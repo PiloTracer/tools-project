@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-06-30T05:05:33.382601+00:00",
+  "updated_at": "2026-06-30T18:00:36.019701+00:00",
   "tasks": [
     {
       "ref": "TPR-1",
@@ -98,6 +98,13 @@
       "status": "open",
       "project_id": "d942e263-efbc-4d96-bc9a-ea33654c3cb4",
       "description": "Settings -> GitHub Repositories\n1) If a repository shows error as status, and the user executes \"Sync now\" successfully, the status should update as properly.  \n2) if the user updates the token, it should validate it immediately against github (check if this is available currently in the code, it might be, if not, do not do this) and if successfull the status should update in accordance. This item only applies if the code currently performs a validation against github."
+    },
+    {
+      "ref": "TPR-T-12",
+      "title": "Analyze and implement penetration test report findings",
+      "status": "open",
+      "project_id": "d942e263-efbc-4d96-bc9a-ea33654c3cb4",
+      "description": "Penetration test report is provided at:\n/mnt/work/Projects/.ai.soc/strix_runs/tools-project_9307/penetration_test_report.md\n\nYou must analyze carefully, evaluate which items are vulnerabilities and issues that require fixing and implement the recommended resolutions."
     }
   ]
 }
