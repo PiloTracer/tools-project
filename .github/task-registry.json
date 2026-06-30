@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-06-26T06:08:12.138495+00:00",
+  "updated_at": "2026-06-30T05:05:33.382601+00:00",
   "tasks": [
     {
       "ref": "TPR-1",
@@ -91,6 +91,13 @@
       "status": "closed",
       "project_id": "d942e263-efbc-4d96-bc9a-ea33654c3cb4",
       "description": "Problem: When commits aren't showing, the user's only recourse is navigating to Settings → Commit Readiness → click \"Fix\" (which triggers a sync). The GitHub tab itself — where the user sees missing commits — has no sync control.\nChange: Add a \"Sync now\" button per linked repo on the GitHub tab page (/projects/[id]/github/page.tsx), calling POST /v1/projects/{id}/github/links/{link_id}/sync. Show a spinner while syncing and a brief success/error toast.\nWhy small & impactful:\n- ~20 lines added to a single file (page.tsx)\n- No backend changes needed (the sync endpoint already exists)\n- Gives users immediate control: they see missing commits → click \"Sync now\" → commits appear\n- Solves the trust problem: the user can verify the pipe works right from the page that shows the data\nTradeoff: No persistent error tracking (that's the medium/large proposal). This is just a trigger button — it doesn't tell you why a previous sync failed."
+    },
+    {
+      "ref": "TPR-T-11",
+      "title": "Status with error under \"Github Respositories\" should update after successfull \"Sync\"",
+      "status": "open",
+      "project_id": "d942e263-efbc-4d96-bc9a-ea33654c3cb4",
+      "description": "Settings -> GitHub Repositories\n1) If a repository shows error as status, and the user executes \"Sync now\" successfully, the status should update as properly.  \n2) if the user updates the token, it should validate it immediately against github (check if this is available currently in the code, it might be, if not, do not do this) and if successfull the status should update in accordance. This item only applies if the code currently performs a validation against github."
     }
   ]
 }
