@@ -255,6 +255,26 @@ All follow-ups are complete. The project has no open blocking work.
 
 ---
 
+## Latest action (@biz-director — repurpose pass)
+**Date:** 2026-06-29
+**Request:** Apply director feedback on the v0.1.2 release article. Assessment: LinkedIn suitable with a caveat — middle section too deep for non-technical founders (Fernet, prepare-commit-msg, asyncpg, Docker Compose profiles); Facebook not suitable (wrong buyer, wrong feed); full version valuable to future-strategy (client portal trust signal at logicbison.com demo, cross-promotion of Agent/UI/Business OS frameworks, credibility via shipped open source). Recommendation: shorter LinkedIn, keep full version for dev.to/Medium.
+**Frameworks involved:** .ai, .ai.biz
+**Classified intent:** content-writing (craft) — repurpose
+**Routing:** `@content-writing repurpose` (gate-exempt)
+**Executed:**
+1. Renamed `article-linkedin-v0.1.0.{md,docx}` → **`article-devto-medium-v0.1.0.{md,docx}`** — the full-length technical version (~940 words) kept intact as the dev.to/Medium target where architecture depth is a credibility asset, not a bounce risk.
+2. Authored **`article-linkedin-v0.1.2.md`** + `.docx` — short version (~509 words) leading with the problem, compressed pillars, the auto-association insight at a one-liner level ("a small git hook prepends the ref"), no Fernet/asyncpg/`prepare-commit-msg` literal names in the body. Tested via python-docx: 25 paragraphs, repo link present, demo link present, Fernet/asyncpg/prepare-commit-msg all absent.
+3. Facebook variant explicitly **skipped** per assessment — wrong buyer (B2B platform buyers are not on Facebook for this content), wrong feed format for the length.
+**Artifacts now in place:**
+- `.work.biz/docs/article-linkedin-v0.1.2.md` / `.docx` — primary LinkedIn artifact (short, founder-friendly)
+- `.work.biz/docs/article-devto-medium-v0.1.0.md` / `.docx` — full-length technical version for dev.to/Medium (referral-audience)
+- `.work.biz/docs/tools-project-infographic.html` — screenshot-ready informational page
+**Strategic value recorded:** supports three future-strategy pillars — (a) client portal trust signal via the live logicbison.com demo, (b) cross-promotion of `.ai`/`.ai.ui`/`.ai.biz` companion frameworks, (c) credibility proof of shipping working open source.
+**Blockers:** none
+**Next recommended:** Publish the LinkedIn short version; schedule the dev.to/Medium full version as a follow-up (technical audience who may refer founders). Architecture detail may be carried in LinkedIn comments or a follow-up post per the original assessment.
+
+---
+
 ## Where to read more
 
 | Doc | Role |
