@@ -84,6 +84,7 @@ services:
       dockerfile: Dockerfile.prd
     container_name: tpr_web_${COMPOSE_PROJECT_NAME:-tools_project_prd}
     environment:
+      NODE_ENV: production
       PORT: "3000"
       HOSTNAME: "0.0.0.0"
       PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-http://${PUBLIC_HOST:-localhost}:${WEB_DEV_HOST_PORT:-18513}}
