@@ -357,6 +357,33 @@ cmd_cleanup_stack() {
   printf 'Cleanup complete. Stack containers/networks removed; data volumes preserved.\n\n'
 }
 
+cmd_clean() {
+  validate_config
+  printf 'Full clean for project %s…\n' "$COMPOSE_PROJECT_NAME"
+  printf 'Stops stack, removes containers, networks, orphans.\n'
+  printf 'Named volumes (Postgres data + attachments) are PRESERVED.\n'
+  printf 'Build cache for this project is pruned.\n\n'
+
+  if stream_compose_ops; then
+    dc down --remove-orphans || return 1
+    wait_ack_if_menu
+  elif runs_menu_quiet; then
+    quiet_dc down --remove-orphans || return 1
+  else
+    dc down --remove-orphans || return 1
+  fi
+
+  printf '\nPruning build cache for project %s…\n' "$COMPOSE_PROJECT_NAME"
+  local cache_filter="label=com.docker.compose.project=$COMPOSE_PROJECT_NAME"
+  if runs_menu_quiet; then
+    docker builder prune -f --filter "$cache_filter" >/dev/null 2>&1 || true
+  else
+    docker builder prune -f --filter "$cache_filter" 2>&1 || true
+  fi
+
+  printf '\nClean complete. Stack is fully stopped; volumes intact; build cache freed.\n\n'
+}
+
 cmd_backup() {
   validate_config
   local backup_base="${GLOBAL_BASE_PATH}/backups_${COMPOSE_PROJECT_NAME}"
@@ -593,8 +620,9 @@ show_menu() {
   11) Destroy stack + volumes (DANGEROUS)  — docker compose down -v (this project only)
   12) Drop all DB tables (DANGEROUS)      — Postgres: DROP SCHEMA public CASCADE (project DB only)
   13) Rebuild DDL from SQL                — sql/schema_*.sql + bootstrap + seeds (mirrors API startup)
-  14) Force rebuild images (no cache)      — docker compose build --no-cache --pull
-  0) Exit
+   14) Force rebuild images (no cache)      — docker compose build --no-cache --pull
+   15) Full clean (stop + prune cache, keep data) — docker compose down + builder prune
+   0) Exit
 EOF
   printf '\n'
   urls_hint
@@ -619,7 +647,7 @@ main() {
     printf '  `prd` opens interactive production menu (uses .env only).\n'
     printf '  Commands: start-fg (detached up --build, then logs -f; Ctrl+C stops tail only) |\n'
     printf '           start | stop | restart | status | logs | build | cleanup |\n'
-    printf '           backup | restore | nuke | drop-tables | rebuild-schema | urls\n'
+    printf '           clean | backup | restore | nuke | drop-tables | rebuild-schema | urls\n'
     exit 0
   fi
 
@@ -632,6 +660,7 @@ main() {
     logs)     cmd_logs ;;
     build)    cmd_build_only ;;
     cleanup)       cmd_cleanup_stack ;;
+    clean)         cmd_clean ;;
     backup)        cmd_backup ;;
     restore)       cmd_restore ;;
     nuke)          cmd_nuke ;;
@@ -643,7 +672,7 @@ main() {
       MENU_QUIET=0
       while true; do
         show_menu
-        read -r -p 'Choose [0-14]: ' choice || true
+        read -r -p 'Choose [0-15]: ' choice || true
         set +e
         case "$choice" in
           1) cmd_start_attached ;;
@@ -660,6 +689,7 @@ main() {
           12) cmd_drop_tables ;;
           13) cmd_rebuild_schema ;;
           14) cmd_rebuild ;;
+          15) cmd_clean ;;
           0) printf 'Bye.\n'; exit 0 ;;
           *) printf 'Invalid option.\n\n' ;;
         esac
@@ -671,7 +701,7 @@ main() {
       MENU_QUIET=0
       while true; do
         show_menu
-        read -r -p 'Choose [0-14]: ' choice || true
+        read -r -p 'Choose [0-15]: ' choice || true
         set +e
         case "$choice" in
           1) cmd_start_attached ;;
@@ -688,6 +718,7 @@ main() {
           12) cmd_drop_tables ;;
           13) cmd_rebuild_schema ;;
           14) cmd_rebuild ;;
+          15) cmd_clean ;;
           0) printf 'Bye.\n'; exit 0 ;;
           *) printf 'Invalid option.\n\n' ;;
         esac
@@ -701,7 +732,7 @@ main() {
       MENU_QUIET=0
       while true; do
         show_menu
-        read -r -p 'Choose [0-14]: ' choice || true
+        read -r -p 'Choose [0-15]: ' choice || true
         set +e
         case "$choice" in
           1) cmd_start_attached ;;
@@ -718,6 +749,7 @@ main() {
           12) cmd_drop_tables ;;
           13) cmd_rebuild_schema ;;
           14) cmd_rebuild ;;
+          15) cmd_clean ;;
           0) printf 'Bye.\n'; exit 0 ;;
           *) printf 'Invalid option.\n\n' ;;
         esac
