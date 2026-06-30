@@ -37,6 +37,8 @@ export function GitHubSettingsForm({
   const [removeLinkId, setRemoveLinkId] = useState<string | null>(null);
   const [editingPoll, setEditingPoll] = useState<string | null>(null);
   const [pollValue, setPollValue] = useState("300");
+  const [editingToken, setEditingToken] = useState<string | null>(null);
+  const [tokenValue, setTokenValue] = useState("");
 
   if (!canEdit) {
     return (
@@ -102,6 +104,27 @@ export function GitHubSettingsForm({
     setLinks((prev) => prev.filter((l) => l.id !== linkId));
     setRemoveLinkId(null);
     toast("Repository removed");
+    router.refresh();
+  }
+
+  async function handleUpdateToken(linkId: string) {
+    if (!tokenValue.trim()) {
+      toast("Token is required", "error");
+      return;
+    }
+    const r = await fetch(`/api/projects/${projectId}/github/links?link_id=${linkId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ github_token: tokenValue.trim() }),
+    });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({ detail: "Update failed" }));
+      toast(err.detail, "error");
+      return;
+    }
+    setEditingToken(null);
+    setTokenValue("");
+    toast("Token updated");
     router.refresh();
   }
 
@@ -207,15 +230,51 @@ export function GitHubSettingsForm({
                     ? new Date(l.last_synced_at).toLocaleString()
                     : "—"}
                 </td>
-                <td style={{ display: "flex", gap: "0.3rem", alignItems: "center" }}>
-                  <SyncNowButton projectId={projectId} linkId={l.id} />
-                  <button
-                    className="btn btn-ghost"
-                    style={{ color: "var(--danger, #c33)", fontSize: "0.72rem" }}
-                    onClick={() => setRemoveLinkId(l.id)}
-                  >
-                    Remove
-                  </button>
+                <td>
+                  <div style={{ display: "flex", gap: "0.3rem", alignItems: "center", flexWrap: "wrap" }}>
+                    <SyncNowButton projectId={projectId} linkId={l.id} />
+                    {editingToken === l.id ? (
+                      <span style={{ display: "flex", gap: "0.2rem", alignItems: "center" }}>
+                        <input
+                          className="input"
+                          type="password"
+                          value={tokenValue}
+                          onChange={(e) => setTokenValue(e.target.value)}
+                          placeholder="New PAT"
+                          style={{ width: "10rem", fontSize: "0.72rem", padding: "0.15rem 0.3rem" }}
+                        />
+                        <button
+                          className="btn btn-ghost"
+                          style={{ fontSize: "0.72rem" }}
+                          onClick={() => handleUpdateToken(l.id)}
+                        >
+                          Save
+                        </button>
+                        <button
+                          className="btn btn-ghost"
+                          style={{ fontSize: "0.72rem" }}
+                          onClick={() => { setEditingToken(null); setTokenValue(""); }}
+                        >
+                          Cancel
+                        </button>
+                      </span>
+                    ) : (
+                      <button
+                        className="btn btn-ghost"
+                        style={{ fontSize: "0.72rem" }}
+                        onClick={() => { setEditingToken(l.id); setTokenValue(""); }}
+                      >
+                        Update token
+                      </button>
+                    )}
+                    <button
+                      className="btn btn-ghost"
+                      style={{ color: "var(--danger, #c33)", fontSize: "0.72rem" }}
+                      onClick={() => setRemoveLinkId(l.id)}
+                    >
+                      Remove
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
