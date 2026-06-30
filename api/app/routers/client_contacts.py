@@ -8,7 +8,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
-from app.deps import get_current_user
+from app.deps import get_current_user, require_superuser
 from app.models.client import Client
 from app.models.client_contact import ClientContact
 from app.models.user import User
@@ -36,6 +36,7 @@ async def _resolve_client(
 async def list_contacts(
     client_id: uuid.UUID,
     user: Annotated[User, Depends(get_current_user)],
+    _admin: Annotated[User, Depends(require_superuser)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     await _resolve_client(db, client_id)
@@ -75,6 +76,7 @@ async def create_contact(
     client_id: uuid.UUID,
     body: ClientContactCreate,
     user: Annotated[User, Depends(get_current_user)],
+    _admin: Annotated[User, Depends(require_superuser)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     await _resolve_client(db, client_id)
@@ -101,6 +103,7 @@ async def search_linkable_users(
     client_id: uuid.UUID,
     q: Annotated[str, Query(min_length=1, max_length=200)],
     user: Annotated[User, Depends(get_current_user)],
+    _admin: Annotated[User, Depends(require_superuser)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     await _resolve_client(db, client_id)
@@ -130,6 +133,7 @@ async def get_contact(
     client_id: uuid.UUID,
     contact_id: uuid.UUID,
     user: Annotated[User, Depends(get_current_user)],
+    _admin: Annotated[User, Depends(require_superuser)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     await _resolve_client(db, client_id)
@@ -145,6 +149,7 @@ async def update_contact(
     contact_id: uuid.UUID,
     body: ClientContactUpdate,
     user: Annotated[User, Depends(get_current_user)],
+    _admin: Annotated[User, Depends(require_superuser)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     await _resolve_client(db, client_id)
@@ -194,6 +199,7 @@ async def delete_contact(
     client_id: uuid.UUID,
     contact_id: uuid.UUID,
     user: Annotated[User, Depends(get_current_user)],
+    _admin: Annotated[User, Depends(require_superuser)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     await _resolve_client(db, client_id)

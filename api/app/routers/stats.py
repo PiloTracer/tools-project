@@ -9,7 +9,7 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
-from app.deps import get_current_user
+from app.deps import get_current_user, require_superuser
 from app.models.client import Client
 from app.models.inbox_item import InboxItem
 from app.models.mention import Mention
@@ -43,6 +43,7 @@ STAGE_LABELS: dict[str, str] = {
 @router.get("/pipeline", response_model=PipelineStatsOut)
 async def pipeline_stats(
     user: Annotated[User, Depends(get_current_user)],
+    _admin: Annotated[User, Depends(require_superuser)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     rows = await db.scalars(select(Prospect))
@@ -94,6 +95,7 @@ async def pipeline_stats(
 @router.get("/global", response_model=GlobalStatsOut)
 async def global_stats(
     user: Annotated[User, Depends(get_current_user)],
+    _admin: Annotated[User, Depends(require_superuser)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     projects_count = await db.scalar(select(func.count(Project.id)))

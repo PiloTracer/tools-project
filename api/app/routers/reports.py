@@ -10,7 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
-from app.deps import get_current_user
+from app.deps import get_current_user, require_superuser
 from app.models.client import Client
 from app.models.client_contact import ClientContact
 from app.models.project import Project
@@ -81,6 +81,7 @@ def _build_workbook(headers: list[str], rows: list[list]) -> bytes:
 @router.get("/pipeline")
 async def pipeline_report(
     user: Annotated[User, Depends(get_current_user)],
+    _admin: Annotated[User, Depends(require_superuser)],
     db: Annotated[AsyncSession, Depends(get_db)],
     stage: str | None = None,
     source: str | None = None,
@@ -123,6 +124,7 @@ async def pipeline_report(
 @router.get("/clients")
 async def clients_report(
     user: Annotated[User, Depends(get_current_user)],
+    _admin: Annotated[User, Depends(require_superuser)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     q = select(Client).order_by(Client.name)

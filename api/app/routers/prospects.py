@@ -9,7 +9,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
-from app.deps import get_current_user
+from app.deps import get_current_user, require_superuser
 from app.models.client import Client
 from app.models.prospect import (
     PIPELINE_STAGE_ORDER,
@@ -53,6 +53,7 @@ router = APIRouter(prefix="/v1/prospects", tags=["prospects"])
 @router.get("", response_model=ProspectListResponse)
 async def list_prospects(
     user: Annotated[User, Depends(get_current_user)],
+    _admin: Annotated[User, Depends(require_superuser)],
     db: Annotated[AsyncSession, Depends(get_db)],
     stage: str | None = Query(default=None, max_length=20),
     source: str | None = Query(default=None, max_length=30),
@@ -90,6 +91,7 @@ async def list_prospects(
 async def create_prospect(
     body: ProspectCreate,
     user: Annotated[User, Depends(get_current_user)],
+    _admin: Annotated[User, Depends(require_superuser)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     row = Prospect(
@@ -111,6 +113,7 @@ async def create_prospect(
 async def get_prospect(
     prospect_id: uuid.UUID,
     user: Annotated[User, Depends(get_current_user)],
+    _admin: Annotated[User, Depends(require_superuser)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     row = await db.get(Prospect, prospect_id)
@@ -125,6 +128,7 @@ async def update_prospect(
     prospect_id: uuid.UUID,
     body: ProspectUpdate,
     user: Annotated[User, Depends(get_current_user)],
+    _admin: Annotated[User, Depends(require_superuser)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     row = await db.get(Prospect, prospect_id)
@@ -151,6 +155,7 @@ async def update_prospect(
 async def delete_prospect(
     prospect_id: uuid.UUID,
     user: Annotated[User, Depends(get_current_user)],
+    _admin: Annotated[User, Depends(require_superuser)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     row = await db.get(Prospect, prospect_id)
@@ -166,6 +171,7 @@ async def transition_prospect_stage(
     prospect_id: uuid.UUID,
     body: ProspectStageChange,
     user: Annotated[User, Depends(get_current_user)],
+    _admin: Annotated[User, Depends(require_superuser)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     row = await db.get(Prospect, prospect_id)
@@ -236,6 +242,7 @@ async def transition_prospect_stage(
 async def promote_prospect(
     prospect_id: uuid.UUID,
     user: Annotated[User, Depends(get_current_user)],
+    _admin: Annotated[User, Depends(require_superuser)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     """Promote a won prospect to a client and auto-scaffold an onboarding project.

@@ -8,7 +8,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
-from app.deps import get_current_user
+from app.deps import get_current_user, require_superuser
 from app.models.client import Client
 from app.models.user import User
 from app.schemas import (
@@ -39,6 +39,7 @@ async def _unique_slug(db: AsyncSession, base: str) -> str:
 @router.get("", response_model=ClientListResponse)
 async def list_clients(
     user: Annotated[User, Depends(get_current_user)],
+    _admin: Annotated[User, Depends(require_superuser)],
     db: Annotated[AsyncSession, Depends(get_db)],
     limit: int = Query(default=200, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
@@ -57,6 +58,7 @@ async def list_clients(
 async def create_client(
     body: ClientCreate,
     user: Annotated[User, Depends(get_current_user)],
+    _admin: Annotated[User, Depends(require_superuser)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     slug = await _unique_slug(db, body.name)
@@ -77,6 +79,7 @@ async def create_client(
 async def get_client(
     client_id: uuid.UUID,
     user: Annotated[User, Depends(get_current_user)],
+    _admin: Annotated[User, Depends(require_superuser)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     row = await db.get(Client, client_id)
@@ -90,6 +93,7 @@ async def update_client(
     client_id: uuid.UUID,
     body: ClientUpdate,
     user: Annotated[User, Depends(get_current_user)],
+    _admin: Annotated[User, Depends(require_superuser)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     row = await db.get(Client, client_id)
@@ -110,6 +114,7 @@ async def update_client(
 async def delete_client(
     client_id: uuid.UUID,
     user: Annotated[User, Depends(get_current_user)],
+    _admin: Annotated[User, Depends(require_superuser)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     row = await db.get(Client, client_id)
