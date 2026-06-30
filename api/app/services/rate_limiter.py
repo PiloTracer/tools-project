@@ -36,7 +36,10 @@ async def check_login_rate_limit(request: Request) -> None:
         _cleanup()
         _last_cleanup = now
 
-    client_ip = request.client.host if request.client else "unknown"
+    forwarded = request.headers.get("X-Forwarded-For", "").strip()
+    client_ip = forwarded.split(",")[0].strip() if forwarded else (
+        request.client.host if request.client else "unknown"
+    )
     bucket = _buckets.get(client_ip)
     if bucket is None:
         bucket = _Bucket()

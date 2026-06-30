@@ -8,8 +8,7 @@ const _required = (name: string): string => {
 };
 
 export const getAuthorizationEndpoint = (): string =>
-  process.env.NEXT_PUBLIC_OAUTH_AUTHORIZATION_ENDPOINT ||
-  "https://dev.aiepic.app/oauth/authorize";
+  _required("NEXT_PUBLIC_OAUTH_AUTHORIZATION_ENDPOINT");
 
 export const getOAuthClientId = (): string => _required("OAUTH_CLIENT_ID");
 

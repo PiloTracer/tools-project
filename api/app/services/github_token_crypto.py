@@ -1,4 +1,4 @@
-"""Encrypt / decrypt GitHub PATs at rest (Fernet). Key from env or derived from JWT_SECRET."""
+"""Encrypt / decrypt GitHub PATs at rest (Fernet). Key from GITHUB_TOKEN_ENCRYPTION_KEY."""
 
 from __future__ import annotations
 
@@ -8,17 +8,18 @@ import os
 
 from cryptography.fernet import Fernet, InvalidToken
 
-from app.config import get_settings
-
 
 def _fernet_key() -> bytes:
     raw = os.environ.get("GITHUB_TOKEN_ENCRYPTION_KEY", "").strip()
-    if raw:
-        if len(raw) == 44 and raw.endswith("="):
-            return raw.encode()
-        digest = hashlib.sha256(raw.encode()).digest()
-        return base64.urlsafe_b64encode(digest)
-    digest = hashlib.sha256(get_settings().jwt_secret.encode()).digest()
+    if not raw:
+        raise RuntimeError(
+            "GITHUB_TOKEN_ENCRYPTION_KEY is required when GitHub sync is used. "
+            "Set a strong random 32-byte value (base64url-encoded, 44 chars ending with '=') "
+            "to protect GitHub PATs at rest."
+        )
+    if len(raw) == 44 and raw.endswith("="):
+        return raw.encode()
+    digest = hashlib.sha256(raw.encode()).digest()
     return base64.urlsafe_b64encode(digest)
 
 

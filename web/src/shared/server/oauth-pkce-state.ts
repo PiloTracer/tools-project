@@ -2,7 +2,7 @@
  * PKCE `state`: signed blob carries `code_verifier` so Dashboard → localhost works
  * without Redis (same idea as tools-rizervox fallback).
  */
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac, hkdfSync, timingSafeEqual } from "node:crypto";
 
 const PREFIX_V1 = "v1";
 const PREFIX_V2 = "v2";
@@ -20,21 +20,25 @@ function trimSecret(raw: string | undefined): string | undefined {
   return s;
 }
 
+function deriveSigningKey(secret: string): Buffer {
+  return Buffer.from(
+    (hkdfSync(
+      "sha256",
+      Buffer.from(secret, "utf-8"),
+      Buffer.from("oauth-pkce-state-salt", "utf-8"),
+      Buffer.from("tools-project-pkce-state", "utf-8"),
+      32,
+    ) as unknown) as ArrayBuffer,
+  );
+}
+
 function stateSigningKey(): Buffer {
   const explicit = trimSecret(process.env.OAUTH_PKCE_STATE_SECRET);
   if (explicit) {
-    return createHmac("sha256", "oauth-pkce-state-key").update(explicit).digest();
-  }
-  const clientSecret = trimSecret(process.env.OAUTH_CLIENT_SECRET);
-  if (clientSecret && clientSecret !== "change_me") {
-    return createHmac("sha256", "oauth-pkce-state-key").update(clientSecret).digest();
-  }
-  if (process.env.NODE_ENV !== "production") {
-    const cid = trimSecret(process.env.OAUTH_CLIENT_ID) || "oauth-dev";
-    return createHmac("sha256", "oauth-pkce-state-dev").update(cid).digest();
+    return deriveSigningKey(explicit);
   }
   throw new Error(
-    "OAuth PKCE: set OAUTH_PKCE_STATE_SECRET or a real OAUTH_CLIENT_SECRET so `state` can be signed.",
+    "OAuth PKCE: set OAUTH_PKCE_STATE_SECRET so `state` can be signed.",
   );
 }
 

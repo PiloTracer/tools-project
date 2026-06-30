@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import logging
 import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from sqlalchemy.ext.asyncio import AsyncSession
+
+log = logging.getLogger(__name__)
 
 
 def attachments_dir() -> Path:
@@ -59,8 +62,8 @@ async def purge_expired_attachments(db: AsyncSession) -> int:
             p = path_for_key(att.storage_key)
             if p.exists():
                 p.unlink()
-        except Exception:
-            pass
+        except OSError as exc:
+            log.warning("Failed to delete attachment file %s: %s", att.storage_key, exc)
         await db.delete(att)
         purged += 1
     await db.flush()

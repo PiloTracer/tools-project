@@ -23,12 +23,18 @@ Documentation   ████████████████████  12
 Batch K         ████████████████████  3/3   Done (opp-to-project automation)
 Batch L         ████████████████████  3/3   Done (client health dashboard)
 Security fixes  ████████████████████  8/8   Done (config, auth, endpoint hardening)
+Pen test rem.   ████████████████████  9/9   Done (all findings addressed)
 
 Open: none — all follow-ups resolved
 Active: none — all session follow-ups done
 
 ### Recommended next
-Restart the dev stack (`docker compose --profile dev up --build`) and test the promotion flow end-to-end. Verify a prospect → won → promote creates the onboarding project with 7 tasks and the "View project" link appears. Check `/api/clients/health` returns correct scores.
+Restart the dev stack (`docker compose --profile dev up --build`) and verify all pen test fixes:
+1. Login rate limiter reads `X-Forwarded-For` — test with 10+ attempts
+2. GitHub sync startup fails cleanly if `GITHUB_TOKEN_ENCRYPTION_KEY` unset
+3. OAuth userinfo endpoint rejects non-HTTPS URLs
+4. `NEXT_PUBLIC_OAUTH_AUTHORIZATION_ENDPOINT` is required (no fallback to `dev.aiepic.app`)
+5. `next-env.d.ts` no longer churns between dev/prod builds
 
 ## New features (2026-06-29)
 

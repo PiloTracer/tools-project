@@ -29,7 +29,8 @@ def get_engine():
 
 def session_factory() -> async_sessionmaker[AsyncSession]:
     get_engine()
-    assert _session_factory is not None
+    if _session_factory is None:
+        raise RuntimeError("session_factory called before get_engine() completed initialization")
     return _session_factory
 
 

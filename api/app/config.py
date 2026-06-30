@@ -45,6 +45,9 @@ class Settings(BaseSettings):
 
     # OAuth: userinfo URL used by the API to resolve SSO access tokens (same as web IdP).
     oauth_user_info_endpoint: str | None = None
+    # Comma-separated allowlist of hostnames for oauth_user_info_endpoint (SSRF protection).
+    # When empty, any HTTPS host is accepted (weak).
+    oauth_allowed_userinfo_hosts: str = ""
 
     # First superuser when DB is empty (standalone bootstrap). Omit to skip auto-create.
     bootstrap_admin_email: str | None = None

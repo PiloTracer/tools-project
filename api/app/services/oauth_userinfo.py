@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from typing import Any
+from urllib.parse import urlparse
 
 import httpx
 from sqlalchemy import select
@@ -11,6 +12,22 @@ from app.config import Settings
 from app.models.user import User
 
 log = logging.getLogger(__name__)
+
+def _validate_userinfo_url(url: str, settings: Settings) -> str:
+    parsed = urlparse(url)
+    if parsed.scheme != "https":
+        raise ValueError(
+            f"OAuth userinfo URL must use HTTPS scheme, got '{parsed.scheme}'"
+        )
+    allowed = settings.oauth_allowed_userinfo_hosts
+    if allowed:
+        hosts = frozenset(h.strip().lower() for h in allowed.split(",") if h.strip())
+        if hosts and parsed.hostname not in hosts:
+            raise ValueError(
+                f"OAuth userinfo host '{parsed.hostname}' is not in allowed list: "
+                f"{', '.join(sorted(hosts))}"
+            )
+    return url
 
 
 def _pick_email(info: dict[str, Any]) -> str | None:
@@ -39,7 +56,7 @@ async def upsert_user_from_oauth_access_token(
     if not settings.oauth_user_info_endpoint:
         log.warning("OAuth user resolution skipped: oauth_user_info_endpoint unset")
         return None
-    url = str(settings.oauth_user_info_endpoint).strip()
+    url = _validate_userinfo_url(str(settings.oauth_user_info_endpoint).strip(), settings)
     async with httpx.AsyncClient(timeout=20.0) as client:
         try:
             resp = await client.get(
