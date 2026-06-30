@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 
 import { AdminUsersPanel } from "./AdminUsersPanel";
@@ -60,29 +61,11 @@ export default async function AdminUsersPage() {
       rows = data.items;
     }
   } else {
-    forbidden = true;
+    redirect("/login");
   }
 
-  if (forbidden || rows === null) {
-    return (
-      <div className="page-inner">
-        <main className="card stack wide">
-          <h1>User administration</h1>
-          <p>
-            This screen requires a <strong>local superuser</strong> session (JWT issued by this app).
-            SSO access tokens are intentionally <strong>not</strong> accepted on{" "}
-            <code>/v1/admin/users</code> — operate via a local bootstrap/admin account, or adjust this
-            policy when IdP admin claims are wired.
-          </p>
-          <p>
-            <Link className="btn btn-primary" href="/login">
-              Sign in
-            </Link>{" "}
-            <Link href="/">← Home</Link>
-          </p>
-        </main>
-      </div>
-    );
+  if (forbidden || !rows) {
+    redirect("/login");
   }
 
   return (

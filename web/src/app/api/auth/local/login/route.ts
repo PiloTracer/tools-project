@@ -7,7 +7,17 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "local_auth_disabled" }, { status: 403 });
   }
 
-  const body = (await req.json()) as { email?: string; password?: string };
+  const contentType = req.headers.get("content-type") || "";
+  if (!contentType.includes("application/json")) {
+    return NextResponse.json({ error: "unsupported_media_type" }, { status: 415 });
+  }
+
+  let body: { email?: string; password?: string };
+  try {
+    body = (await req.json()) as { email?: string; password?: string };
+  } catch {
+    return NextResponse.json({ error: "invalid_json" }, { status: 400 });
+  }
   const base =
     process.env.API_INTERNAL_URL?.replace(/\/+$/, "") || "http://api:8300";
   const r = await fetch(`${base}/v1/auth/local/login`, {
@@ -40,7 +50,7 @@ export async function POST(req: Request) {
   res.cookies.set(cookieName, data.access_token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    sameSite: "strict",
     path: "/",
     maxAge: data.expires_in,
   });

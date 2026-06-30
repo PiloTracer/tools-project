@@ -14,6 +14,7 @@ from app.models.client_contact import ClientContact
 from app.models.user import User
 from app.schemas import LocalLoginRequest, MeResponse, TokenResponse
 from app.services.auth_local import create_local_access_token, verify_password, decode_local_token
+from app.services.rate_limiter import check_login_rate_limit
 
 router = APIRouter(prefix="/v1/auth", tags=["auth"])
 
@@ -27,7 +28,9 @@ def auth_config():
 @router.post("/local/login", response_model=TokenResponse)
 async def local_login(
     body: LocalLoginRequest,
+    request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
+    _rate_limit: None = Depends(check_login_rate_limit),
 ):
     s = get_settings()
     if not s.auth_local_enabled:
