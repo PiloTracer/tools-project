@@ -2,6 +2,7 @@
 
 **Date:** 2026-06-18
 
+**Closed:** 2026-06-29 — penetration test remediation: rate limiter, CSRF, cookies, admin auth, content-type validation + GitHub token update UI
 **Closed:** 2026-06-29 — opp-to-project automation + client health dashboard + security hardening
 **Closed:** 2026-06-29 — comprehensive documentation: tutorials, guides, references, features, architecture, article
 **Closed:** 2026-06-29 (session 3) — v0.1.2 public release: MIT LICENSE, LinkedIn + dev.to/Medium articles, infographic, version bump, GitHub release tag v0.1.2, director feedback applied (split article)
@@ -9,7 +10,7 @@
 
 Treat prior closed sessions as historical only; see "What this cycle produced" below.
 
-****Repository state:** Batches K (Opp-to-Project Automation) + L (Client Health Dashboard) complete. Security hardening: weak secret detection, OAuth superuser fix, GitHub endpoint auth, project-scoped ref search. All gates green.
+****Repository state:** All 9 penetration test findings resolved. CRM auth (21 endpoints), hardcoded secrets removed, login rate limiter, CSRF protection, SameSite=Strict cookies, admin page redirect, content-type validation, NODE_ENV=production for production compose. GitHub token update UI added. All gates green.
 
 ## Start here (new session)
 
@@ -64,7 +65,7 @@ Treat prior closed sessions as historical only; see "What this cycle produced" b
 
 ## Recommended next work
 
-Restart the dev stack and test the opp-to-project promotion flow and client health dashboard end-to-end. All work verified (API compile, web lint, web build pass).
+All 9 penetration test findings resolved. Restart the dev stack to pick up rate limiter, CSRF protection, SameSite cookies, and admin page redirect. Verify login throttling (10 attempts/60s → 429) and CSRF rejection on logout.
 
 ---
 
