@@ -1029,3 +1029,30 @@ class GlobalStatsOut(BaseModel):
     open_tickets: int
     total_prospects: int
     total_clients: int
+
+
+# ── User API keys ───────────────────────────────────────────────────────
+
+
+class UserApiKeyCreate(BaseModel):
+    label: str | None = Field(default=None, max_length=100)
+
+
+class UserApiKeyOut(BaseModel):
+    id: uuid.UUID
+    user_id: uuid.UUID
+    key_prefix: str
+    label: str | None = None
+    last_used_at: datetime | None = None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class UserApiKeySecretOut(UserApiKeyOut):
+    plaintext: str
+
+
+class UserApiKeyListResponse(BaseModel):
+    items: list[UserApiKeyOut]

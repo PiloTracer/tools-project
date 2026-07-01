@@ -99,3 +99,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_commit_subject_refs_commit_subject
 CREATE UNIQUE INDEX IF NOT EXISTS uq_commit_subject_refs_pending
     ON commit_subject_refs (project_id, sha, subject_type, subject_id)
     WHERE github_commit_id IS NULL;
+
+-- User API keys
+CREATE INDEX IF NOT EXISTS ix_user_api_keys_user_id ON user_api_keys (user_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_user_api_keys_key_hash ON user_api_keys (key_hash);

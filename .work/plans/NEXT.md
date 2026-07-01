@@ -6,7 +6,7 @@
 
 **Schema:** declarative **`sql/`** only — no Alembic. On API startup: `schema_changes.sql` → `schema_indexes.sql` → bootstrap → `schema_backfill.sql` → `schema_inserts.sql`.
 
-****Latest (repo):** **2026-06-29** — v0.1.2 public release shipped: MIT LICENSE, version bump (web + api → 0.1.2), CHANGELOG v0.1.2 entry, LinkedIn short article + dev.to/Medium full article + infographic HTML, GitHub release tag v0.1.2 created, director feedback applied (article split). All previous work complete.
+****Latest (repo):** **2026-07-01** — Agent Query API shipped: personal API keys (user_api_keys), 5 aggregation endpoints (/v1/agent/), MCP server (5 tools), web UI (/settings/api-keys), documentation + tutorial. All gates green.
 
 ### Status at a glance (visual)
 
@@ -29,12 +29,22 @@ Open: none — all follow-ups resolved
 Active: none — all session follow-ups done
 
 ### Recommended next
-Restart the dev stack (`docker compose --profile dev up --build`) and verify all pen test fixes:
-1. Login rate limiter reads `X-Forwarded-For` — test with 10+ attempts
-2. GitHub sync startup fails cleanly if `GITHUB_TOKEN_ENCRYPTION_KEY` unset
-3. OAuth userinfo endpoint rejects non-HTTPS URLs
-4. `NEXT_PUBLIC_OAUTH_AUTHORIZATION_ENDPOINT` is required (no fallback to `dev.aiepic.app`)
-5. `next-env.d.ts` no longer churns between dev/prod builds
+Generate your personal API key: log in, go to `/settings/api-keys`, create a key, and place it in `~/.tools-project-key`. Then restart opencode — the MCP server will pick it up automatically and the coding agent can query projects, tasks, tickets, clients, and prospects directly.
+
+## New features (2026-07-01)
+
+### M — Agent Query API
+
+| ID | Scope | Status | Evidence |
+|----|-------|--------|----------|
+| M1 | `/v1/agent/` aggregation endpoints (projects, context, tasks, tickets, search) | **Done** | `api/app/routers/agent_query.py` — 5 endpoints, Pydantic response models, single-query N+1 optimization |
+| M2 | Personal API keys (`POST /v1/me/keys`, `GET /v1/me/keys`, `DELETE /v1/me/keys/{id}`) | **Done** | `api/app/routers/me_api_keys.py` — SHA-256 hashed, `tools_project_` prefix, one-time plaintext display |
+| M3 | `user_api_keys` table + model | **Done** | `sql/schema_changes.sql`, `api/app/models/user_api_key.py` — UUID PK, key_hash, key_prefix, last_used_at |
+| M4 | `require_agent_or_user` X-Api-Key auth | **Done** | `api/app/deps.py` — resolves: agent_api_key → user_api_keys (SHA-256) → Bearer JWT |
+| M5 | MCP server (5 tools) | **Done** | `.opencode/mcp/project-mcp/mcp_server.py` — JSON-RPC 2.0, reads `~/.tools-project-key` or env |
+| M6 | Web UI: `/settings/api-keys` | **Done** | `web/src/app/settings/api-keys/` — table, create dialog with one-time secret display, revoke confirmation |
+| M7 | Documentation + tutorial | **Done** | `.work/docs/agent-query-api.md` (reference), `.work/docs/tutorials/LLM-2-API_SETUP.md` (step-by-step) |
+| M8 | Feature SPEC | **Done** | `.work/features/agent-query-api/20260701-SPEC.md` |
 
 ## New features (2026-06-29)
 

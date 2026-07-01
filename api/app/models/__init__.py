@@ -17,6 +17,7 @@ from app.models.prospect import Prospect
 from app.models.task import Task
 from app.models.ticket import Ticket
 from app.models.user import User
+from app.models.user_api_key import UserApiKey
 from app.models.watcher import Watcher
 
 __all__ = [
@@ -39,5 +40,6 @@ __all__ = [
     "Task",
     "Ticket",
     "User",
+    "UserApiKey",
     "Watcher",
 ]

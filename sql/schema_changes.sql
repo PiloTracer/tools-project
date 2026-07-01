@@ -320,3 +320,16 @@ ALTER TABLE github_links ADD COLUMN IF NOT EXISTS sync_status VARCHAR(20) NOT NU
 ALTER TABLE github_links ADD COLUMN IF NOT EXISTS last_error TEXT;
 ALTER TABLE github_links ADD COLUMN IF NOT EXISTS last_error_at TIMESTAMPTZ;
 ALTER TABLE github_links ADD COLUMN IF NOT EXISTS error_count INT NOT NULL DEFAULT 0;
+
+-- User API keys: personal persistent tokens for agent/MCP access.
+-- key_hash stores SHA-256(plaintext); key_prefix stores the first 8 chars for UI display.
+CREATE TABLE IF NOT EXISTS user_api_keys (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    key_hash VARCHAR(64) NOT NULL,
+    key_prefix VARCHAR(8) NOT NULL,
+    label VARCHAR(100),
+    last_used_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);

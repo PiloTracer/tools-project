@@ -71,6 +71,9 @@ class Settings(BaseSettings):
     github_poll_initial_delay_seconds: int = 8
     github_commits_per_sync: int = 100
 
+    # Agent Query API: optional shared secret for agent (MCP server) read-only access.
+    agent_api_key: str = ""
+
 
     @classmethod
     def _check_defaults(cls, values: dict) -> dict:

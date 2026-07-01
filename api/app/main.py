@@ -21,6 +21,7 @@ from app.schema_sql import run_post_bootstrap
 from app.routers import (
     activities,
     admin_users,
+    agent_query,
     attachments,
     auth,
     client_contacts,
@@ -31,6 +32,7 @@ from app.routers import (
     components,
     github,
     inbox,
+    me_api_keys,
     me_focus,
     project_client_access,
     project_clients,
@@ -129,6 +131,7 @@ app.include_router(attachments.ticket_router)
 app.include_router(attachments.task_router)
 app.include_router(attachments.file_router)
 app.include_router(me_focus.router)
+app.include_router(me_api_keys.router)
 app.include_router(inbox.router)
 app.include_router(prospects.router)
 app.include_router(client_health.router)
@@ -139,6 +142,7 @@ app.include_router(github.router)
 app.include_router(commit_refs.router)
 app.include_router(stats.router)
 app.include_router(reports.router)
+app.include_router(agent_query.router)
 
 
 @app.get("/healthz")

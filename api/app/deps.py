@@ -3,9 +3,9 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, Header, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
@@ -105,6 +105,56 @@ async def require_superuser(
             status.HTTP_403_FORBIDDEN, detail="Admin privileges required"
         )
     return user
+
+
+async def require_agent_or_user(
+    creds: Annotated[HTTPAuthorizationCredentials | None, Depends(_http_bearer)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    x_api_key: Annotated[str | None, Header(alias="X-Api-Key")] = None,
+) -> User:
+    """Accept a personal API key, server-wide agent key, or Bearer JWT.
+
+    Auth resolution (first match wins):
+      1. X-Api-Key matches Settings.agent_api_key → synthetic agent superuser
+      2. X-Api-Key matches a user_api_keys row (SHA-256) → authenticated user
+      3. Bearer JWT → normal user session
+      4. None → 401
+    """
+    import hashlib
+
+    settings = get_settings()
+
+    if x_api_key:
+        plaintext = x_api_key.strip()
+
+        # Server-wide shared agent key (local convenience)
+        if settings.agent_api_key and plaintext == settings.agent_api_key.strip():
+            return User(
+                id=uuid.uuid5(uuid.NAMESPACE_DNS, "agent.localhost"),
+                email="agent@localhost",
+                display_name="Agent",
+                is_superuser=True,
+                is_active=True,
+            )
+
+        # Personal API key — look up by SHA-256 hash
+        from app.models.user_api_key import UserApiKey
+
+        from sqlalchemy.orm import joinedload
+
+        key_hash = hashlib.sha256(plaintext.encode()).hexdigest()
+        api_key_row = await db.scalar(
+            select(UserApiKey)
+            .where(UserApiKey.key_hash == key_hash)
+            .options(joinedload(UserApiKey.user))
+        )
+        if api_key_row is not None and api_key_row.user.is_active:
+            api_key_row.last_used_at = func.now()
+            await db.commit()
+            return api_key_row.user
+
+    # Fall back to Bearer JWT
+    return await get_current_user(creds, db)
 
 
 async def get_current_client_participant(

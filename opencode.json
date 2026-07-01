@@ -22,6 +22,22 @@
     "ai-biz": {
       "path": "/mnt/work/Projects/.ai.biz",
       "description": "Business OS: strategy, brand, content, pricing"
+    },
+    "agent-api": {
+      "path": ".work/docs/agent-query-api.md",
+      "description": "Read-only API for local coding agent to query project/task/ticket/client context — endpoints, MCP tools, and usage examples"
+    }
+  },
+
+  "mcp": {
+    "tools-project": {
+      "type": "local",
+      "command": ["python3", ".opencode/mcp/project-mcp/mcp_server.py"],
+      "enabled": true,
+      "env": {
+        "TOOLS_PROJECT_API_KEY": "{env:TOOLS_PROJECT_API_KEY}",
+        "API_BASE_URL": "http://localhost:8300"
+      }
     }
   }
 }
