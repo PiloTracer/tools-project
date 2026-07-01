@@ -5,7 +5,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -382,7 +382,7 @@ async def agent_search(
             .limit(limit - len(results))
         )
         rows = (await db.execute(stmt)).all()
-        for tid, title, ref_, status_, pid, pname in rows:
+        for tid, title, ref_, status_, _pid, pname in rows:
             results.append({
                 "kind": "task", "id": str(tid), "label": title,
                 "subtitle": f"[{ref_ or '—'}] {pname}",
@@ -399,7 +399,7 @@ async def agent_search(
             .limit(limit - len(results))
         )
         rows = (await db.execute(stmt)).all()
-        for tid, title, ref_, status_, pid, pname in rows:
+        for tid, title, ref_, status_, _pid, pname in rows:
             results.append({
                 "kind": "ticket", "id": str(tid), "label": title,
                 "subtitle": f"[{ref_ or '—'}] {pname}",

@@ -10,4 +10,4 @@
 | 4 | Sales pipeline: `clients.pipeline_stage` column vs separate `prospects` table? | CRM data model | ADR-0001 | **Decided** — separate `prospects` table; auto-create `clients` on `won` |
 | 5 | Client contact auth: individual system accounts vs shared access? | Auth design | ADR-0001 | **Decided** — individual `users` accounts per contact |
 | 6 | What are the specific permissions a client stakeholder needs per project? | Permission model | ADR-0001 / SPEC | **Decided** — `view`/`contribute`/`decision_maker`/`billing` roles in `project_client_access` |
-| 7 | Does the GitHub web page (I10d) or CRM come first in implementation order? | Batch priority | Product owner | **Open** — depends on active priority call |
+| 7 | Does the GitHub web page (I10d) or CRM come first in implementation order? | Batch priority | Product owner | **Resolved 2026-07-01** — both Batch I (GitHub web) and Batch J (CRM) shipped; priority call no longer relevant |
