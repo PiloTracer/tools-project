@@ -667,13 +667,13 @@ class CommitBrief(BaseModel):
     """Lightweight commit info embedded in ref responses."""
 
     sha: str
-    short_sha: str
-    message_preview: str
+    short_sha: str = ""
+    message_preview: str = ""
     html_url: str
     author_name: str | None = None
     committed_at: datetime
-    owner: str
-    repo: str
+    owner: str = ""
+    repo: str = ""
 
     model_config = {"from_attributes": True}
 
