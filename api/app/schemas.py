@@ -675,6 +675,8 @@ class CommitBrief(BaseModel):
     owner: str
     repo: str
 
+    model_config = {"from_attributes": True}
+
 
 class CommitSubjectRefOut(BaseModel):
     id: uuid.UUID
