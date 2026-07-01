@@ -38,12 +38,12 @@ function MemberListInner({
   const load = useCallback(async () => {
     const r = await apiRequest<{ items: MemberRow[] }>(`/api/projects/${projectId}/members`);
     if (r.ok) setMembers(r.data.items);
-  }, [projectId, refreshKey]);
+  }, [projectId]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
-  }, [load]);
+  }, [load, refreshKey]);
 
   async function remove(userId: string) {
     setBusy(userId);
