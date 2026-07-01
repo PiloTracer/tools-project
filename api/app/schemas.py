@@ -1051,7 +1051,7 @@ class UserApiKeyOut(BaseModel):
 
 
 class UserApiKeySecretOut(UserApiKeyOut):
-    plaintext: str
+    plaintext: str = ""
 
 
 class UserApiKeyListResponse(BaseModel):
