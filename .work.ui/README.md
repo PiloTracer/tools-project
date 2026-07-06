@@ -1,6 +1,6 @@
 # `.work.ui/` — UI project memory
 
-**Location:** `<repo-root>/.work.ui/` — sibling to `.ai.ui/` and `.ai/`, **not** inside `.ai.ui/`.
+**Location:** `<repo-root>/.work.ui/` — sibling to `/mnt/work/Projects/.ai.ui/` and `/mnt/work/Projects/.ai/`, **not** inside `.ai.ui/`.
 
 See navigation: permanent README content is in the framework demo [`.work.ui/README.md`](../../.work.ui/README.md) after bootstrap, or copy from this template on first bootstrap.
 
@@ -12,4 +12,4 @@ See navigation: permanent README content is in the framework demo [`.work.ui/REA
 | `screens/<slug>/` | Screen SPECs |
 | `design-system/CATALOG.md` | Primitives registry |
 
-Session bookends: `@session-control` (`.ai/`).
+Session bookends: `@session-control` (Agent OS at `/mnt/work/Projects/.ai/`).

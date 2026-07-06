@@ -1,43 +1,56 @@
 {
   "$schema": "https://opencode.ai/config.json",
-
   "instructions": [
-    ".cursorrules",
-    "/mnt/work/Projects/.ai/START_HERE.md",
-    "/mnt/work/Projects/.ai/PROCESS_ROUTER.md",
-    "/mnt/work/Projects/.ai.ui/START_HERE.md",
-    "/mnt/work/Projects/.ai.ui/COHABITATION.md",
-    "/mnt/work/Projects/.ai.biz/START_HERE.md"
+    "../.ai/START_HERE.md",
+    "../.ai/PROCESS_ROUTER.md",
+    "../.ai.ui/START_HERE.md",
+    "../.ai.ui/COHABITATION.md",
+    "../.ai.biz/START_HERE.md",
+    "../.ai.soc/START_HERE.md",
+    ".cursorrules"
   ],
-
   "references": {
-    "ai": {
-      "path": "/mnt/work/Projects/.ai",
-      "description": "Agent OS: skills, standards, concepts, workflow guides"
-    },
     "ai-ui": {
-      "path": "/mnt/work/Projects/.ai.ui",
+      "path": "../.ai.ui",
       "description": "UI Design OS: UI component specs, design tokens, accessibility"
     },
     "ai-biz": {
-      "path": "/mnt/work/Projects/.ai.biz",
+      "path": "../.ai.biz",
       "description": "Business OS: strategy, brand, content, pricing"
     },
     "agent-api": {
       "path": ".work/docs/agent-query-api.md",
       "description": "Read-only API for local coding agent to query project/task/ticket/client context — endpoints, MCP tools, and usage examples"
+    },
+    "ai-soc": {
+      "path": "../.ai.soc",
+      "description": "Security OS: autonomous AI security testing, penetration testing, vulnerability assessment"
+    },
+    "ai": {
+      "path": "../.ai",
+      "description": "Agent OS: skills, standards, concepts, workflow guides"
     }
   },
-
   "mcp": {
     "tools-project": {
       "type": "local",
-      "command": ["python3", ".opencode/mcp/project-mcp/mcp_server.py"],
+      "command": [
+        "python3",
+        ".opencode/mcp/project-mcp/mcp_server.py"
+      ],
       "enabled": true,
       "env": {
         "TOOLS_PROJECT_API_KEY": "{env:TOOLS_PROJECT_API_KEY}",
         "API_BASE_URL": "http://localhost:8300"
       }
     }
+  },
+  "skills": {
+    "paths": [
+      "../.ai/skills",
+      "../.ai.ui/skills",
+      "../.ai.biz/skills",
+      "../.ai.soc/skills"
+    ]
   }
 }

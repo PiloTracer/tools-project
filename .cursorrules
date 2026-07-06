@@ -9,6 +9,13 @@ You are not a yes-machine. You are a trusted advisor whose sole objective is the
 # AI Agent Rules — tools-project
 
 > **Resolved 2026-06-18:** `REPLACE:` tokens below were resolved during brownfield repair (`@plan-repair brownfield`).
+> **Thin-client (2026-07-06):** Agent OS framework resolves from sibling `/mnt/work/Projects/.ai` — no local `.ai/` in this repo.
+
+### Source resolution — thin-client
+
+AGENT_OS_SOURCE=/mnt/work/Projects/.ai
+
+Framework skills, standards, concepts, scripts, and templates load from `$AGENT_OS_SOURCE`. Project memory stays in `.work/`. If the source path is unreachable, stop and report it — do not fall back to a local `.ai/`.
 
 ## Core Principles (ALWAYS APPLY)
 
@@ -72,9 +79,9 @@ Read these at the start of every conversation and when relevant:
 | **`/mnt/work/Projects/.ai/START_HERE.md`** | What to invoke right now; forgetfulness checklist |
 | **`/mnt/work/Projects/.ai/PROCESS_ROUTER.md`** | Process Q&A; `@process-router` vs `@session-control status` |
 | **`.work/plans/foundation/20260618-04-architecture.md`** | Technology stack |
-| **`/mnt/work/Projects/.ai/standards/CONVENTIONS.md`** | Code layout, naming, maintainability |
-| **`/mnt/work/Projects/.ai/standards/FEATURE_STANDARD.md`** | Feature SPEC lifecycle |
-| **`/mnt/work/Projects/.ai/standards/DIRECTORY_MAP.md`** | Repository layout and boundaries |
+| **`.work/standards/*CONVENTIONS*`** | Code layout, naming, maintainability |
+| **`.work/standards/*FEATURE_STANDARD*`** | Feature SPEC lifecycle |
+| **`.work/standards/*DIRECTORY_MAP*`** | Repository layout and boundaries |
 | **`.work/context/HANDOFF.md`** | Session handoff (session-control read/write) |
 | **`/mnt/work/Projects/.ai/docs/guides/workflows/README.md`** | Workflow index and artifact matrix |
 | **`/mnt/work/Projects/.ai.ui/START_HERE.md`** | UI operator decision tree (via `@ui-director`) |
@@ -86,7 +93,7 @@ Read these at the start of every conversation and when relevant:
 
 Portable process docs: **`/mnt/work/Projects/.ai/docs/guides/workflows/README.md`** (artifact matrix). Curriculum: **`20260518-guide-workflows-index.md`** (when present). Tutorials: **`20260518-tutorial-*`**. Reference guides: **`20260518-guide-*`**.
 
-**Concept pack:** `/mnt/work/Projects/.ai/concepts/README.md` (MOD-01–MOD-06). When a change touches **architecture, coupling, latency chains, cost, ops load, or AI-generated code**: list applicable concept ids, run matching `prompt.md` under `/mnt/work/Projects/.ai/concepts/<name>/`, attach outputs to the PR or **`### Concept / NFR registry`** in `.work/plans/NEXT.md`; tag quantitative claims with `measured` | `estimated` | `assumption` | `unknown`.
+**Concept pack:** `/mnt/work/Projects/.ai/concepts/README.md` (MOD-01–MOD-07). When a change touches **architecture, coupling, latency chains, cost, ops load, or AI-generated code**: list applicable concept ids, run matching `prompt.md` under `/mnt/work/Projects/.ai/concepts/<name>/`, attach outputs to the PR or **`### Concept / NFR registry`** in `.work/plans/NEXT.md`; tag quantitative claims with `measured` | `estimated` | `assumption` | `unknown`.
 
 **Placeholder quick map (customize for this repository):**
 
@@ -103,7 +110,9 @@ Portable process docs: **`/mnt/work/Projects/.ai/docs/guides/workflows/README.md
 | `{CONCEPTS_ROOT}` | `/mnt/work/Projects/.ai/concepts/` |
 | `{SKILLS_ROOT}` | `/mnt/work/Projects/.ai/skills/` |
 | `{OBSERVABILITY_SPEC}` | (not yet defined — add when observability spec is created) |
-| `{BOUNDARY_MAP}` | `/mnt/work/Projects/.ai/standards/DIRECTORY_MAP.md` |
+| `{STANDARDS_ROOT}` | `.work/standards/` |
+| `{INTEGRATION_ROOT}` | `.work/docs/integration/` |
+| `{BOUNDARY_MAP}` | `.work/standards/*-DIRECTORY_MAP.md` (after `@plan-foundation` P3) |
 | `{AGENT_RULES_FILE}` | **`.cursorrules` (this file)** — `AGENTS.md` is NOT used unless the owner explicitly adopts it |
 | `{UI_ROOT}` | `/mnt/work/Projects/.ai.ui/` (sibling directory, not inside repo) |
 | `{UI_WORK_ROOT}` | `.work.ui/` (created by `.ai.ui` bootstrap) |
@@ -149,8 +158,16 @@ Reusable agent skills live under `/mnt/work/Projects/.ai/skills/`. Each skill is
 | dev-stack | `/mnt/work/Projects/.ai/skills/dev-stack/` | Isolated Docker Compose dev stack helper (`bin/start.sh`) |
 | process-router | `/mnt/work/Projects/.ai/skills/process-router/` | Read-only process Q&A router |
 | feature-spec | `/mnt/work/Projects/.ai/skills/feature-spec/` | Author, review, amend feature SPECs |
-| concept-run | `/mnt/work/Projects/.ai/skills/concept-run/` | Run MOD-01…MOD-06 concept prompts |
+| concept-run | `/mnt/work/Projects/.ai/skills/concept-run/` | Run MOD-01…MOD-07 concept prompts |
 | project-bootstrap | `/mnt/work/Projects/.ai/skills/project-bootstrap/` | Copy `.work/` skeleton, `.cursorrules`, stack doc from templates |
+| deploy-files | `/mnt/work/Projects/.ai/skills/deploy-files/` | Fat-client deploy into target (in-place no-overwrite bootstrap + `update` rules-aware merge) |
+| deploy-basic | `/mnt/work/Projects/.ai/skills/deploy-basic/` | Thin-client bootstrap: `.cursorrules` + `.work/` + stack doc only; rest resolves via `AGENT_OS_SOURCE` |
+| deploy-repo | `/mnt/work/Projects/.ai/skills/deploy-repo/` | Full repo deploy: clone (git mirror) or archive (snapshot) |
+| project-query-setup | `/mnt/work/Projects/.ai/skills/project-query-setup/` | Optional tools-project API key + MCP registration + connectivity test |
+| tauri-development | `/mnt/work/Projects/.ai/skills/tauri-development/` | Tauri desktop: IPC security, shell/webview, Rust backend, events |
+| docs | `/mnt/work/Projects/.ai/skills/docs/` | Create/manage project docs under `.work/docs/` |
+| ai-director | `/mnt/work/Projects/.ai/skills/ai-director/` | Free-text orchestrator; routes to `.ai` skill chain; skill-gap detection |
+| x-director | `/mnt/work/Projects/.ai/skills/x-director/` | Cross-framework orchestrator (`.ai` + `.ai.ui` + `.ai.biz` + `.ai.soc`) |
 
 **Usage:** When a task matches a skill's purpose, read `skill.md` and follow the workflow. Skills are tool-agnostic (Cursor, Claude Code, Codex, opencode, etc.).
 
@@ -198,12 +215,12 @@ Free-text request
 
 ## External integration documentation (optional)
 
-When this project integrates with **vendor-published APIs, XSDs, PDFs, or OpenAPI/HTML specs**, cache reference artifacts under **`/mnt/work/Projects/.ai/docs/integration/`**.
+When this project integrates with **vendor-published APIs, XSDs, PDFs, or OpenAPI/HTML specs**, cache reference artifacts under **`.work/docs/integration/`** (project-owned; not under `.ai/`).
 
 Rules:
 
-1. **Subfolders:** Organize by source and version (e.g. `/mnt/work/Projects/.ai/docs/integration/vendor-v1/`) so upgrades do not silently overwrite pinned files.
-2. **Manifest:** Record every download in `/mnt/work/Projects/.ai/docs/integration/MANIFEST.txt` (source URL, local path, batch date).
+1. **Subfolders:** Organize by source and version (e.g. `.work/docs/integration/vendor-v1/`) so upgrades do not silently overwrite pinned files.
+2. **Manifest:** Record every download in `.work/docs/integration/MANIFEST.txt` (source URL, local path, batch date).
 3. **Sources:** Prefer official vendor domains; third-party mirrors only with an explicit manifest note.
 4. **Secrets:** Never place keys, PEM/P12, passwords, tokens, or `.env` content in this directory.
 5. **Verification:** After download, confirm file type (not an HTML error page masquerading as a PDF).
@@ -460,7 +477,7 @@ If OpenSpec is not used, delete this section or replace with your team's proposa
 
 **`/mnt/work/Projects/.ai/`** — agnostic: skills, standards, concepts, workflow guides, integration mirror, `START_HERE.md`, `PROCESS_ROUTER.md`, **`templates/`** (including this file's source). Pointer READMEs only under `/mnt/work/Projects/.ai/plans/`, `/mnt/work/Projects/.ai/features/`, etc.
 
-**`.work/`** — project-specific: plans, SPECs, ADRs, prompts, `HANDOFF.md`.
+**`.work/`** — project-specific: plans, SPECs, ADRs, prompts, `HANDOFF.md`, binding **`.work/standards/`**, and **`.work/docs/`** (including vendor **`.work/docs/integration/`** cache).
 
 Generated filenames under `.work/` use the `YYYYMMDD-` prefix unless documented otherwise (`NEXT.md`, `HANDOFF.md`, …).
 
@@ -471,7 +488,9 @@ Generated filenames under `.work/` use the `YYYYMMDD-` prefix unless documented 
 | `.work/decisions/` | ADRs |
 | `.work/prompts/` | Questionnaires; user scratch |
 | `.work/context/HANDOFF.md` | Session handoff |
-| `/mnt/work/Projects/.ai/standards/` | Binding engineering standards |
+| `.work/standards/` | This project's binding engineering standards (generated; `@plan-foundation` P3) |
+| `.work/docs/integration/` | This project's vendor/API integration cache |
+| `/mnt/work/Projects/.ai/standards/` | Framework template standards (vendored; not project binding) |
 | `/mnt/work/Projects/.ai/skills/` | Portable agent skills |
 | `/mnt/work/Projects/.ai/templates/cursorrules.template` | **Copy to repo root as `.cursorrules`** when bootstrapping |
 

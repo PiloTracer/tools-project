@@ -25,6 +25,9 @@
 # Scratch / temp trees
 **/tmp/
 
+# Vendored Agent OS copy (thin-client uses /mnt/work/Projects/.ai)
+.ai/
+
 # Logs & OS cruft
 *.log
 .DS_Store

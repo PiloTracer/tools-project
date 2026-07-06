@@ -1,0 +1,7 @@
+{
+  "ref": "REPLACE:PROJECT_REF",
+  "updated": "YYYY-MM-DD",
+  "goal": "one-line session or task goal",
+  "allowed_paths": [],
+  "allowed_patterns": []
+}

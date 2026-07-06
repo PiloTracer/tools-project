@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "description": "Machine-readable high-blast paths for this consumer project. Customize for your repository; framework defaults live in the Agent OS source at standards/PROTECTED_SURFACES.json ($AGENT_OS_SOURCE/standards/ when thin-client).",
+  "rule": "fail_verify_without_owner_approval",
+  "paths": [
+    "package.json",
+    "pnpm-lock.yaml",
+    "Cargo.lock",
+    "poetry.lock",
+    "pyproject.toml",
+    "docker-compose.yml",
+    "docker-compose.dev.yml",
+    "docker-compose.prd.yml",
+    "Dockerfile",
+    "Dockerfile.dev",
+    ".github/workflows/ci.yml",
+    ".github/workflows/deploy.yml",
+    ".cursorrules",
+    "AGENTS.md"
+  ],
+  "patterns": [
+    "*.env",
+    ".env.*",
+    "*.pem",
+    "*.key",
+    "migrations/*.sql",
+    "**/secrets/**"
+  ],
+  "thresholds": {
+    "max_lines_warn": 150,
+    "max_lines_fail": 400,
+    "max_areas_warn": 2,
+    "max_areas_fail": 3
+  }
+}

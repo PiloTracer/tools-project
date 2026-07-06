@@ -1,6 +1,6 @@
 # HANDOFF_UI — UI design session boundary
 
-> **Path:** `<repo-root>/.work.ui/context/HANDOFF_UI.md` · Maintained by **`ui-*` skills**. Session bookends: **`@session-control`** when `.ai/` is present.
+> **Path:** `<repo-root>/.work.ui/context/HANDOFF_UI.md` · Maintained by **`ui-*` skills**. Session bookends: **`@session-control`**.
 
 ## Session status
 
@@ -33,7 +33,7 @@
 
 ## Fresh start — first actions (UI)
 
-1. **`@session-control start`** when `.ai/` is present.
+1. **`@session-control start`**.
 2. Read **`.cursorrules`** (UI block or full UI template).
 3. Read **this file** and `.work.ui/plans/NEXT_UI.md`.
 4. If foundation missing: **`@ui-design-foundation greenfield`**.

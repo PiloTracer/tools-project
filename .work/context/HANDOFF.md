@@ -390,5 +390,5 @@ All 9 penetration test findings resolved. Restart the dev stack to pick up rate 
 - **Do not commit** `.env` or **`credentials/`** (never paste real PATs into chat).  
 - **GitHub PAT today:** **`POST /v1/projects/{project_id}/github/links`** with JSON **`{ "github_repo_url": "https://github.com/org/repo", "github_token": "…" }`** — see **`NEXT.md` § I12** and OpenAPI **`/docs`**.  
 - `MarkdownEditor`: **`mentionSuggestions`** + **`refSuggestions`** wired for project activity + ticket discussion.
-- **Repo restructured:** old `.ai/context/*` and `.ai/plans/*` → `.work/`; `.ai/` now holds the Agent OS framework. See `.work/context/` and `.work/plans/legacy-plans/`.
+- **Repo restructured:** old `.ai/context/*` and `.ai/plans/*` → `.work/`; Agent OS framework now at **`/mnt/work/Projects/.ai`** (thin-client — local `.ai/` removed 2026-07-06). See `.work/context/` and `.work/plans/legacy-plans/`.
 - **`.ai.bak`** is a stale backup of old `.ai/` — all content already in `.work/`; safe to delete.
