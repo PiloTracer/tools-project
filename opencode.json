@@ -1,8 +1,8 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "instructions": [
-    "../.ai/START_HERE.md",
-    "../.ai/PROCESS_ROUTER.md",
+    "/mnt/work/Projects/.ai/START_HERE.md",
+    "/mnt/work/Projects/.ai/PROCESS_ROUTER.md",
     "../.ai.ui/START_HERE.md",
     "../.ai.ui/COHABITATION.md",
     "../.ai.biz/START_HERE.md",
@@ -20,14 +20,14 @@
     },
     "agent-api": {
       "path": ".work/docs/agent-query-api.md",
-      "description": "Read-only API for local coding agent to query project/task/ticket/client context — endpoints, MCP tools, and usage examples"
+      "description": "Read-only API for local coding agent to query project/task/ticket/client context \u2014 endpoints, MCP tools, and usage examples"
     },
     "ai-soc": {
       "path": "../.ai.soc",
       "description": "Security OS: autonomous AI security testing, penetration testing, vulnerability assessment"
     },
     "ai": {
-      "path": "../.ai",
+      "path": "/mnt/work/Projects/.ai",
       "description": "Agent OS: skills, standards, concepts, workflow guides"
     }
   },
@@ -47,7 +47,7 @@
   },
   "skills": {
     "paths": [
-      "../.ai/skills",
+      "/mnt/work/Projects/.ai/skills",
       "../.ai.ui/skills",
       "../.ai.biz/skills",
       "../.ai.soc/skills"
