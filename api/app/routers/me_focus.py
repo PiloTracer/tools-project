@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -25,8 +25,10 @@ from app.schemas import (
     MentionWithContext,
     RefSearchResult,
     TaskOut,
+    TicketOut,
     TodayResponse,
     TodayTaskBundle,
+    TodayTicketBundle,
     UnifiedSearchHit,
     UserSearchResult,
     WatchCreate,
@@ -46,7 +48,7 @@ async def my_today(
     days: int = Query(default=7, ge=1, le=30),
 ):
     """Assigned tasks with a due date in the rolling window, plus watched items."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     horizon = start + timedelta(days=days + 1)
     stmt = (

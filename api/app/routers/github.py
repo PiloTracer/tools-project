@@ -5,11 +5,10 @@ from __future__ import annotations
 import logging
 import time
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 import httpx
-
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -37,8 +36,6 @@ from app.services.github_sync import sync_github_link
 from app.services.github_task_registry import empty_registry, fetch_registry
 from app.services.github_token_crypto import decrypt_github_token, encrypt_github_token
 from app.services.project_access import can_edit_project_meta, require_project_access
-
-from datetime import timedelta
 
 log = logging.getLogger(__name__)
 
@@ -104,7 +101,7 @@ async def create_github_link(
             status.HTTP_403_FORBIDDEN,
             detail="Only owners and maintainers can configure GitHub links",
         )
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     cipher = encrypt_github_token(body.github_token)
     row = GithubLink(
         project_id=project_id,
@@ -190,7 +187,7 @@ async def patch_github_link(
     if not updated:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="No updatable fields provided")
 
-    row.updated_at = datetime.now(timezone.utc)
+    row.updated_at = datetime.now(UTC)
     await db.commit()
     await db.refresh(row)
     return GithubLinkOut.model_validate(row)
@@ -214,21 +211,21 @@ async def sync_github_link_route(
     except PermissionError as e:
         row.sync_status = "error"
         row.last_error = str(e)[:400]
-        row.last_error_at = datetime.now(timezone.utc)
+        row.last_error_at = datetime.now(UTC)
         row.error_count = (row.error_count or 0) + 1
         await db.commit()
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail=str(e)) from e
     except FileNotFoundError as e:
         row.sync_status = "error"
         row.last_error = str(e)[:400]
-        row.last_error_at = datetime.now(timezone.utc)
+        row.last_error_at = datetime.now(UTC)
         row.error_count = (row.error_count or 0) + 1
         await db.commit()
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(e)) from e
     except ValueError as e:
         row.sync_status = "error"
         row.last_error = str(e)[:400]
-        row.last_error_at = datetime.now(timezone.utc)
+        row.last_error_at = datetime.now(UTC)
         row.error_count = (row.error_count or 0) + 1
         await db.commit()
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
@@ -236,7 +233,7 @@ async def sync_github_link_route(
         log.exception("github sync failed")
         row.sync_status = "error"
         row.last_error = str(e)[:400]
-        row.last_error_at = datetime.now(timezone.utc)
+        row.last_error_at = datetime.now(UTC)
         row.error_count = (row.error_count or 0) + 1
         await db.commit()
         raise HTTPException(
@@ -278,8 +275,8 @@ async def sync_github_link_route(
     row.last_error = None
     row.last_error_at = None
     row.error_count = 0
-    row.last_synced_at = datetime.now(timezone.utc)
-    row.updated_at = datetime.now(timezone.utc)
+    row.last_synced_at = datetime.now(UTC)
+    row.updated_at = datetime.now(UTC)
     await db.commit()
     return GithubSyncResult(
         upserted=int(out["upserted"]),
@@ -354,7 +351,7 @@ async def sync_backfill(
     if not isinstance(since_days, int) or since_days < 1 or since_days > 365:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail="since_days must be an integer between 1 and 365")
 
-    cutoff = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=since_days)
+    cutoff = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=since_days)
 
     links = (await db.scalars(
         select(GithubLink).where(GithubLink.project_id == project_id)
@@ -534,7 +531,7 @@ async def github_readiness(
     ).all()
 
     has_link = len(links) > 0
-    has_synced = any(l.last_synced_at is not None for l in links)
+    has_synced = any(link.last_synced_at is not None for link in links)
 
     checks: list[dict[str, object]] = [
         {
@@ -606,16 +603,16 @@ async def github_sync_status(
     return GithubSyncStatusResponse(
         items=[
             GithubSyncStatusItem(
-                link_id=l.id,
-                owner=l.owner,
-                repo=l.repo,
-                sync_status=l.sync_status or "idle",
-                last_synced_at=l.last_synced_at,
-                last_error=l.last_error,
-                last_error_at=l.last_error_at,
-                error_count=l.error_count or 0,
+                link_id=link.id,
+                owner=link.owner,
+                repo=link.repo,
+                sync_status=link.sync_status or "idle",
+                last_synced_at=link.last_synced_at,
+                last_error=link.last_error,
+                last_error_at=link.last_error_at,
+                error_count=link.error_count or 0,
             )
-            for l in links
+            for link in links
         ]
     )
 
@@ -704,7 +701,7 @@ async def github_token_health(
             log.warning("token health exception for %s/%s: %s", link.owner, link.repo, exc)
             if link.last_synced_at is not None:
                 entry["ok"] = True
-                entry["info"] = f"Validation check failed — syncs have succeeded before"
+                entry["info"] = "Validation check failed — syncs have succeeded before"
             else:
                 entry["ok"] = False
                 entry["error"] = "Could not validate token"

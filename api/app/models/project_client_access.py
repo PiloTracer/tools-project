@@ -9,7 +9,6 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
 
-
 CLIENT_ROLES = frozenset({"view", "contribute", "decision_maker", "billing"})
 
 

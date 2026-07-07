@@ -3,24 +3,20 @@ import logging
 import os
 import time
 import uuid
-from contextlib import asynccontextmanager
-
-logging.basicConfig(level=logging.INFO)
-log = logging.getLogger(__name__)
+from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-
 from sqlalchemy import select
 
 from app.bootstrap import run_bootstrap
 from app.config import get_settings
 from app.db import get_engine, init_db, session_factory
 from app.github_background import attachment_retention_purge_loop, github_poll_loop
-from app.schema_sql import run_post_bootstrap
 from app.routers import (
     activities,
     admin_users,
+    admin_webhooks,
     agent_query,
     attachments,
     auth,
@@ -30,10 +26,13 @@ from app.routers import (
     clients,
     commit_refs,
     components,
+    external_refs,
     github,
     inbox,
+    integrations,
     me_api_keys,
     me_focus,
+    platform,
     project_client_access,
     project_clients,
     projects,
@@ -43,14 +42,17 @@ from app.routers import (
     tasks,
     tickets,
 )
+from app.schema_sql import run_post_bootstrap
 
+logging.basicConfig(level=logging.INFO)
+log = logging.getLogger(__name__)
 
 _github_poll_task: asyncio.Task | None = None
 _retention_purge_task: asyncio.Task | None = None
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(_app: FastAPI):
     global _github_poll_task, _retention_purge_task
     await init_db()
     fac = session_factory()
@@ -66,17 +68,13 @@ async def lifespan(app: FastAPI):
     yield
     if _github_poll_task is not None:
         _github_poll_task.cancel()
-        try:
+        with suppress(asyncio.CancelledError):
             await _github_poll_task
-        except asyncio.CancelledError:
-            pass
         _github_poll_task = None
     if _retention_purge_task is not None:
         _retention_purge_task.cancel()
-        try:
+        with suppress(asyncio.CancelledError):
             await _retention_purge_task
-        except asyncio.CancelledError:
-            pass
         _retention_purge_task = None
 
 
@@ -90,10 +88,11 @@ app = FastAPI(
 )
 
 _origins_raw = os.environ.get("CORS_ALLOWED_ORIGINS", "").strip()
-if _origins_raw:
-    _origins = [o.strip() for o in _origins_raw.split(",") if o.strip()]
-else:
-    _origins = ["http://localhost:18513"]
+_origins = (
+    [o.strip() for o in _origins_raw.split(",") if o.strip()]
+    if _origins_raw
+    else ["http://localhost:18513"]
+)
 
 app.add_middleware(
     CORSMiddleware,
@@ -143,6 +142,10 @@ app.include_router(commit_refs.router)
 app.include_router(stats.router)
 app.include_router(reports.router)
 app.include_router(agent_query.router)
+app.include_router(integrations.router)
+app.include_router(platform.router)
+app.include_router(admin_webhooks.router)
+app.include_router(external_refs.router)
 
 
 @app.get("/healthz")

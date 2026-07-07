@@ -60,6 +60,8 @@ async def backfill_project(project_id: uuid.UUID) -> int:
 
         pushed = 0
         for t in tasks:
+            if t.ref is None:
+                continue
             ok = await push_task_ref(db, project_id, t.ref, t.title, t.status)
             if ok is not None:
                 print(f"  task {t.ref}: {'pushed' if ok else 'skipped (no registry access)'}")
@@ -69,6 +71,8 @@ async def backfill_project(project_id: uuid.UUID) -> int:
                 pushed += 1
 
         for t in tickets:
+            if t.ref is None:
+                continue
             ok = await push_ticket_ref(db, project_id, t.ref, t.title, t.status)
             if ok is not None:
                 print(f"  ticket {t.ref}: {'pushed' if ok else 'skipped (no registry access)'}")

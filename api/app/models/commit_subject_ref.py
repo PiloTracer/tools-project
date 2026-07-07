@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, func
+from sqlalchemy import DateTime, ForeignKey, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -53,5 +53,10 @@ class CommitSubjectRef(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+
+    source_app: Mapped[str] = mapped_column(String(30), default="github")
+    external_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    external_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    label: Mapped[str | None] = mapped_column(String(200), nullable=True)
 
     commit = relationship("GithubCommit", lazy="joined")

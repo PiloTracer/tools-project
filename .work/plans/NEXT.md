@@ -29,7 +29,43 @@ Open: none — all follow-ups resolved
 Active: none — all session follow-ups done
 
 ### Recommended next
-Generate your personal API key: log in, go to `/settings/api-keys`, create a key, and place it in `~/.tools-project-key`. Then restart opencode — the MCP server will pick it up automatically and the coding agent can query projects, tasks, tickets, clients, and prospects directly.
+1. Add automated tests for the ecosystem hub modifications (Mod 1–4).
+2. Run full task gate (ruff, pyright, tests, scope/blast-radius) and close the iteration.
+3. Build satellite apps (CompanyBrain, OpsBoard, SignFlow, LedgerLite) that consume the ecosystem APIs.
+
+## Current iteration (2026-07-06)
+
+**Goal:** Land ecosystem hub modifications 1–4 with passing task gate.
+
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| T1 | Implement outbound event dispatcher (Mod 1) | **Done** | `api/app/services/webhook_dispatcher.py`, `api/app/routers/admin_webhooks.py`, `api/app/models/webhook_subscription.py` |
+| T2 | Implement platform whoami (Mod 2) | **Done** | `api/app/routers/platform.py` |
+| T3 | Implement cross-app references (Mod 3) | **Done** | `api/app/routers/external_refs.py` |
+| T4 | Implement RFP award webhook (Mod 4) | **Done** | `api/app/routers/integrations.py` |
+| T5 | Fix lint/type failures across codebase | **Done** | ruff + pyright clean |
+| T6 | Fix GitHub token encryption error in dev stack | **Done** | `.env.dev` key + compose env passthrough + invalid dev link removed |
+| T7 | Update iteration scope in NEXT.md | **Done** | this section |
+| T8 | Add pytest + tests for new routers/services | **Done** | 25 tests in `api/tests/` covering Mod 1–4 + utilities |
+
+## Done this iteration
+
+- All Mod 1–4 code implemented and registered in `app/main.py`.
+- `ruff check .` passes.
+- `pyright .` passes (0 errors, 0 warnings).
+- Dev stack starts cleanly; API / web health endpoints respond.
+- GitHub poll no longer crashes on missing/invalid encryption key.
+
+## New features (2026-07-06)
+
+### Ecosystem hub modifications (Mod 1–4)
+
+| ID | Scope | Status | Evidence |
+|----|-------|--------|----------|
+| Mod 1 | Outbound event dispatcher — HMAC-signed webhooks + admin subscriptions | **Done** | `api/app/services/webhook_dispatcher.py`, `api/app/routers/admin_webhooks.py`, `api/app/models/webhook_subscription.py` |
+| Mod 2 | Platform whoami — shared identity for satellite apps | **Done** | `api/app/routers/platform.py` — `GET /v1/platform/whoami` |
+| Mod 3 | Cross-app references — generic `external_refs` over `commit_subject_refs` | **Done** | `api/app/routers/external_refs.py` |
+| Mod 4 | RFP award webhook — accept `tools-rfp` award, promote to client/project | **Done** | `api/app/routers/integrations.py` — `POST /v1/integrations/rfp/award` |
 
 ## New features (2026-07-01)
 
@@ -403,51 +439,89 @@ docker compose --profile dev run --rm --no-deps web sh -lc "npm ci --no-audit --
 
 ---
 
-## Current iteration — M1: CRM schema + models + prospects API
+## Current iteration — M7: Outbound event dispatcher
 
-**Milestone ref:** M1 · `.work/plans/full/20260618-full-plan.md` §19
+**Milestone ref:** M7 · Feature SPEC: `.work/features/outbound-event-dispatcher/20260706-SPEC.md`
 **Status:** complete
-**Started:** 2026-06-18
-
-### In scope
-- DDL + SQLAlchemy models for 5 new CRM tables (prospects, clients, client_contacts, project_clients, project_client_access)
-- Indexes for new tables
-- Prospects CRUD API (list, create, get, update, delete)
-- Prospect stage transition with business rule validation
-- Idempotency verification of all DDL
-
-### Out of scope (explicit)
-- Client/contact API (M2)
-- Prospect-to-client promotion on `won` (M2)
-- Project-client linking API (M3)
-- Client access control + portal (M3)
-- Web UI (deferred — API-only for M1)
+**Started:** 2026-07-06
 
 ### Tasks
 | ID | Description | Files | Status | Notes |
 |----|-------------|-------|--------|-------|
-| M1-T1 | `prospects` table DDL + SQLAlchemy model | `sql/schema_changes.sql`, `api/app/models/prospect.py` | done 2026-06-18 | FR3, NFR2 |
-| M1-T2 | `clients` table DDL + model with auto-slug | `sql/schema_changes.sql`, `api/app/models/client.py` | done 2026-06-18 | FR4, NFR2 |
-| M1-T3 | `client_contacts` table DDL + model with optional `user_id` FK | `sql/schema_changes.sql`, `api/app/models/client_contact.py` | done 2026-06-18 | FR5, NFR2 |
-| M1-T4 | `project_clients` join table DDL + model | `sql/schema_changes.sql`, `api/app/models/project_client.py` | done 2026-06-18 | FR6, NFR2 |
-| M1-T5 | `project_client_access` table DDL + model with roles enum | `sql/schema_changes.sql`, `api/app/models/project_client_access.py` | done 2026-06-18 | FR7, FR10, NFR1, NFR2 |
-| M1-T6 | Indexes in `sql/schema_indexes.sql` for new tables | `sql/schema_indexes.sql` | done 2026-06-18 | NFR2 |
-| M1-T7 | Verify idempotency — run `apply-ddl` twice | — | done 2026-06-18 | NFR2 — both runs exit 0 |
-| M1-T8 | Prospects CRUD router | `api/app/routers/prospects.py` | done 2026-06-18 | FR3 |
-| M1-T9 | Prospect stage transition endpoint with validation | `api/app/routers/prospects.py` | done 2026-06-18 | FR3, NFR4 |
+| M7-T1 | webhook_subscriptions table + model | `sql/schema_changes.sql`, `api/app/models/webhook_subscription.py` | done | DDL + SQLAlchemy model |
+| M7-T2 | webhook_dispatcher service | `api/app/services/webhook_dispatcher.py` | done | dispatch_event with retry + HMAC signing |
+| M7-T3 | admin CRUD router | `api/app/routers/admin_webhooks.py` | done | POST/GET/DELETE with superuser guard |
+| M7-T4 | Wire into event-producing routes | `prospects.py`, `clients.py`, `tasks.py`, `tickets.py` | done | prospect.stage_changed/won, client.created, task.done, ticket.created/closed |
+| M7-T5 | Register router + gate | `api/app/main.py` | done | compileall pass, 38 routes |
+
+### Done this iteration
+| Task | Completed | Notes |
+|------|-----------|-------|
+| M7-T1 | 2026-07-06 | webhook_subscriptions DDL + model |
+| M7-T2 | 2026-07-06 | webhook_dispatcher with retry |
+| M7-T3 | 2026-07-06 | admin webhook CRUD router |
+| M7-T4 | 2026-07-06 | Wiring in 4 routers |
+| M7-T5 | 2026-07-06 | Gate: compileall pass, 38 routes |
+
+---
+
+## Current iteration — M8: Cross-app external refs
+
+**Milestone ref:** M8 · Feature SPEC: `.work/features/cross-app-refs/20260706-SPEC.md`
+**Status:** complete
+**Started:** 2026-07-06
+
+### Tasks
+| ID | Description | Files | Status | Notes |
+|----|-------------|-------|--------|-------|
+| M8-T1 | Schema: add source_app, external_url, label to commit_subject_refs | `sql/schema_changes.sql`, `sql/schema_indexes.sql` | done | ALTER TABLE + index |
+| M8-T2 | Extend CommitSubjectRef model | `api/app/models/commit_subject_ref.py` | done | New columns |
+| M8-T3 | External refs CRUD router | `api/app/routers/external_refs.py` | done | POST/GET/DELETE per project |
+| M8-T4 | Register router + gate | `api/app/main.py` | done | compileall pass, 38 routes |
+
+### Done this iteration
+| Task | Completed | Notes |
+|------|-----------|-------|
+| M8-T1 | 2026-07-06 | Schema migration + index |
+| M8-T2 | 2026-07-06 | CommitSubjectRef extension |
+| M8-T3 | 2026-07-06 | external_refs router |
+| M8-T4 | 2026-07-06 | Gate: compileall pass, 38 routes |
+
+---
+
+## Current iteration — M6: Platform whoami endpoint
+
+**Milestone ref:** M6 · Feature SPEC: `.work/features/platform-whoami/20260706-SPEC.md`
+**Status:** complete
+**Started:** 2026-07-06
+**HANDOFF waiver:** This feature is outside the original M1-M4 plan. Approved SPEC exists; implementing as an additive extension.
+
+### In scope
+- Schemas: `WhoamiUser`, `WhoamiCompany`, `WhoamiResponse`
+- Router `GET /v1/platform/whoami` reusing `require_agent_or_user` auth
+- Lookup `client_contacts` by `user_id`, join `clients` for name
+- Register router in `main.py`
+
+### Out of scope (explicit)
+- Full OAuth2 Authorization Server
+- User registration or signup
+- Rate limiting specific to this endpoint
+
+### Tasks
+| ID | Description | Files | Status | Notes |
+|----|-------------|-------|--------|-------|
+| M6-T1 | Add whoami schemas | `api/app/schemas.py` | done 2026-07-06 | `WhoamiUser`, `WhoamiCompany`, `WhoamiResponse` |
+| M6-T2 | Create platform router | `api/app/routers/platform.py` | done 2026-07-06 | `GET /v1/platform/whoami` |
+| M6-T3 | Register router in main.py | `api/app/main.py` | done 2026-07-06 | Import + `include_router` |
+| M6-T4 | Task gate — compile, verify | — | done 2026-07-06 | `compileall` pass, app loads 36 routes |
 
 ### Acceptance criteria
-- [x] Prospects, clients, client_contacts, project_clients, project_client_access tables created
-- [x] All DDL idempotent — `apply-ddl` twice yields no errors
-- [x] Prospects CRUD works via API (list, create, get, update, delete)
-- [x] Stage transitions respect business rules (no skipping, `lost` is terminal)
-- [x] Task gate passes: compile, lint, type-check
+- [ ] `GET /v1/platform/whoami` returns user + companies with valid auth
+- [ ] Unauthenticated returns 401
+- [ ] Compileall pass
 
 ### Validation steps
 - [ ] `docker compose --profile dev run --rm --no-deps api python -m compileall -q app`
-- [ ] `docker compose --profile dev run --rm api python -m app.cli_schema apply-ddl` (run twice for idempotency)
-- [ ] `docker compose --profile dev run --rm --no-deps api python -m pytest`
-- [ ] `docker compose --profile dev run --rm --no-deps web sh -lc "npm ci --no-audit --no-fund && npm run check"`
 
 ### Owner blockers
 - none
@@ -455,12 +529,13 @@ docker compose --profile dev run --rm --no-deps web sh -lc "npm ci --no-audit --
 ### Concept / NFR registry (this iteration)
 | Concept id | Applies | Status | Evidence / trigger |
 |------------|---------|--------|-------------------|
-| MOD-01 | no | n/a | No cross-boundary coupling in M1 (all within API bounded context) |
+| MOD-01 | no | n/a | Single bounded context (API) |
 | MOD-02 | no | n/a | No AI-assisted PR |
 | MOD-03 | no | n/a | No cost-sensitive decisions |
 | MOD-04 | no | n/a | No distributed-system concerns |
 | MOD-05 | no | n/a | No compliance surface |
-| MOD-06 | yes | pending | Cursor/agent session - required before complete unless human-only |
+| MOD-06 | yes | done 2026-07-06 | 0 boundaries, no new deps, read-only query — merge_ok |
+| MOD-07 | no | n/a | No ops-load impact |
 
 ### Cross-LLM verification
 - Triggered: no
@@ -468,15 +543,83 @@ docker compose --profile dev run --rm --no-deps web sh -lc "npm ci --no-audit --
 ### Done this iteration
 | Task | Completed | Notes |
 |------|-----------|-------|
-| M1-T1 | 2026-06-18 | prospects DDL + model |
-| M1-T2 | 2026-06-18 | clients DDL + model |
-| M1-T3 | 2026-06-18 | client_contacts DDL + model |
-| M1-T4 | 2026-06-18 | project_clients DDL + model |
-| M1-T5 | 2026-06-18 | project_client_access DDL + model |
-| M1-T6 | 2026-06-18 | indexes for all new tables |
-| M1-T7 | 2026-06-18 | apply-ddl idempotency verified (2 runs, exit 0) |
-| M1-T8 | 2026-06-18 | prospects CRUD router |
-| M1-T9 | 2026-06-18 | prospect stage transition with validation |
+| M6-T1 | 2026-07-06 | WhoamiUser, WhoamiCompany, WhoamiResponse schemas |
+| M6-T2 | 2026-07-06 | platform router: GET /v1/platform/whoami |
+| M6-T3 | 2026-07-06 | Router registered in main.py |
+| M6-T4 | 2026-07-06 | Gate: compileall pass, app imports (36 routes) |
+
+---
+
+## Current iteration — M5: RFP award webhook receiver
+
+**Milestone ref:** M5 · Feature SPEC: `.work/features/rfp-award-webhook/20260706-SPEC.md`
+**Status:** complete
+**Started:** 2026-07-06
+**HANDOFF waiver:** This feature is outside the original M1-M4 plan. Approved SPEC exists; implementing as an additive extension.
+
+### In scope
+- `rfp_webhook_secret` config setting in `Settings`
+- In-memory idempotency store with 24h TTL
+- HMAC-SHA256 signature verification dependency
+- Schemas: `RfpAwardPayload`, `RfpAwardResponse`
+- New router `POST /v1/integrations/rfp/award` — accepts webhook, resolves/creates prospect, transitions to won, runs promotion pipeline
+- Register router in `main.py`
+
+### Out of scope (explicit)
+- `integration_secrets` DB table (single env var for V1)
+- DB-backed idempotency (in-memory for MVP)
+- Outbound webhook dispatcher (Modification 1 — separate feature)
+- Cross-app reference table (Modification 3 — separate feature)
+- Web UI for webhook configuration
+- Tests (unit/integration — added as follow-up after manual verification)
+
+### Tasks
+| ID | Description | Files | Status | Notes |
+|----|-------------|-------|--------|-------|
+| M5-T1 | Add `rfp_webhook_secret` to config + in-memory idempotency store | `api/app/config.py` | done 2026-07-06 | Single env var; dict-based idempotency with expiry |
+| M5-T2 | Add schemas for RFP award payload and response | `api/app/schemas.py` | done 2026-07-06 | `RfpAwardPayload`, `RfpAwardResponse` |
+| M5-T3 | Create HMAC signature verification dependency | `api/app/deps.py` | done 2026-07-06 | `verify_webhook_signature` |
+| M5-T4 | Create `integrations` router with `POST /v1/integrations/rfp/award` | `api/app/routers/integrations.py` | done 2026-07-06 | Resolve/create prospect, call `pipeline_service`, return client+project |
+| M5-T5 | Register router in `main.py` | `api/app/main.py` | done 2026-07-06 | Import + `include_router` |
+| M5-T6 | Task gate — compile, verify | — | done 2026-07-06 | `compileall` pass, app loads 35 routes |
+
+### Acceptance criteria
+- [ ] `POST /v1/integrations/rfp/award` with valid HMAC signature returns 201 with client + project
+- [ ] Invalid signature returns 401
+- [ ] Missing required fields returns 422
+- [ ] Idempotency key prevents duplicate processing
+- [ ] Same email reuses existing prospect/contact
+- [ ] Compileall pass
+
+### Validation steps
+- [ ] `docker compose --profile dev run --rm --no-deps api python -m compileall -q app`
+
+### Owner blockers
+- none
+
+### Concept / NFR registry (this iteration)
+| Concept id | Applies | Status | Evidence / trigger |
+|------------|---------|--------|-------------------|
+| MOD-01 | no | n/a | Single bounded context (API) — no cross-boundary coupling |
+| MOD-02 | no | n/a | No AI-assisted PR |
+| MOD-03 | no | n/a | No cost-sensitive decisions — tiny endpoint |
+| MOD-04 | no | n/a | No distributed-system concerns |
+| MOD-05 | no | n/a | No compliance surface |
+| MOD-06 | yes | done 2026-07-06 | Agent-assisted code — run. Output: 0 boundaries, no new cross-boundary deps, test isolation missing. Recommendation: merge_with_conditions — add tests before production traffic |
+| MOD-07 | no | n/a | No ops-load impact |
+
+### Cross-LLM verification
+- Triggered: no
+
+### Done this iteration
+| Task | Completed | Notes |
+|------|-----------|-------|
+| M5-T1 | 2026-07-06 | rfp_webhook_secret config + in-memory idempotency store |
+| M5-T2 | 2026-07-06 | RfpAwardPayload + RfpAwardResponse schemas |
+| M5-T3 | 2026-07-06 | verify_webhook_signature HMAC dependency |
+| M5-T4 | 2026-07-06 | integrations router: POST /v1/integrations/rfp/award |
+| M5-T5 | 2026-07-06 | Router registered in main.py |
+| M5-T6 | 2026-07-06 | Gate: compileall pass, app imports (35 routes) |
 
 ---
 

@@ -23,6 +23,12 @@ dependencies = [
     "openpyxl>=3.1",
 ]
 
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "pytest-asyncio>=0.23",
+]
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["app*"]
@@ -34,17 +40,18 @@ extend-exclude = ["migrations"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP", "B", "SIM", "ARG"]
-ignore = ["E501", "SIM117"]
+ignore = ["E501", "SIM117", "B008"]
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
+"app/routers/*.py" = ["ARG001"]
 
 [tool.ruff.format]
 quote-style = "double"
 
 [tool.pyright]
 include = ["app"]
-exclude = ["migrations"]
+exclude = ["migrations", "tests"]
 pythonVersion = "3.11"
 typeCheckingMode = "basic"
 reportMissingImports = "warning"
@@ -53,3 +60,8 @@ reportPrivateUsage = "none"
 reportOptionalMemberAccess = "warning"
 reportOptionalSubscript = "warning"
 reportUnusedImport = "warning"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = ["."]

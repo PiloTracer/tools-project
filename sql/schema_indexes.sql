@@ -103,3 +103,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_commit_subject_refs_pending
 -- User API keys
 CREATE INDEX IF NOT EXISTS ix_user_api_keys_user_id ON user_api_keys (user_id);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_user_api_keys_key_hash ON user_api_keys (key_hash);
+
+-- Mod 3: external refs
+CREATE INDEX IF NOT EXISTS ix_external_refs_source_app ON commit_subject_refs (source_app);
+
+-- Mod 1: webhook subscriptions
+CREATE INDEX IF NOT EXISTS ix_webhook_subscriptions_events ON webhook_subscriptions USING GIN (events);

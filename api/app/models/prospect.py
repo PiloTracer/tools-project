@@ -9,7 +9,6 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
 
-
 PIPELINE_STAGES = frozenset({
     "target", "connected", "engaged", "call_scheduled", "call_done",
     "proposal_sent", "negotiating", "won", "lost",

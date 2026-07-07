@@ -24,11 +24,12 @@ from __future__ import annotations
 import logging
 import re
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.commit_subject_ref import CommitSubjectRef
@@ -121,7 +122,7 @@ async def link_commit_refs(
     try:
         project_id = link.project_id
         created_by = author_id if author_id is not None else link.created_by
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         # Collect every ref across all messages, then resolve in one batch.
         all_refs: list[str] = []
@@ -204,6 +205,8 @@ async def link_commit_refs(
                 )
             )
             for pr in pending_rows.all():
+                if pr.sha is None:
+                    continue
                 pending_map.setdefault(pr.sha, []).append(pr)
 
         # Step 2: build rows for new links (skip if a pending row already covers it).
@@ -254,7 +257,7 @@ async def link_commit_refs(
         linked = 0
         for row_data in rows:
             stmt = pg_insert(CommitSubjectRef).values(**row_data).on_conflict_do_nothing()
-            r = await db.execute(stmt)
+            r: CursorResult[Any] = await db.execute(stmt)  # type: ignore[assignment]
             if r.rowcount:
                 linked += 1
         await db.flush()

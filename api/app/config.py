@@ -74,6 +74,9 @@ class Settings(BaseSettings):
     # Agent Query API: optional shared secret for agent (MCP server) read-only access.
     agent_api_key: str = ""
 
+    # RFP integration: shared secret for HMAC-signed webhooks from tools-rfp.
+    rfp_webhook_secret: str = ""
+
 
     @classmethod
     def _check_defaults(cls, values: dict) -> dict:

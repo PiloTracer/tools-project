@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 from fastapi import HTTPException, status
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.client_contact import ClientContact
@@ -39,7 +39,7 @@ def parse_member_role(value: str) -> MemberRole:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
             detail="Invalid role (use owner, maintainer, contributor, viewer)",
-        )
+        ) from None
 
 
 @dataclass(frozen=True)

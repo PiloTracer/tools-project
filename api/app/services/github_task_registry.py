@@ -14,7 +14,7 @@ import base64
 import json
 import logging
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -38,7 +38,7 @@ RETRY_DELAY_S = 0.5
 def _empty_registry() -> dict[str, Any]:
     return {
         "version": 1,
-        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(UTC).isoformat(),
         "tasks": [],
         "tickets": [],
     }
@@ -118,7 +118,7 @@ async def _write_registry(
 ) -> None:
     """Write (or create) the registry file via Contents API."""
     url = f"https://api.github.com/repos/{owner}/{repo}/contents/{REGISTRY_PATH}"
-    registry["updated_at"] = datetime.now(timezone.utc).isoformat()
+    registry["updated_at"] = datetime.now(UTC).isoformat()
     raw = json.dumps(registry, indent=2, ensure_ascii=False)
     payload: dict[str, object] = {
         "message": commit_msg,

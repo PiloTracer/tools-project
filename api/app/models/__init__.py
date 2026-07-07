@@ -1,8 +1,8 @@
 from app.models.activity import Activity
 from app.models.attachment import Attachment
 from app.models.client import Client
-from app.models.commit_subject_ref import CommitSubjectRef
 from app.models.client_contact import ClientContact
+from app.models.commit_subject_ref import CommitSubjectRef
 from app.models.component import Component
 from app.models.github_commit import GithubCommit
 from app.models.github_link import GithubLink
@@ -19,6 +19,7 @@ from app.models.ticket import Ticket
 from app.models.user import User
 from app.models.user_api_key import UserApiKey
 from app.models.watcher import Watcher
+from app.models.webhook_subscription import WebhookSubscription
 
 __all__ = [
     "Activity",
@@ -27,6 +28,8 @@ __all__ = [
     "CommitSubjectRef",
     "ClientContact",
     "Component",
+
+
     "GithubCommit",
     "GithubLink",
     "InboxItem",
@@ -42,4 +45,5 @@ __all__ = [
     "User",
     "UserApiKey",
     "Watcher",
+    "WebhookSubscription",
 ]

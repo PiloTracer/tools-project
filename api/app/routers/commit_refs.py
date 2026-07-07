@@ -19,7 +19,6 @@ from app.deps import get_current_user
 from app.models.commit_subject_ref import CommitSubjectRef
 from app.models.github_commit import GithubCommit
 from app.models.github_link import GithubLink
-from app.models.project import Project
 from app.models.task import Task
 from app.models.ticket import Ticket
 from app.models.user import User
@@ -30,6 +29,7 @@ from app.schemas import (
     CommitSubjectRefOut,
 )
 from app.services.project_access import require_project_access
+
 
 async def _enrich_subject_fields(
     db: AsyncSession,
@@ -204,115 +204,6 @@ async def create_commit_ref(
 
 # NOTE: create_pending_commit_ref removed — dead code (never registered on any router).
 # Pending commit ref processing is handled by services/commit_ref_pending_processor.py.
-
-async def _dead_create_pending_commit_ref(
-    project_id: uuid.UUID,
-    body: CommitSubjectRefPendingCreate,
-    user: Annotated[User, Depends(get_current_user)],
-    db: Annotated[AsyncSession, Depends(get_db)],
-):
-    """Create a pending commit-subject reference for a commit that hasn't synced yet.
-
-    This is called by a custom post-receive hook or CI pipeline to link a local
-    commit SHA + ref immediately, before GitHub sync brings it into ``github_commits``.
-    The row's ``github_commit_id`` is set later when the background sync resolves
-    the SHA.
-
-    The ref is automatically resolved to a task or ticket in this project.
-    """
-    await require_project_access(db, user, project_id)
-
-    # Verify the SHA is valid (40 hex chars — already validated by the schema)
-    sha = body.sha.strip().lower()
-
-    # Check if this commit already exists in github_commits (fast path).
-    commit = await db.scalar(
-        select(GithubCommit.id)
-        .join(GithubLink, GithubLink.id == GithubCommit.github_link_id)
-        .where(GithubLink.project_id == project_id, GithubCommit.sha == sha)
-        .limit(1)
-    )
-
-    # Resolve the ref to a task or ticket.
-    subject_type: str | None = None
-    subject_id: uuid.UUID | None = None
-    ref = body.ref.strip()
-
-    task = await db.scalar(
-        select(Task.id).where(Task.ref == ref, Task.project_id == project_id).limit(1)
-    )
-    if task is not None:
-        subject_type = "task"
-        subject_id = task
-    else:
-        ticket = await db.scalar(
-            select(Ticket.id).where(Ticket.ref == ref, Ticket.project_id == project_id).limit(1)
-        )
-        if ticket is not None:
-            subject_type = "ticket"
-            subject_id = ticket
-
-    if subject_type is None or subject_id is None:
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST,
-            detail=f"Ref {ref} does not match any task or ticket in this project",
-        )
-
-    # Check for existing ref (by github_commit_id or by sha+project_id).
-    if commit is not None:
-        existing = await db.scalar(
-            select(CommitSubjectRef.id).where(
-                CommitSubjectRef.github_commit_id == commit,
-                CommitSubjectRef.subject_type == subject_type,
-                CommitSubjectRef.subject_id == subject_id,
-            ).limit(1)
-        )
-    else:
-        existing = await db.scalar(
-            select(CommitSubjectRef.id).where(
-                CommitSubjectRef.github_commit_id.is_(None),
-                CommitSubjectRef.sha == sha,
-                CommitSubjectRef.project_id == project_id,
-                CommitSubjectRef.subject_type == subject_type,
-                CommitSubjectRef.subject_id == subject_id,
-            ).limit(1)
-        )
-
-    if existing is not None:
-        raise HTTPException(
-            status.HTTP_409_CONFLICT,
-            detail="Reference already exists for this commit + subject",
-        )
-
-    row = CommitSubjectRef(
-        github_commit_id=commit,  # None if not yet synced
-        sha=sha,
-        project_id=project_id,
-        subject_type=subject_type,
-        subject_id=subject_id,
-        created_by=user.id,
-    )
-    db.add(row)
-    await db.flush()
-    await db.refresh(row)
-    sm = await _enrich_subject_fields(db, [(row.subject_type, row.subject_id)])
-    sub = sm.get((row.subject_type, str(row.subject_id)))
-    return CommitSubjectRefOut(
-        id=row.id,
-        github_commit_id=row.github_commit_id,
-        sha=row.sha,
-        project_id=row.project_id,
-        subject_type=row.subject_type,
-        subject_id=row.subject_id,
-        subject_ref=sub[0] if sub else None,
-        subject_title=sub[1] if sub else None,
-        subject_status=sub[2] if sub else None,
-        subject_priority=sub[3] if sub else None,
-        subject_description=sub[4] if sub else None,
-        created_by=row.created_by,
-        created_at=row.created_at,
-        commit=None,
-    )
 
 
 @router.delete("/{ref_id}", status_code=status.HTTP_204_NO_CONTENT)

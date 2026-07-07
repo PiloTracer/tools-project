@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import bcrypt
 from jose import JWTError, jwt
@@ -29,7 +29,7 @@ def create_local_access_token(
     settings: Settings | None = None,
 ) -> tuple[str, int]:
     settings = settings or get_settings()
-    expire = datetime.now(timezone.utc) + timedelta(
+    expire = datetime.now(UTC) + timedelta(
         minutes=settings.access_token_expire_minutes
     )
     exp_seconds = int(settings.access_token_expire_minutes * 60)

@@ -14,9 +14,10 @@ def sniff_file_mime(header: bytes) -> str | None:
         return "image/gif"
     if header.startswith(b"RIFF") and header[8:12] == b"WEBP":
         return "image/webp"
-    if header.startswith(b"%PDF"):
-        if header.startswith(b"%PDF-1.") or header.startswith(b"%PDF-2."):
-            return "application/pdf"
+    if header.startswith(b"%PDF") and (
+        header.startswith(b"%PDF-1.") or header.startswith(b"%PDF-2.")
+    ):
+        return "application/pdf"
     if header.startswith(b"\x1a\xa5\x00\x1a"):
         # Minimal: treat as text/plain (ILBM-derived, unlikely but can't infer)
         return None

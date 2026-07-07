@@ -18,6 +18,7 @@ from app.schemas import (
     ClientUpdate,
     slugify,
 )
+from app.services.webhook_dispatcher import dispatch_event
 
 router = APIRouter(prefix="/v1/clients", tags=["clients"])
 
@@ -72,6 +73,10 @@ async def create_client(
     db.add(row)
     await db.commit()
     await db.refresh(row)
+    dispatch_event("client.created", {
+        "client_id": str(row.id),
+        "name": row.name,
+    })
     return ClientOut.model_validate(row)
 
 

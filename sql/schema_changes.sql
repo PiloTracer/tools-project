@@ -333,3 +333,22 @@ CREATE TABLE IF NOT EXISTS user_api_keys (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Mod 3: External refs (generalized commit_subject_refs)
+ALTER TABLE commit_subject_refs ADD COLUMN IF NOT EXISTS source_app VARCHAR(30) NOT NULL DEFAULT 'github';
+ALTER TABLE commit_subject_refs ADD COLUMN IF NOT EXISTS external_id VARCHAR(200);
+ALTER TABLE commit_subject_refs ADD COLUMN IF NOT EXISTS external_url TEXT;
+ALTER TABLE commit_subject_refs ADD COLUMN IF NOT EXISTS label VARCHAR(200);
+
+-- Mod 1: Webhook subscriptions for outbound event dispatcher
+CREATE TABLE IF NOT EXISTS webhook_subscriptions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    label VARCHAR(100),
+    url TEXT NOT NULL,
+    events TEXT[] NOT NULL DEFAULT '{}',
+    hmac_secret TEXT NOT NULL,
+    max_retries INTEGER NOT NULL DEFAULT 3,
+    last_delivered_at TIMESTAMPTZ,
+    created_by UUID REFERENCES users (id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);

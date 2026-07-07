@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
@@ -25,6 +25,8 @@ from app.schemas import (
 from app.services.activity_writer import write_activity
 from app.services.github_task_registry import (
     spawn_push_task_ref,
+)
+from app.services.github_task_registry import (
     spawn_remove_ref as spawn_remove_task_ref,
 )
 from app.services.project_access import (
@@ -36,6 +38,7 @@ from app.services.project_access import (
     require_project_access,
 )
 from app.services.ref_alloc import allocate_ref
+from app.services.webhook_dispatcher import dispatch_event
 
 project_router = APIRouter(
     prefix="/v1/projects/{project_id}/tasks",
@@ -133,7 +136,7 @@ async def create_task(
             detail=f"Invalid status: {status_val}. Use one of {sorted(TASK_STATUSES)}",
         )
     ref = await allocate_ref(db, project_id, "task")
-    closed_at = datetime.now(timezone.utc) if status_val in _TERMINAL_TASK_STATUSES else None
+    closed_at = datetime.now(UTC) if status_val in _TERMINAL_TASK_STATUSES else None
     row = Task(
         project_id=project_id,
         component_id=body.component_id,
@@ -226,7 +229,7 @@ async def patch_task(
             )
         row.status = status_val
         if status_val in _TERMINAL_TASK_STATUSES:
-            row.closed_at = datetime.now(timezone.utc)
+            row.closed_at = datetime.now(UTC)
         else:
             row.closed_at = None
     if body.priority is not None:
@@ -294,7 +297,7 @@ async def transition_task(
     prev = row.status
     row.status = status_val
     if status_val in _TERMINAL_TASK_STATUSES:
-        row.closed_at = datetime.now(timezone.utc)
+        row.closed_at = datetime.now(UTC)
     else:
         row.closed_at = None
     await db.flush()
@@ -312,6 +315,13 @@ async def transition_task(
     await db.refresh(row)
     if row.ref:
         spawn_push_task_ref(row.project_id, row.ref, row.title, row.status, row.description)
+    if status_val == "done" and prev != "done":
+        dispatch_event("task.done", {
+            "task_id": str(row.id),
+            "project_id": str(row.project_id),
+            "title": row.title,
+            "ref": row.ref,
+        })
     return TaskOut.model_validate(row)
 
 
@@ -363,7 +373,7 @@ async def batch_update_tasks(
             )
 
     updated: list[Task] = []
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     for row in rows:
         changed = False
         if body.status is not None:

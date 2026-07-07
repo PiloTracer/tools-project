@@ -11,7 +11,6 @@ from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-
 from app.db import get_db, session_factory
 from app.deps import get_current_user
 from app.models.activity import Activity
@@ -58,7 +57,7 @@ async def _validate_github_ref(
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
             detail="Invalid commit_id in github_ref",
-        )
+        ) from None
     commit = await db.get(GithubCommit, commit_uuid)
     if commit is None:
         raise HTTPException(
@@ -359,6 +358,11 @@ async def create_activity(
         )
         if existing_ref is None:
             ref_commit = await db.get(GithubCommit, commit_ref_id)
+            if ref_commit is None:
+                raise HTTPException(
+                    status.HTTP_400_BAD_REQUEST,
+                    detail="Referenced commit not found",
+                )
             db.add(
                 CommitSubjectRef(
                     github_commit_id=commit_ref_id,

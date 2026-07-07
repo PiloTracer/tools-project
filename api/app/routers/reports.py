@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import uuid
-from datetime import date
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -14,7 +13,7 @@ from app.deps import get_current_user, require_superuser
 from app.models.client import Client
 from app.models.client_contact import ClientContact
 from app.models.project import Project
-from app.models.prospect import PIPELINE_STAGE_ORDER, Prospect
+from app.models.prospect import Prospect
 from app.models.task import Task
 from app.models.ticket import Ticket
 from app.models.user import User
@@ -37,11 +36,13 @@ STAGE_LABELS: dict[str, str] = {
 
 def _build_workbook(headers: list[str], rows: list[list]) -> bytes:
     import openpyxl
-    from openpyxl.styles import Font, PatternFill, Alignment
+    from openpyxl.styles import Alignment, Font, PatternFill
     from openpyxl.utils import get_column_letter
 
     wb = openpyxl.Workbook()
     ws = wb.active
+    if ws is None:
+        raise RuntimeError("Failed to create worksheet")
     ws.title = "Report"
 
     header_font = Font(name="Calibri", bold=True, size=11, color="FFFFFF")

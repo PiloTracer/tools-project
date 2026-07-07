@@ -2,19 +2,17 @@ from __future__ import annotations
 
 import re
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Annotated
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-import httpx
-
 from app.db import get_db
 from app.deps import get_current_user
-from app.models.client import Client
 from app.models.github_link import GithubLink
 from app.models.project import Project
 from app.models.project_client import ProjectClient
@@ -118,7 +116,7 @@ async def list_projects(
         for pid, cnt, oldest in ticket_result.all():
             ticket_info[pid] = (cnt, oldest)
 
-        now_utc = datetime.now(timezone.utc)
+        now_utc = datetime.now(UTC)
         for p, role in rows:
             health = None
             open_tasks = task_counts.get(p.id, 0)
@@ -273,11 +271,11 @@ async def patch_project(
                 )
         except HTTPException:
             raise
-        except Exception:
+        except Exception as exc:
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST,
                 detail="Could not validate the GitHub token. Check the repository link and token in GitHub settings.",
-            )
+            ) from exc
     if body.github_task_registry_enabled is not None:
         proj.github_task_registry_enabled = body.github_task_registry_enabled
     if body.auto_prefix_enabled is not None:

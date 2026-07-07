@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import uuid
-from datetime import date
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
@@ -13,25 +12,24 @@ from app.deps import get_current_user, require_superuser
 from app.models.client import Client
 from app.models.prospect import (
     PIPELINE_STAGE_ORDER,
-    PIPELINE_STAGES,
     TERMINAL_STAGES,
     Prospect,
 )
 from app.models.user import User
 from app.schemas import (
-    TERMINAL_PIPELINE_STAGES,
     VALID_PIPELINE_STAGES,
     ClientOut,
+    ProjectOut,
     ProspectCreate,
     ProspectListResponse,
     ProspectOut,
+    ProspectPromoteResponse,
     ProspectStageChange,
     ProspectStageChangeResponse,
-    ProjectOut,
-    ProspectPromoteResponse,
     ProspectUpdate,
 )
 from app.services.pipeline_service import auto_scaffold_onboarding_project, promote_prospect_to_client
+from app.services.webhook_dispatcher import dispatch_event
 
 
 async def _enrich_client_id(db, prospect) -> uuid.UUID | None:
@@ -204,9 +202,7 @@ async def transition_prospect_stage(
                 status_code=422,
                 detail="Can only transition to 'won' from 'negotiating'",
             )
-    elif target_idx < current_idx:
-        pass
-    elif target_idx == current_idx + 1:
+    elif target_idx < current_idx or target_idx == current_idx + 1:
         pass
     else:
         raise HTTPException(
@@ -230,6 +226,17 @@ async def transition_prospect_stage(
 
     await db.commit()
     await db.refresh(row)
+    dispatch_event("prospect.stage_changed", {
+        "prospect_id": str(prospect_id),
+        "company_name": row.company_name,
+        "from_stage": current_stage,
+        "to_stage": target_stage,
+    })
+    if target_stage == "won":
+        dispatch_event("prospect.won", {
+            "prospect_id": str(prospect_id),
+            "company_name": row.company_name,
+        })
     client_id = await _enrich_client_id(db, row)
     return ProspectStageChangeResponse(
         **ProspectOut.model_validate(row).model_copy(update={"client_id": client_id}).model_dump(),
@@ -273,6 +280,11 @@ async def promote_prospect(
     await db.flush()
     await db.refresh(project)
     await db.commit()
+    dispatch_event("prospect.won", {
+        "prospect_id": str(prospect_id),
+        "company_name": row.company_name,
+        "client_id": str(client.id),
+    })
     return ProspectPromoteResponse(
         client=ClientOut.model_validate(client),
         project=ProjectOut.model_validate(project),

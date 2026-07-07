@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -42,7 +42,7 @@ def _parse_committed_at(commit_blob: dict[str, Any]) -> datetime:
             return datetime.fromisoformat(date_s)
         except ValueError:
             pass
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 async def sync_github_link(db: AsyncSession, link_id: uuid.UUID, since: datetime | None = None) -> dict[str, Any]:
@@ -57,7 +57,12 @@ async def sync_github_link(db: AsyncSession, link_id: uuid.UUID, since: datetime
     if link is None:
         raise ValueError("github link not found")
 
-    token = decrypt_github_token(link.token_cipher)
+    if not link.token_cipher:
+        raise PermissionError("No GitHub token stored for this link")
+    try:
+        token = decrypt_github_token(link.token_cipher)
+    except ValueError as exc:
+        raise PermissionError("Stored GitHub token could not be decrypted (wrong key?)") from exc
     owner = link.owner.strip()
     repo = link.repo.strip()
     settings = get_settings()
@@ -104,7 +109,7 @@ async def sync_github_link(db: AsyncSession, link_id: uuid.UUID, since: datetime
             existing_shas.add(row)
 
     upserted = 0
-    commits_info: list[dict[str, str]] = []
+    commits_info: list[dict[str, Any]] = []
     commit_pairs: list[tuple[uuid.UUID, str, str]] = []
     for item in items:
         if not isinstance(item, dict):
@@ -172,7 +177,7 @@ async def sync_github_link(db: AsyncSession, link_id: uuid.UUID, since: datetime
             "is_new": is_new,
         })
 
-    link.last_synced_at = datetime.now(timezone.utc)
+    link.last_synced_at = datetime.now(UTC)
     link.sync_status = "idle"
     link.last_error = None
     link.last_error_at = None

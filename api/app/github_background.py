@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 
@@ -78,6 +78,17 @@ async def github_poll_loop() -> None:
                         link.last_error_at = None
                         link.error_count = 0
                         await s2.commit()
+                    except PermissionError as exc:
+                        await s2.rollback()
+                        log.warning("GitHub auth failed for link_id=%s: %s", lid, exc)
+                        async with fac() as err_s:
+                            err_link = await err_s.get(GithubLink, lid)
+                            if err_link is not None:
+                                err_link.sync_status = "auth_error"
+                                err_link.last_error = str(exc)[:400]
+                                err_link.last_error_at = datetime.now(UTC)
+                                err_link.error_count = (err_link.error_count or 0) + 1
+                                await err_s.commit()
                     except Exception as exc:
                         await s2.rollback()
                         log.exception("GitHub poll failed for link_id=%s", lid)
@@ -87,7 +98,7 @@ async def github_poll_loop() -> None:
                             if err_link is not None:
                                 err_link.sync_status = "error"
                                 err_link.last_error = str(exc)[:400]
-                                err_link.last_error_at = datetime.now(timezone.utc)
+                                err_link.last_error_at = datetime.now(UTC)
                                 err_link.error_count = (err_link.error_count or 0) + 1
                                 await err_s.commit()
         except asyncio.CancelledError:

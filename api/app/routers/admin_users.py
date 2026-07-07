@@ -1,22 +1,23 @@
 from __future__ import annotations
 
 import uuid
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
 from app.deps import get_current_user_local
-from app.models.user import User
 from app.models.client import Client
 from app.models.client_contact import ClientContact
 from app.models.project import Project
 from app.models.project_member import ProjectMember
+from app.models.user import User
 from app.schemas import (
     AdminAddToProjectRequest,
     AdminChangeProjectRoleRequest,
-    AdminLinkContactRequest,
     AdminLinkableContactOut,
+    AdminLinkContactRequest,
     AdminUserCreate,
     AdminUserListResponse,
     AdminUserOut,
@@ -25,14 +26,14 @@ from app.schemas import (
     UserMembershipOut,
 )
 from app.services.auth_local import hash_password
-from app.services.project_access import MemberRole, parse_member_role
+from app.services.project_access import parse_member_role
 
 router = APIRouter(prefix="/v1/admin/users", tags=["admin-users"])
 
 
 async def _enrich_users(
     db: AsyncSession,
-    users: list[object],
+    users: list[User],
 ) -> list[AdminUserOut]:
     """Load memberships and client contacts for one or more User rows."""
     user_ids = [u.id for u in users]

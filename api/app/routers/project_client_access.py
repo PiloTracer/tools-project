@@ -12,7 +12,7 @@ from app.db import get_db
 from app.deps import get_current_user
 from app.models.client_contact import ClientContact
 from app.models.project_client import ProjectClient
-from app.models.project_client_access import ProjectClientAccess, CLIENT_ROLES
+from app.models.project_client_access import CLIENT_ROLES, ProjectClientAccess
 from app.models.user import User
 from app.schemas import (
     ClientAccessCreate,

@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
@@ -74,7 +73,7 @@ async def pipeline_stats(
     total_terminal = stage_map["won"]["count"] + stage_map["lost"]["count"]
     conversion_rate = round(stage_map["won"]["count"] / total_terminal, 4) if total_terminal > 0 else None
 
-    today = datetime.now(timezone.utc).date()
+    today = datetime.now(UTC).date()
     needs_attention_count = sum(
         1 for p in prospects
         if p.next_action_date is not None
@@ -126,7 +125,7 @@ async def my_stats(
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     week_ago = now - timedelta(days=7)
 
     open_tasks = await db.scalar(

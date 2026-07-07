@@ -7,7 +7,6 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
-
 # --- Status constants (align with plan §4.1) ---
 
 TASK_STATUSES: frozenset[str] = frozenset({"todo", "in_progress", "blocked", "done", "cancelled"})
@@ -72,8 +71,8 @@ class AdminUserOut(BaseModel):
     auth_source: str = "local"
     is_active: bool
     is_superuser: bool
-    memberships: list["UserMembershipOut"] = Field(default_factory=list)
-    client_contacts: list["UserClientContactOut"] = Field(default_factory=list)
+    memberships: list[UserMembershipOut] = Field(default_factory=list)
+    client_contacts: list[UserClientContactOut] = Field(default_factory=list)
 
     model_config = {"from_attributes": True}
 
@@ -158,7 +157,7 @@ class ProjectOut(BaseModel):
     created_at: datetime
     updated_at: datetime
     membership_role: str | None = None
-    health: "ProjectHealth | None" = None
+    health: ProjectHealth | None = None
     clients_summary: list[ClientSummary] | None = None
 
     model_config = {"from_attributes": True}
@@ -1058,3 +1057,40 @@ class UserApiKeySecretOut(UserApiKeyOut):
 
 class UserApiKeyListResponse(BaseModel):
     items: list[UserApiKeyOut]
+
+
+# --- RFP integration ---
+
+class RfpAwardPayload(BaseModel):
+    company_name: str = Field(min_length=1, max_length=300)
+    contact_email: str = Field(min_length=3, max_length=254)
+    contact_name: str | None = Field(default=None, max_length=200)
+    rfp_title: str | None = Field(default=None, max_length=500)
+    rfp_url: str | None = Field(default=None, max_length=2000)
+
+
+class RfpAwardResponse(BaseModel):
+    client_id: uuid.UUID
+    client_name: str
+    project_id: uuid.UUID
+    project_name: str
+    prospect_id: uuid.UUID
+
+
+# --- Platform identity ---
+
+class WhoamiUser(BaseModel):
+    id: uuid.UUID
+    email: str
+    display_name: str | None = None
+
+
+class WhoamiCompany(BaseModel):
+    client_id: uuid.UUID
+    name: str
+    role: str
+
+
+class WhoamiResponse(BaseModel):
+    user: WhoamiUser
+    companies: list[WhoamiCompany]

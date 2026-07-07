@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -42,7 +42,7 @@ def retention_cutoff(days: int | None = None) -> datetime | None:
         days = int(_os.environ.get("ATTACHMENT_RETENTION_DAYS", "0") or "0")
     if days <= 0:
         return None
-    return datetime.now(timezone.utc) - timedelta(days=days)
+    return datetime.now(UTC) - timedelta(days=days)
 
 
 async def purge_expired_attachments(db: AsyncSession) -> int:

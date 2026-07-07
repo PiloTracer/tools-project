@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import logging
 import uuid
+from contextlib import suppress
 from pathlib import Path
 
 from sqlalchemy import select
@@ -27,7 +28,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.commit_subject_ref import CommitSubjectRef
 from app.models.github_commit import GithubCommit
-from app.models.project import Project
 from app.models.task import Task
 from app.models.ticket import Ticket
 from app.models.user import User
@@ -167,10 +167,8 @@ def _is_valid_sha(s: str) -> bool:
 
 
 def _safe_unlink(p: Path) -> None:
-    try:
+    with suppress(OSError):
         p.unlink(missing_ok=True)
-    except OSError:
-        pass
 
 
 async def _resolve_project_by_sha(db: AsyncSession, sha: str) -> uuid.UUID | None:

@@ -9,9 +9,9 @@ from fastapi.responses import FileResponse
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import get_settings
 from app.db import get_db
 from app.deps import get_current_user
-from app.config import get_settings
 from app.models.attachment import Attachment
 from app.models.task import Task
 from app.models.ticket import Ticket
@@ -201,7 +201,7 @@ async def download_attachment(
     try:
         path = path_for_key(row.storage_key)
     except ValueError:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Attachment not found")
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Attachment not found") from None
     if not path.is_file():
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Attachment file missing")
     return FileResponse(

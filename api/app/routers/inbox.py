@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
@@ -111,7 +111,7 @@ async def triage_inbox_item(
         item.triaged_to_type = "ticket"
         item.triaged_to_id = ticket.id
 
-    item.updated_at = datetime.now(timezone.utc)
+    item.updated_at = datetime.now(UTC)
     await db.commit()
     await db.refresh(item)
     return InboxOut.model_validate(item)

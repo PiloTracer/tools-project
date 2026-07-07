@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,7 +19,6 @@ from app.models.task import Task
 from app.models.user import User
 from app.schemas import slugify
 from app.services.project_access import MemberRole
-
 
 ONBOARDING_TASKS: list[str] = [
     "Welcome and introduction call",
@@ -76,7 +74,6 @@ async def auto_scaffold_onboarding_project(
       - Client access grants for contacts with user accounts
       - Activity entry recording the conversion
     """
-    now = datetime.now(timezone.utc)
     base_slug = slugify(f"{prospect.company_name}-onboarding")
     slug = await _unique_onboarding_slug(db, base_slug)
 

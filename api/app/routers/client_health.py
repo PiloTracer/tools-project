@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import func, select
-from sqlalchemy import Integer
+from sqlalchemy import Integer, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
@@ -48,9 +46,7 @@ def _compute_health(
     else:
         score += 0
 
-    if days_since_last_activity is None:
-        score += 20
-    elif days_since_last_activity <= 3:
+    if days_since_last_activity is None or days_since_last_activity <= 3:
         score += 20
     elif days_since_last_activity <= 7:
         score += 15
@@ -61,9 +57,7 @@ def _compute_health(
     else:
         score += 0
 
-    if days_since_project_update is None:
-        score += 15
-    elif days_since_project_update <= 7:
+    if days_since_project_update is None or days_since_project_update <= 7:
         score += 15
     elif days_since_project_update <= 14:
         score += 10
@@ -90,7 +84,7 @@ async def list_client_health(
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     clients_result = await db.execute(select(Client).order_by(Client.name))
     all_clients = list(clients_result.scalars().all())

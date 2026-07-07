@@ -13,7 +13,7 @@ from app.deps import get_current_user
 from app.models.client_contact import ClientContact
 from app.models.user import User
 from app.schemas import LocalLoginRequest, MeResponse, TokenResponse
-from app.services.auth_local import create_local_access_token, verify_password, decode_local_token
+from app.services.auth_local import create_local_access_token, decode_local_token, verify_password
 from app.services.rate_limiter import check_login_rate_limit
 
 router = APIRouter(prefix="/v1/auth", tags=["auth"])

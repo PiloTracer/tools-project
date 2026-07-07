@@ -6,7 +6,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services.attachment_storage import purge_expired_attachments
 
-
 __all__ = ["purge_expired_attachments"]
 
 

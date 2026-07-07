@@ -128,7 +128,7 @@ async def run_post_bootstrap(connection: AsyncConnection) -> None:
 
 async def cli_apply_phase() -> None:
     """Apply schema SQL like API startup: pre-bootstrap DDL → ``run_bootstrap`` → post-bootstrap SQL."""
-    import app.models  # noqa: F401 — register ORM models before bootstrap
+    import app.models  # noqa: F401 — register ORM models before bootstrap  # pyright: ignore[reportUnusedImport]
 
     settings = get_settings()
     sql_dir = resolve_sql_schema_dir(settings)

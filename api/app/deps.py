@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import hashlib
+import hmac
 import uuid
 from typing import Annotated
 
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Depends, Header, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -46,7 +48,7 @@ async def get_current_user_local(
     except ValueError:
         raise HTTPException(
             status.HTTP_401_UNAUTHORIZED, detail="Invalid token subject"
-        )
+        ) from None
     row = await db.scalar(select(User).where(User.id == user_uuid))
     if row is None or not row.is_active:
         raise HTTPException(
@@ -79,7 +81,7 @@ async def get_current_user(
             except ValueError:
                 raise HTTPException(
                     status.HTTP_401_UNAUTHORIZED, detail="Invalid token subject"
-                )
+                ) from None
             row = await db.scalar(select(User).where(User.id == user_uuid))
             if row is None or not row.is_active:
                 raise HTTPException(
@@ -138,9 +140,9 @@ async def require_agent_or_user(
             )
 
         # Personal API key — look up by SHA-256 hash
-        from app.models.user_api_key import UserApiKey
-
         from sqlalchemy.orm import joinedload
+
+        from app.models.user_api_key import UserApiKey
 
         key_hash = hashlib.sha256(plaintext.encode()).hexdigest()
         api_key_row = await db.scalar(
@@ -171,3 +173,27 @@ async def get_current_client_participant(
             detail="User is not linked to any client contact",
         )
     return user, contact
+
+
+async def verify_webhook_signature(
+    request: Request,
+    x_webhook_signature: Annotated[str | None, Header()] = None,
+):
+    settings = get_settings()
+    secret = settings.rfp_webhook_secret
+    if not secret:
+        raise HTTPException(
+            status.HTTP_401_UNAUTHORIZED, detail="Webhook secret not configured"
+        )
+    if not x_webhook_signature:
+        raise HTTPException(
+            status.HTTP_401_UNAUTHORIZED, detail="Missing X-Webhook-Signature header"
+        )
+    body = await request.body()
+    expected = "sha256=" + hmac.new(
+        secret.encode(), body, hashlib.sha256
+    ).hexdigest()
+    if not hmac.compare_digest(expected, x_webhook_signature):
+        raise HTTPException(
+            status.HTTP_401_UNAUTHORIZED, detail="Invalid signature"
+        )

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
@@ -21,6 +21,13 @@ from app.schemas import (
     TicketPatch,
     TicketTransition,
 )
+from app.services.activity_writer import write_activity
+from app.services.github_task_registry import (
+    spawn_push_ticket_ref,
+)
+from app.services.github_task_registry import (
+    spawn_remove_ref as spawn_remove_ticket_ref,
+)
 from app.services.project_access import (
     MemberRole,
     can_mutate_tasks,
@@ -30,12 +37,8 @@ from app.services.project_access import (
     require_project_access,
     require_role,
 )
-from app.services.activity_writer import write_activity
-from app.services.github_task_registry import (
-    spawn_push_ticket_ref,
-    spawn_remove_ref as spawn_remove_ticket_ref,
-)
 from app.services.ref_alloc import allocate_ref
+from app.services.webhook_dispatcher import dispatch_event
 
 router = APIRouter(
     prefix="/v1/projects/{project_id}/tickets",
@@ -113,7 +116,7 @@ async def create_ticket(
             detail=f"Invalid status: {status_val}. Use one of {sorted(TICKET_STATUSES)}",
         )
     ref = await allocate_ref(db, project_id, "ticket")
-    closed_at = datetime.now(timezone.utc) if status_val in _TERMINAL_TICKET_STATUSES else None
+    closed_at = datetime.now(UTC) if status_val in _TERMINAL_TICKET_STATUSES else None
     row = Ticket(
         project_id=project_id,
         ref=ref,
@@ -140,6 +143,13 @@ async def create_ticket(
     )
     await db.commit()
     await db.refresh(row)
+    dispatch_event("ticket.created", {
+        "ticket_id": str(row.id),
+        "project_id": str(project_id),
+        "title": row.title,
+        "ref": row.ref,
+        "status": row.status,
+    })
     if row.ref:
         spawn_push_ticket_ref(project_id, row.ref, row.title, row.status, row.description)
     return TicketOut.model_validate(row)
@@ -191,16 +201,17 @@ async def patch_ticket(
                 status.HTTP_400_BAD_REQUEST,
                 detail=f"Invalid status: {status_val}. Use one of {sorted(TICKET_STATUSES)}",
             )
+        _prev_ticket_status = row.status
         row.status = status_val
         if status_val in _TERMINAL_TICKET_STATUSES:
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             if row.resolved_at is None:
                 row.resolved_at = now
             if row.closed_at is None:
                 row.closed_at = now
         else:
             if status_val == "in_progress" and row.first_response_at is None:
-                row.first_response_at = datetime.now(timezone.utc)
+                row.first_response_at = datetime.now(UTC)
     if body.priority is not None:
         row.priority = body.priority.strip()
     if body.queue_slug is not None:
@@ -211,6 +222,13 @@ async def patch_ticket(
         row.assignee_id = body.assignee_id
     await db.commit()
     await db.refresh(row)
+    if body.status is not None and _prev_ticket_status != "closed" and row.status == "closed":
+        dispatch_event("ticket.closed", {
+            "ticket_id": str(ticket_id),
+            "project_id": str(row.project_id),
+            "title": row.title,
+            "ref": row.ref,
+        })
     if row.ref:
         spawn_push_ticket_ref(row.project_id, row.ref, row.title, row.status, row.description)
     return TicketOut.model_validate(row)
@@ -238,7 +256,7 @@ async def transition_ticket(
             status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid status: {status_val}. Use one of {sorted(TICKET_STATUSES)}",
         )
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     if status_val == "in_progress" and row.first_response_at is None:
         row.first_response_at = now
     if status_val == "resolved" and row.resolved_at is None:
@@ -248,6 +266,13 @@ async def transition_ticket(
     row.status = status_val
     await db.commit()
     await db.refresh(row)
+    if status_val == "closed":
+        dispatch_event("ticket.closed", {
+            "ticket_id": str(ticket_id),
+            "project_id": str(row.project_id),
+            "title": row.title,
+            "ref": row.ref,
+        })
     if row.ref:
         spawn_push_ticket_ref(row.project_id, row.ref, row.title, row.status, row.description)
     return TicketOut.model_validate(row)
@@ -307,7 +332,7 @@ async def batch_update_tickets(
                     detail=f"Invalid status: {status_val}. Use one of {sorted(TICKET_STATUSES)}",
                 )
             row.status = status_val
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             if status_val in {"resolved", "closed"}:
                 if row.resolved_at is None:
                     row.resolved_at = now
