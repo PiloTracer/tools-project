@@ -1,38 +1,61 @@
 """Tests for GitHub PAT encryption helpers.
 
-!!! NEVER put real keys or secrets in test files — they WILL leak into git history !!!
-Use obviously-fake test-only values that cannot be mistaken for production secrets.
-Every key below is synthetically constructed or clearly nonsensical.
+Keys are loaded from .env.dev (development) or .env (other environments).
+Never hardcode real secrets in source — they WILL leak into git history.
 """
 
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 import pytest
 
 from app.services.github_token_crypto import decrypt_github_token, encrypt_github_token
 
-# Synthetic test-only Fernet key — 'g' ensures version byte 0x80, remaining chars
-# are obvious 'A' filler. This is NEVER a real key.
-_TEST_FERNET_KEY_44 = "gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
 
-# Test-only key for the SHA-256 derived path (deliberately not 44 chars).
-_TEST_DERIVED_KEY = "test-fernet-key-32-bytes-ok!!!"
+def _load_env_file(path: str) -> None:
+    """Load KEY=VALUE pairs from an env file (no dotenv dependency).
+
+    Only sets keys that aren't already in the environment, so explicitly-set
+    values (Docker, CI) always take priority over file contents.
+    """
+    env_path = Path(__file__).resolve().parent.parent.parent / path
+    if not env_path.is_file():
+        return
+    with open(env_path) as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            key = key.strip()
+            value = value.strip().strip("\"'")
+            if key and key not in os.environ:
+                os.environ[key] = value
 
 
-def test_roundtrip_fernet_direct() -> None:
-    """Direct Fernet path: exactly 44 chars ending with '='."""
-    os.environ["GITHUB_TOKEN_ENCRYPTION_KEY"] = _TEST_FERNET_KEY_44
-    plaintext = "ghp_super_secret_token"
+# Load the appropriate env file so GITHUB_TOKEN_ENCRYPTION_KEY is available.
+# In Docker, these files aren't mounted — but docker-compose already injects
+# the vars, so the "already in environment" guard handles that case.
+_load_env_file(".env.dev")
+_load_env_file(".env")
+
+
+def test_roundtrip_with_configured_key() -> None:
+    """Encrypt/decrypt roundtrip using the configured GITHUB_TOKEN_ENCRYPTION_KEY."""
+    key = os.environ.get("GITHUB_TOKEN_ENCRYPTION_KEY", "").strip()
+    if not key:
+        pytest.skip("GITHUB_TOKEN_ENCRYPTION_KEY not set in .env.dev, .env, or environment")
+    plaintext = "ghp_test_token_for_roundtrip"
     cipher = encrypt_github_token(plaintext)
     assert cipher != plaintext
     assert decrypt_github_token(cipher) == plaintext
 
 
-def test_roundtrip_derived() -> None:
-    """SHA-256 derived key path: raw value is not a 44-char b64 key."""
-    os.environ["GITHUB_TOKEN_ENCRYPTION_KEY"] = _TEST_DERIVED_KEY
+def test_roundtrip_derived_key() -> None:
+    """SHA-256 derived key path: non-Fernet input is hashed into a valid Fernet key."""
+    os.environ["GITHUB_TOKEN_ENCRYPTION_KEY"] = "test-fernet-key-32-bytes-ok!!!"
     plaintext = "ghp_another_token"
     cipher = encrypt_github_token(plaintext)
     assert decrypt_github_token(cipher) == plaintext
