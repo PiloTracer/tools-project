@@ -1,7 +1,7 @@
 # Session handoff — tools-project
 
 ## Session status
-**Open:** 2026-07-06 — ecosystem hub modifications (Mod 1–4) implemented, lint/type/test gates green.
+**Closed:** 2026-07-06 — ecosystem hub modifications (Mod 1–4) implemented, lint/type/test gates green. Committed `15bb6a2`, pushed to `origin/main`.
 **GitHub task registry:** local registry loaded — new feature, no specific ticket assigned
 
 **Date:** 2026-07-06
