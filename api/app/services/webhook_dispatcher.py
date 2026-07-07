@@ -6,6 +6,7 @@ import hmac
 import json
 import logging
 import time
+import uuid
 from collections.abc import Sequence
 from datetime import UTC
 
@@ -52,29 +53,42 @@ async def _post_with_retry(sub: WebhookSubscription, body: bytes) -> bool:
     return False
 
 
-async def _dispatch(event_type: str, data: dict) -> None:
+async def _dispatch(
+    event_type: str, data: dict, tenant_id: uuid.UUID | None = None
+) -> None:
     """Internal: look up subscriptions and deliver. Uses its own DB session."""
     fac = session_factory()
     async with fac() as db:
+        stmt = select(WebhookSubscription).where(
+            WebhookSubscription.events.contains([event_type])
+        )
+        # Multi-tenancy: only deliver to subscriptions in the source tenant.
+        if tenant_id is not None:
+            stmt = stmt.where(WebhookSubscription.tenant_id == tenant_id)
         rows: Sequence[WebhookSubscription] = (
-            await db.execute(
-                select(WebhookSubscription).where(
-                    WebhookSubscription.events.contains([event_type])
-                )
-            )
+            await db.execute(stmt)
         ).scalars().all()
 
         if not rows:
             return
 
-        body = json.dumps({
-            "event": event_type,
-            "timestamp": time.time(),
-            "data": data,
-        }).encode()
+        # Tenant-aware dispatch: load tenant slug for the payload.
+        from app.models.tenant import Tenant
+        tenant_slug: str | None = None
+        if tenant_id is not None:
+            tenant_row = await db.get(Tenant, tenant_id)
+            if tenant_row is not None:
+                tenant_slug = tenant_row.slug
 
         for sub in rows:
-            ok = await _post_with_retry(sub, body)
+            sub_body = json.dumps({
+                "event": event_type,
+                "timestamp": time.time(),
+                "data": data,
+                "tenant_id": str(tenant_id) if tenant_id else None,
+                "tenant_slug": tenant_slug,
+            }).encode()
+            ok = await _post_with_retry(sub, sub_body)
             if ok:
                 from datetime import datetime
                 sub.last_delivered_at = datetime.now(UTC)
@@ -84,6 +98,12 @@ async def _dispatch(event_type: str, data: dict) -> None:
                 log.warning("webhook.exhausted event=%s url=%s", event_type, sub.url)
 
 
-def dispatch_event(event_type: str, data: dict) -> None:
-    """Fire-and-forget: dispatch webhooks in background, never blocks the caller."""
-    asyncio.ensure_future(_dispatch_with_logged_exception(_dispatch(event_type, data)))
+def dispatch_event(event_type: str, data: dict, tenant_id: uuid.UUID | None = None) -> None:
+    """Fire-and-forget: dispatch webhooks in background, never blocks the caller.
+
+    tenant_id: the source tenant for the event. Only subscriptions in that tenant
+    receive the event. When None, the event is dispatched globally (legacy mode).
+    """
+    asyncio.ensure_future(
+        _dispatch_with_logged_exception(_dispatch(event_type, data, tenant_id))
+    )

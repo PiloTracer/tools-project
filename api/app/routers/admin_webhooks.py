@@ -4,13 +4,13 @@ import secrets
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
-from app.deps import get_current_user
+from app.deps import get_current_tenant, get_current_user
 from app.models.user import User
 from app.models.webhook_subscription import WebhookSubscription
 
@@ -44,9 +44,18 @@ async def create_webhook_subscription(
     body: WebhookSubscriptionCreate,
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
+    request: Request,
 ):
     if not user.is_superuser:
         raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Admin only")
+    tenant = await get_current_tenant(request, db)
+    tenant_id = tenant.id if tenant else None
+    is_cross_tenant_superuser = user.tenant_id is None
+    if is_cross_tenant_superuser and tenant_id is None:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail="tenant_id or tenant_slug is required for cross-tenant superuser",
+        )
     secret = "whsec_" + secrets.token_urlsafe(32)
     sub = WebhookSubscription(
         url=body.url.strip(),
@@ -54,6 +63,7 @@ async def create_webhook_subscription(
         label=body.label.strip() if body.label else None,
         hmac_secret=secret,
         created_by=user.id,
+        tenant_id=tenant_id if is_cross_tenant_superuser else user.tenant_id,
     )
     db.add(sub)
     await db.commit()
@@ -67,10 +77,17 @@ async def create_webhook_subscription(
 async def list_webhook_subscriptions(
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
+    request: Request,
 ):
     if not user.is_superuser:
         raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Admin only")
-    rows = (await db.execute(select(WebhookSubscription).order_by(WebhookSubscription.created_at.desc()))).scalars().all()
+    tenant = await get_current_tenant(request, db)
+    tenant_id = tenant.id if tenant else None
+    is_cross_tenant_superuser = user.tenant_id is None
+    base = select(WebhookSubscription)
+    if tenant_id is not None and not is_cross_tenant_superuser:
+        base = base.where(WebhookSubscription.tenant_id == tenant_id)
+    rows = (await db.execute(base.order_by(WebhookSubscription.created_at.desc()))).scalars().all()
     return WebhookSubscriptionList(items=[
         WebhookSubscriptionOut(
             id=r.id, label=r.label, url=r.url, events=r.events,
@@ -91,6 +108,9 @@ async def delete_webhook_subscription(
     row = await db.get(WebhookSubscription, sub_id)
     if not row:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Subscription not found")
+    is_cross_tenant_superuser = user.tenant_id is None
+    if not is_cross_tenant_superuser and row.tenant_id != user.tenant_id:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Subscription belongs to another tenant")
     await db.delete(row)
     await db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)

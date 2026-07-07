@@ -1,3 +1,19 @@
+# Multi-tenant routing: tenant subdomains → web, api subdomain → API
+# Example: acme.localhost → web, api.acme.localhost → API
+
+# Tenant-scoped API: api.{slug}.{PUBLIC_HOST}
+api.*.{$PUBLIC_HOST} {
+	reverse_proxy api:8300
+}
+
+# Tenant-scoped web: {slug}.{PUBLIC_HOST}
+*.{$PUBLIC_HOST} {
+	handle {
+		reverse_proxy web:3000
+	}
+}
+
+# Root domain — no tenant context, used for login when tenant unknown
 {$PUBLIC_HOST} {
 	@api path /v1/* /healthz /docs /openapi.json
 	handle @api {

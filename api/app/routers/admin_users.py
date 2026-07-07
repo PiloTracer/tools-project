@@ -2,16 +2,17 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
-from app.deps import get_current_user_local
+from app.deps import get_current_tenant, get_current_user
 from app.models.client import Client
 from app.models.client_contact import ClientContact
 from app.models.project import Project
 from app.models.project_member import ProjectMember
+from app.models.tenant import Tenant
 from app.models.user import User
 from app.schemas import (
     AdminAddToProjectRequest,
@@ -29,6 +30,10 @@ from app.services.auth_local import hash_password
 from app.services.project_access import parse_member_role
 
 router = APIRouter(prefix="/v1/admin/users", tags=["admin-users"])
+
+
+def _tenant_mismatch_response() -> HTTPException:
+    return HTTPException(status.HTTP_404_NOT_FOUND, detail="User not found")
 
 
 async def _enrich_users(
@@ -85,13 +90,19 @@ async def _enrich_users(
 
 @router.get("", response_model=AdminUserListResponse)
 async def list_users(
-    admin: User = Depends(get_current_user_local),
+    request: Request,
+    admin: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
     q: str | None = Query(default=None, min_length=1, max_length=200),
 ):
     if not admin.is_superuser:
         raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Admin privileges required")
-    stmt = select(User).order_by(User.created_at.asc())
+    tenant = await get_current_tenant(request, db) if request else None
+    is_cross_tenant_superuser = admin.tenant_id is None
+    stmt = select(User)
+    if tenant is not None and not is_cross_tenant_superuser:
+        stmt = stmt.where(User.tenant_id == admin.tenant_id)
+    stmt = stmt.order_by(User.created_at.asc())
     if q:
         term = f"%{q.strip()}%"
         stmt = stmt.where(
@@ -105,14 +116,34 @@ async def list_users(
 
 @router.post("", response_model=AdminUserOut, status_code=status.HTTP_201_CREATED)
 async def create_user(
+    request: Request,
     body: AdminUserCreate,
-    admin: User = Depends(get_current_user_local),
+    admin: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     if not admin.is_superuser:
         raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Admin privileges required")
+    is_cross_tenant_superuser = admin.tenant_id is None
+
+    # Resolve target tenant_id
+    target_tenant_id: uuid.UUID | None
+    if is_cross_tenant_superuser:
+        if body.tenant_slug:
+            tenant_row = await db.scalar(select(Tenant).where(Tenant.slug == body.tenant_slug))
+            if tenant_row is None:
+                raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Tenant not found")
+            target_tenant_id = tenant_row.id
+        else:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="tenant_slug is required for cross-tenant superuser")
+    else:
+        target_tenant_id = admin.tenant_id
+
     email = body.email.strip().lower()
-    dup = await db.scalar(select(User).where(User.email == email))
+    # Per-tenant email uniqueness: check within target tenant
+    dup_stmt = select(User).where(User.email == email)
+    if target_tenant_id is not None:
+        dup_stmt = dup_stmt.where(User.tenant_id == target_tenant_id)
+    dup = await db.scalar(dup_stmt)
     if dup is not None:
         raise HTTPException(
             status.HTTP_409_CONFLICT, detail="User with this email already exists"
@@ -123,6 +154,7 @@ async def create_user(
         display_name=body.display_name,
         is_active=True,
         is_superuser=body.is_superuser,
+        tenant_id=target_tenant_id,
     )
     db.add(user)
     await db.commit()
@@ -133,15 +165,19 @@ async def create_user(
 
 @router.patch("/{user_id}", response_model=AdminUserOut)
 async def update_user(
+    request: Request,
     user_id: uuid.UUID,
     body: AdminUserUpdate,
-    admin: User = Depends(get_current_user_local),
+    admin: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     if not admin.is_superuser:
         raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Admin privileges required")
     user = await db.get(User, user_id)
     if user is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="User not found")
+    # Multi-tenancy: org admins can only update users in their tenant
+    if admin.tenant_id is not None and user.tenant_id != admin.tenant_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="User not found")
 
     if body.password is not None:
@@ -174,8 +210,9 @@ async def update_user(
 
 @router.get("/{user_id}/linkable-contacts", response_model=list[AdminLinkableContactOut])
 async def list_linkable_contacts(
+    request: Request,
     user_id: uuid.UUID,
-    admin: User = Depends(get_current_user_local),
+    admin: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
     q: str | None = Query(default=None, min_length=1, max_length=200),
 ):
@@ -185,11 +222,20 @@ async def list_linkable_contacts(
     """
     if not admin.is_superuser:
         raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Admin privileges required")
+    user = await db.get(User, user_id)
+    if user is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="User not found")
+    if admin.tenant_id is not None and user.tenant_id != admin.tenant_id:
+        raise _tenant_mismatch_response()
+
     stmt = select(ClientContact, Client.name).join(
         Client, ClientContact.client_id == Client.id,
     ).where(
         (ClientContact.user_id.is_(None)) | (ClientContact.user_id == user_id),
-    ).order_by(Client.name.asc(), ClientContact.name.asc())
+    )
+    if admin.tenant_id is not None:
+        stmt = stmt.where(ClientContact.tenant_id == admin.tenant_id)
+    stmt = stmt.order_by(Client.name.asc(), ClientContact.name.asc())
 
     if q:
         term = f"%{q.strip()}%"
@@ -216,9 +262,10 @@ async def list_linkable_contacts(
 
 @router.post("/{user_id}/link-contact", response_model=AdminUserOut)
 async def link_contact(
+    request: Request,
     user_id: uuid.UUID,
     body: AdminLinkContactRequest,
-    admin: User = Depends(get_current_user_local),
+    admin: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Link a user to a client contact (1-to-1).
@@ -231,12 +278,16 @@ async def link_contact(
     user = await db.get(User, user_id)
     if user is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="User not found")
+    if admin.tenant_id is not None and user.tenant_id != admin.tenant_id:
+        raise _tenant_mismatch_response()
 
     contact = await db.get(ClientContact, body.client_contact_id)
     if contact is None:
         raise HTTPException(
             status.HTTP_404_NOT_FOUND, detail="Client contact not found",
         )
+    if admin.tenant_id is not None and contact.tenant_id != admin.tenant_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Client contact not found")
 
     # Clear any existing link from this user to another contact
     old_contact = await db.scalar(
@@ -262,8 +313,9 @@ async def link_contact(
 
 @router.delete("/{user_id}/link-contact", response_model=AdminUserOut)
 async def unlink_contact(
+    request: Request,
     user_id: uuid.UUID,
-    admin: User = Depends(get_current_user_local),
+    admin: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Remove the user-to-contact link for this user."""
@@ -272,6 +324,8 @@ async def unlink_contact(
     user = await db.get(User, user_id)
     if user is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="User not found")
+    if admin.tenant_id is not None and user.tenant_id != admin.tenant_id:
+        raise _tenant_mismatch_response()
 
     contact = await db.scalar(
         select(ClientContact).where(ClientContact.user_id == user_id),
@@ -289,9 +343,10 @@ async def unlink_contact(
 
 @router.post("/{user_id}/add-to-project", response_model=AdminUserOut)
 async def add_user_to_project(
+    request: Request,
     user_id: uuid.UUID,
     body: AdminAddToProjectRequest,
-    admin: User = Depends(get_current_user_local),
+    admin: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Add a user to a project with the given role."""
@@ -300,9 +355,13 @@ async def add_user_to_project(
     user = await db.get(User, user_id)
     if user is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="User not found")
+    if admin.tenant_id is not None and user.tenant_id != admin.tenant_id:
+        raise _tenant_mismatch_response()
 
     project = await db.get(Project, body.project_id)
     if project is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Project not found")
+    if admin.tenant_id is not None and project.tenant_id != admin.tenant_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Project not found")
 
     role = parse_member_role(body.role)
@@ -332,10 +391,11 @@ async def add_user_to_project(
 
 @router.patch("/{user_id}/project-membership/{project_id}", response_model=AdminUserOut)
 async def change_project_role(
+    request: Request,
     user_id: uuid.UUID,
     project_id: uuid.UUID,
     body: AdminChangeProjectRoleRequest,
-    admin: User = Depends(get_current_user_local),
+    admin: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Change a user's role in a project."""
@@ -344,6 +404,14 @@ async def change_project_role(
     user = await db.get(User, user_id)
     if user is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="User not found")
+    if admin.tenant_id is not None and user.tenant_id != admin.tenant_id:
+        raise _tenant_mismatch_response()
+
+    project = await db.get(Project, project_id)
+    if project is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Project not found")
+    if admin.tenant_id is not None and project.tenant_id != admin.tenant_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Project not found")
 
     pm = await db.scalar(
         select(ProjectMember).where(
@@ -363,9 +431,10 @@ async def change_project_role(
 
 @router.delete("/{user_id}/project-membership/{project_id}", response_model=AdminUserOut)
 async def remove_from_project(
+    request: Request,
     user_id: uuid.UUID,
     project_id: uuid.UUID,
-    admin: User = Depends(get_current_user_local),
+    admin: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Remove a user from a project."""
@@ -374,6 +443,14 @@ async def remove_from_project(
     user = await db.get(User, user_id)
     if user is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="User not found")
+    if admin.tenant_id is not None and user.tenant_id != admin.tenant_id:
+        raise _tenant_mismatch_response()
+
+    project = await db.get(Project, project_id)
+    if project is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Project not found")
+    if admin.tenant_id is not None and project.tenant_id != admin.tenant_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Project not found")
 
     pm = await db.scalar(
         select(ProjectMember).where(

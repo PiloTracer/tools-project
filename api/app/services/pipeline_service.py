@@ -31,25 +31,35 @@ ONBOARDING_TASKS: list[str] = [
 ]
 
 
-async def ensure_unique_client_slug(db: AsyncSession, company_name: str) -> str:
-    """Generate a unique slug for a client based on the company name."""
+async def ensure_unique_client_slug(
+    db: AsyncSession, company_name: str, tenant_id: uuid.UUID
+) -> str:
+    """Generate a unique slug for a client within its tenant."""
     client_slug = slugify(company_name)
-    existing = await db.scalar(select(Client).where(Client.slug == client_slug))
+    existing = await db.scalar(
+        select(Client).where(Client.slug == client_slug, Client.tenant_id == tenant_id)
+    )
     if not existing:
         return client_slug
     for i in range(1, 100):
         candidate = f"{client_slug}-{i}"
-        dup = await db.scalar(select(Client).where(Client.slug == candidate))
+        dup = await db.scalar(
+            select(Client).where(Client.slug == candidate, Client.tenant_id == tenant_id)
+        )
         if not dup:
             return candidate
     raise ValueError("Could not allocate a unique client slug")
 
 
-async def _unique_onboarding_slug(db: AsyncSession, base: str) -> str:
-    """Generate a unique project slug for an onboarding project."""
+async def _unique_onboarding_slug(
+    db: AsyncSession, base: str, tenant_id: uuid.UUID
+) -> str:
+    """Generate a unique project slug for an onboarding project within its tenant."""
     candidate = base[:80]
     for _ in range(24):
-        existing = await db.scalar(select(Project).where(Project.slug == candidate))
+        existing = await db.scalar(
+            select(Project).where(Project.slug == candidate, Project.tenant_id == tenant_id)
+        )
         if existing is None:
             return candidate
         suffix = uuid.uuid4().hex[:6]
@@ -75,7 +85,7 @@ async def auto_scaffold_onboarding_project(
       - Activity entry recording the conversion
     """
     base_slug = slugify(f"{prospect.company_name}-onboarding")
-    slug = await _unique_onboarding_slug(db, base_slug)
+    slug = await _unique_onboarding_slug(db, base_slug, prospect.tenant_id)
 
     project = Project(
         name=f"{prospect.company_name} Onboarding",
@@ -84,6 +94,7 @@ async def auto_scaffold_onboarding_project(
         owner_id=promoting_user_id,
         status="active",
         project_key=None,
+        tenant_id=prospect.tenant_id,
     )
     db.add(project)
     await db.flush()
@@ -174,12 +185,13 @@ async def promote_prospect_to_client(
     if prospect.pipeline_stage != "won":
         raise ValueError("Prospect must be in 'won' stage to promote to client")
 
-    client_slug = await ensure_unique_client_slug(db, prospect.company_name)
+    client_slug = await ensure_unique_client_slug(db, prospect.company_name, prospect.tenant_id)
     client = Client(
         name=prospect.company_name,
         slug=client_slug,
         prospect_id=prospect.id,
         created_by=created_by or prospect.created_by,
+        tenant_id=prospect.tenant_id,
     )
     db.add(client)
     return client

@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,10 +24,12 @@ router = APIRouter(prefix="/v1/clients/{client_id}/contacts", tags=["client_cont
 
 
 async def _resolve_client(
-    db: AsyncSession, client_id: uuid.UUID
+    db: AsyncSession, client_id: uuid.UUID, user: User | None = None
 ) -> Client:
     row = await db.get(Client, client_id)
     if not row:
+        raise HTTPException(status_code=404, detail="Client not found")
+    if user is not None and user.tenant_id is not None and row.tenant_id != user.tenant_id:
         raise HTTPException(status_code=404, detail="Client not found")
     return row
 
@@ -39,7 +41,7 @@ async def list_contacts(
     _admin: Annotated[User, Depends(require_superuser)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    await _resolve_client(db, client_id)
+    await _resolve_client(db, client_id, user)
     result = await db.execute(
         select(ClientContact, User)
         .outerjoin(User, User.id == ClientContact.user_id)
@@ -78,8 +80,9 @@ async def create_contact(
     user: Annotated[User, Depends(get_current_user)],
     _admin: Annotated[User, Depends(require_superuser)],
     db: Annotated[AsyncSession, Depends(get_db)],
+    request: Request,
 ):
-    await _resolve_client(db, client_id)
+    client = await _resolve_client(db, client_id, user)
     row = ClientContact(
         client_id=client_id,
         prospect_id=body.prospect_id,
@@ -91,6 +94,7 @@ async def create_contact(
         role=body.role,
         is_primary=body.is_primary,
         notes=body.notes.strip() if body.notes else None,
+        tenant_id=client.tenant_id,
     )
     db.add(row)
     await db.commit()
@@ -106,12 +110,12 @@ async def search_linkable_users(
     _admin: Annotated[User, Depends(require_superuser)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    await _resolve_client(db, client_id)
+    client = await _resolve_client(db, client_id, user)
     term = f"%{q.strip()}%"
     already_linked = select(ClientContact.user_id).where(
         ClientContact.user_id.is_not(None)
     )
-    result = await db.execute(
+    stmt = (
         select(User.id, User.email, User.display_name)
         .where(User.is_active.is_(True))
         .where(~User.id.in_(already_linked))
@@ -121,8 +125,11 @@ async def search_linkable_users(
                 User.display_name.ilike(term),
             )
         )
-        .order_by(User.email.asc())
-        .limit(20)
+    )
+    if user.tenant_id is not None:
+        stmt = stmt.where(User.tenant_id == client.tenant_id)
+    result = await db.execute(
+        stmt.order_by(User.email.asc()).limit(20)
     )
     rows = result.all()
     return [UserSearchResult(id=uid, email=email, display_name=name) for uid, email, name in rows]
@@ -136,7 +143,7 @@ async def get_contact(
     _admin: Annotated[User, Depends(require_superuser)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    await _resolve_client(db, client_id)
+    await _resolve_client(db, client_id, user)
     row = await db.get(ClientContact, contact_id)
     if not row or row.client_id != client_id:
         raise HTTPException(status_code=404, detail="Contact not found")
@@ -152,7 +159,7 @@ async def update_contact(
     _admin: Annotated[User, Depends(require_superuser)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    await _resolve_client(db, client_id)
+    client = await _resolve_client(db, client_id, user)
     row = await db.get(ClientContact, contact_id)
     if not row or row.client_id != client_id:
         raise HTTPException(status_code=404, detail="Contact not found")
@@ -173,6 +180,8 @@ async def update_contact(
     if body.user_id is not None:
         linked = await db.get(User, body.user_id)
         if linked is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="User not found")
+        if user.tenant_id is not None and linked.tenant_id != client.tenant_id:
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail="User not found")
         if row.user_id != body.user_id:
             clash = await db.scalar(
@@ -202,7 +211,7 @@ async def delete_contact(
     _admin: Annotated[User, Depends(require_superuser)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    await _resolve_client(db, client_id)
+    await _resolve_client(db, client_id, user)
     row = await db.get(ClientContact, contact_id)
     if not row or row.client_id != client_id:
         raise HTTPException(status_code=404, detail="Contact not found")

@@ -41,7 +41,12 @@ def _payload_hash(payload: RfpAwardPayload) -> str:
 
 
 async def _get_system_user(db: AsyncSession) -> User:
-    user = await db.scalar(select(User).where(User.is_superuser.is_(True)).limit(1))
+    user = await db.scalar(
+        select(User)
+        .where(User.is_superuser.is_(True))
+        .order_by(User.tenant_id.asc().nulls_last())
+        .limit(1)
+    )
     if user is None:
         raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail="No superuser found for system action")
     return user
@@ -84,12 +89,20 @@ async def rfp_award(
             return RfpAwardResponse(**result)
 
     system_user = await _get_system_user(db)
+    tenant_id = system_user.tenant_id
+    if tenant_id is None:
+        from app.models.tenant import Tenant
+        default_tenant = await db.scalar(select(Tenant).where(Tenant.slug == "default"))
+        if default_tenant is None:
+            raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Default tenant not found")
+        tenant_id = default_tenant.id
 
     prospect = Prospect(
         company_name=company,
         pipeline_stage="target",
         source="rfp_webhook",
         created_by=system_user.id,
+        tenant_id=tenant_id,
     )
     db.add(prospect)
     await db.commit()

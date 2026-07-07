@@ -6,13 +6,13 @@ from datetime import UTC, datetime
 from typing import Annotated
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.db import get_db
-from app.deps import get_current_user
+from app.deps import get_current_tenant, get_current_user
 from app.models.github_link import GithubLink
 from app.models.project import Project
 from app.models.project_client import ProjectClient
@@ -56,12 +56,14 @@ def _slugify(name: str) -> str:
     return s or "project"
 
 
-async def _unique_slug(db: AsyncSession, base: str) -> str:
+async def _unique_slug(db: AsyncSession, base: str, tenant_id: uuid.UUID) -> str:
     candidate = base[:80]
     for _ in range(24):
         if not _SLUG_RE.match(candidate):
             candidate = _slugify(candidate) or "project"
-        existing = await db.scalar(select(Project).where(Project.slug == candidate))
+        existing = await db.scalar(
+            select(Project).where(Project.slug == candidate, Project.tenant_id == tenant_id)
+        )
         if existing is None:
             return candidate
         suffix = uuid.uuid4().hex[:6]
@@ -77,13 +79,17 @@ async def _unique_slug(db: AsyncSession, base: str) -> str:
 async def list_projects(
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
+    request: Request,
 ):
+    tenant = await get_current_tenant(request, db)
     q = (
         select(Project, ProjectMember.role)
         .join(ProjectMember, ProjectMember.project_id == Project.id)
         .where(ProjectMember.user_id == user.id)
-        .order_by(Project.updated_at.desc())
     )
+    if tenant is not None and user.tenant_id is not None:
+        q = q.where(Project.tenant_id == user.tenant_id)
+    q = q.order_by(Project.updated_at.desc())
     result = await db.execute(q)
     rows = list(result.all())
 
@@ -144,9 +150,28 @@ async def create_project(
     body: ProjectCreate,
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
+    request: Request,
 ):
+    tenant = await get_current_tenant(request, db)
+    is_cross_tenant_superuser = user.tenant_id is None
+    if is_cross_tenant_superuser and tenant is None:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail="tenant_id or tenant_slug is required for cross-tenant superuser",
+        )
+    effective_tenant_id: uuid.UUID
+    if not is_cross_tenant_superuser:
+        if user.tenant_id is None:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                detail="tenant_id is required",
+            )
+        effective_tenant_id = user.tenant_id
+    else:
+        assert tenant is not None
+        effective_tenant_id = tenant.id
     base_slug = (body.slug.strip() if body.slug else _slugify(body.name)).strip()
-    slug = await _unique_slug(db, base_slug)
+    slug = await _unique_slug(db, base_slug, effective_tenant_id)
     row = Project(
         name=body.name.strip(),
         slug=slug,
@@ -154,6 +179,7 @@ async def create_project(
         owner_id=user.id,
         status="active",
         project_key=None,
+        tenant_id=effective_tenant_id,
     )
     db.add(row)
     await db.flush()
@@ -321,13 +347,15 @@ async def search_invitable_users(
     q: Annotated[str, Query(min_length=1, max_length=200)],
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
+    request: Request,
 ):
     await require_project_access(db, user, project_id)
+    tenant = await get_current_tenant(request, db)
     term = f"%{q.strip()}%"
     already = select(ProjectMember.user_id).where(
         ProjectMember.project_id == project_id
     )
-    result = await db.execute(
+    stmt = (
         select(User.id, User.email, User.display_name)
         .where(User.is_active.is_(True))
         .where(~User.id.in_(already))
@@ -337,8 +365,11 @@ async def search_invitable_users(
                 User.display_name.ilike(term),
             )
         )
-        .order_by(User.email.asc())
-        .limit(20)
+    )
+    if tenant is not None and user.tenant_id is not None:
+        stmt = stmt.where(User.tenant_id == user.tenant_id)
+    result = await db.execute(
+        stmt.order_by(User.email.asc()).limit(20)
     )
     rows = result.all()
     return [UserSearchResult(id=uid, email=email, display_name=name) for uid, email, name in rows]
@@ -354,6 +385,7 @@ async def add_member(
     body: ProjectMemberCreate,
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
+    request: Request,
 ):
     acc = await require_project_access(db, user, project_id)
     if not user.is_superuser and not can_manage_members(acc.role):
@@ -361,10 +393,14 @@ async def add_member(
             status.HTTP_403_FORBIDDEN,
             detail="Only owners and maintainers can add members",
         )
+    tenant = await get_current_tenant(request, db)
     new_role = parse_member_role(body.role)
     assert_can_assign_role(acc.role, new_role)
     email = body.email.strip().lower()
-    target = await db.scalar(select(User).where(User.email == email))
+    target_stmt = select(User).where(User.email == email)
+    if tenant is not None and user.tenant_id is not None:
+        target_stmt = target_stmt.where(User.tenant_id == user.tenant_id)
+    target = await db.scalar(target_stmt)
     if target is None:
         raise HTTPException(
             status.HTTP_404_NOT_FOUND,

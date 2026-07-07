@@ -4,6 +4,40 @@
 --   UPDATE ... WHERE ... AND old_column IS NULL;
 --   INSERT ... SELECT ... WHERE NOT EXISTS (...);
 
+-- Multi-tenancy backfill: create default tenant and assign all existing rows.
+-- tenant_id columns were added nullable in schema_changes.sql; we backfill here
+-- and then apply NOT NULL constraints on non-users tables.
+
+INSERT INTO tenants (slug, name) VALUES ('default', 'Default Organization') ON CONFLICT DO NOTHING;
+
+-- Backfill existing non-superuser rows. Cross-tenant superusers (is_superuser=true in existing
+-- single-tenant data) remain tenant_id IS NULL after backfill — they become cross-tenant superusers.
+UPDATE users
+SET tenant_id = (SELECT id FROM tenants WHERE slug = 'default')
+WHERE tenant_id IS NULL AND is_superuser = false;
+
+UPDATE projects SET tenant_id = (SELECT id FROM tenants WHERE slug = 'default') WHERE tenant_id IS NULL;
+UPDATE prospects SET tenant_id = (SELECT id FROM tenants WHERE slug = 'default') WHERE tenant_id IS NULL;
+UPDATE clients SET tenant_id = (SELECT id FROM tenants WHERE slug = 'default') WHERE tenant_id IS NULL;
+UPDATE client_contacts SET tenant_id = (SELECT id FROM tenants WHERE slug = 'default') WHERE tenant_id IS NULL;
+UPDATE webhook_subscriptions SET tenant_id = (SELECT id FROM tenants WHERE slug = 'default') WHERE tenant_id IS NULL;
+UPDATE user_api_keys SET tenant_id = (SELECT id FROM tenants WHERE slug = 'default') WHERE tenant_id IS NULL;
+
+-- Apply NOT NULL constraints on non-users tables (users allows NULL for cross-tenant superusers).
+-- The users CHECK constraint must run AFTER backfill so existing rows are valid.
+-- Drop first (from any prior partial run), backfill, then re-add.
+ALTER TABLE users DROP CONSTRAINT IF EXISTS ck_users_tenant_or_superuser;
+
+ALTER TABLE users ADD CONSTRAINT ck_users_tenant_or_superuser
+  CHECK (is_superuser = true OR tenant_id IS NOT NULL);
+
+ALTER TABLE projects ALTER COLUMN tenant_id SET NOT NULL;
+ALTER TABLE prospects ALTER COLUMN tenant_id SET NOT NULL;
+ALTER TABLE clients ALTER COLUMN tenant_id SET NOT NULL;
+ALTER TABLE client_contacts ALTER COLUMN tenant_id SET NOT NULL;
+ALTER TABLE webhook_subscriptions ALTER COLUMN tenant_id SET NOT NULL;
+ALTER TABLE user_api_keys ALTER COLUMN tenant_id SET NOT NULL;
+
 -- Dedup prospects: keep only the LATEST row per (company_name, created_by).
 -- Seed inserts used gen_random_uuid() before 2026-06-19 which created duplicates on every
 -- API restart (ON CONFLICT DO NOTHING with no unique key to conflict on).

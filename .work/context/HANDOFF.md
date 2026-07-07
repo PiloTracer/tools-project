@@ -1,6 +1,8 @@
 # Session handoff — tools-project
 
 ## Session status
+**Closed:** 2026-07-07 — verified and repaired multi-tenancy implementation: fixed syntax error in `admin_users.py`, tenant-scoped slug generation, webhook tenant isolation, cross-tenant superuser guards, RFP-award tenant assignment, and test factory/DDL compatibility. All gates green: ruff, pyright, compileall, DDL idempotency, pytest 33/33.
+**Closed:** 2026-07-08 — multi-tenancy implementation complete: schema, models, auth, 17+ routers scoped, services, tests (8/8 pass). Feature gated behind `MULTI_TENANCY_ENABLED=false` (backward compatible).
 **Closed:** 2026-07-07 — reviewed and tightened multi-tenancy feature SPEC: fixed subdomain/Caddy deployment model, OAuth and client portal tenant resolution, API key tenant scoping, cross-tenant superuser mutation rules, migration ordering, and cookie/CORS considerations.
 **Closed:** 2026-07-06 — ecosystem hub modifications (Mod 1–4) implemented, lint/type/test gates green. Committed `15bb6a2`, pushed to `origin/main`.
 **GitHub task registry:** local registry loaded — open: TPR-3, TPR-T-11, TPR-T-12
@@ -33,7 +35,7 @@ Also fixed:
 
 Treat prior closed sessions as historical only; see "What this cycle produced" below.
 
-****Repository state:** Agent query API fully implemented: 5 aggregation endpoints under /v1/agent/, personal API keys with SHA-256 hashing (user_api_keys table), MCP server at .opencode/mcp/project-mcp/ exposing 5 tools, web UI at /settings/api-keys. All gates green: DDL idempotent, compileall pass, web lint pass, web build pass.
+****Repository state:** Multi-tenancy implementation verified and repaired. Schema enforces tenant_id on users/projects/prospects/clients/contacts/webhooks/api-keys; default tenant backfill on startup; feature flag `MULTI_TENANCY_ENABLED=false`. All API routers updated with tenant resolution/scoping. Test suite now passes (33/33) with tenant-aware factories. Remaining gap: HTTP-level cross-tenant leak tests are not yet written.
 
 ## Start here (new session)
 
@@ -320,6 +322,26 @@ All 9 penetration test findings resolved. Restart the dev stack to pick up rate 
 | `bin/start.sh` | Portable backup path, menu range fix |
 | `.github/workflows/ci.yml` | Pinned ruff/pyright versions, pip/npm caching |
 | Various web components | JSON.parse safety, WatchButtons refresh on success only, useDownload error handling |
+
+## What this cycle produced (2026-07-07 — multi-tenancy verification & repair)
+
+| Artifact | Description |
+|----------|-------------|
+| `api/app/routers/admin_users.py` | Fixed `request: Request` SyntaxError; removed unused tenant variable in `create_user` |
+| `api/app/routers/admin_webhooks.py` | Cross-tenant superuser must supply tenant; delete checks subscription ownership |
+| `api/app/routers/clients.py` | `_unique_slug` now scoped to `tenant_id`; create validates effective tenant |
+| `api/app/routers/projects.py` | `_unique_slug` scoped to `tenant_id`; explicit tenant resolution for type-checker |
+| `api/app/routers/prospects.py` | Webhook dispatch calls pass `tenant_id` |
+| `api/app/routers/integrations.py` | `_get_system_user` prefers tenant-scoped superuser; RFP-award prospects carry tenant |
+| `api/app/routers/me_api_keys.py` | Reject personal API keys for cross-tenant superusers |
+| `api/app/services/pipeline_service.py` | Per-tenant slug uniqueness for client + onboarding project slugs |
+| `api/app/services/project_access.py` | Combined nested tenant check for cleaner lint/type |
+| `api/app/services/webhook_dispatcher.py` | `_dispatch` filters subscriptions by `tenant_id`; payload includes `tenant_id`/`tenant_slug` |
+| `api/tests/factories.py` | All factories default to the `default` tenant; `create_user` sets `tenant_id` for all users |
+| `api/tests/conftest.py` | Fixed missing `_db` fixture reference; removed unused `db` arg from `client` fixture |
+| `api/tests/test_webhook_dispatcher.py` | Updated fake `_dispatch` signature and assertion for tenant arg |
+| `api/tests/test_multi_tenancy.py` | Model-level multi-tenancy tests pass (8/8) |
+| Verification | `ruff check .` pass, `pyright .` 0 errors/warnings, `pytest tests/` 33 pass, DDL idempotency pass |
 
 ## What this cycle produced (2026-06-30 — pen test remediation)
 

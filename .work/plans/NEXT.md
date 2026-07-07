@@ -6,7 +6,7 @@
 
 **Schema:** declarative **`sql/`** only — no Alembic. On API startup: `schema_changes.sql` → `schema_indexes.sql` → bootstrap → `schema_backfill.sql` → `schema_inserts.sql`.
 
-****Latest (repo):** **2026-07-01** — Agent Query API shipped: personal API keys (user_api_keys), 5 aggregation endpoints (/v1/agent/), MCP server (5 tools), web UI (/settings/api-keys), documentation + tutorial. All gates green.
+****Latest (repo):** **2026-07-07** — Multi-tenancy implementation verified and repaired: all lint/type/test/DDL gates green (33 tests pass). Feature remains gated behind `MULTI_TENANCY_ENABLED=false`; default tenant backfill keeps existing single-tenant behavior working.
 
 ### Status at a glance (visual)
 
@@ -24,15 +24,16 @@ Batch K         ████████████████████  3/
 Batch L         ████████████████████  3/3   Done (client health dashboard)
 Security fixes  ████████████████████  8/8   Done (config, auth, endpoint hardening)
 Pen test rem.   ████████████████████  9/9   Done (all findings addressed)
+Multi-tenancy   ████████████████████  Done  (implementation verified; 33 tests pass)
 
-Open: none — all follow-ups resolved
+Open: none — all session follow-ups resolved
 Active: none — all session follow-ups done
 
 ### Recommended next
-1. Add automated tests for the ecosystem hub modifications (Mod 1–4).
-2. Run full task gate (ruff, pyright, tests, scope/blast-radius) and close the iteration.
+1. **Multi-tenancy:** mark `.work/features/multi-tenancy/20260706-SPEC.md` as **Approved**, then add HTTP-level cross-tenant leak tests for all tenant-scoped routers (prospects, clients, client_contacts, admin_users, admin_webhooks, projects, agent_query).
+2. Add automated tests for the ecosystem hub modifications (Mod 1–4) if not already covered.
 3. Build satellite apps (CompanyBrain, OpsBoard, SignFlow, LedgerLite) that consume the ecosystem APIs.
-4. **Multi-tenancy:** SPEC reviewed and gaps closed. Next: mark SPEC Approved, then `@code-implementation plan` to break into milestones.
+4. Restart the dev stack and smoke-test tenant-scoped login + CRUD end-to-end.
 
 ### Intake queue
 - 2026-07-06 · local · "assess making this app multi-tenant" → SPEC created at `.work/features/multi-tenancy/20260706-SPEC.md` (Draft)
@@ -628,3 +629,47 @@ docker compose --profile dev run --rm --no-deps web sh -lc "npm ci --no-audit --
 ---
 
 *Update this file when a batch completes; keep **HANDOFF** snapshot in sync. Batch I detail lives in **§ Batch I** above. Paths moved: old `.ai/context/*` → `.work/context/`, `.ai/plans/*` → `.work/plans/legacy-plans/`, `.ai/context/NEXT.md` → `.work/plans/NEXT.md`.*
+
+---
+
+## Current iteration — Multi-tenancy verification & repair
+
+**Milestone ref:** Multi-tenancy · Feature SPEC: `.work/features/multi-tenancy/20260706-SPEC.md`
+**Status:** complete
+**Started:** 2026-07-07
+
+### Tasks
+| ID | Description | Files | Status | Notes |
+|----|-------------|-------|--------|-------|
+| MT-T1 | Fix `admin_users.py` SyntaxError and lint issues | `api/app/routers/admin_users.py` | done | `request: Request` ordering, unused variable |
+| MT-T2 | Tenant-scope slug uniqueness | `api/app/routers/clients.py`, `api/app/routers/projects.py`, `api/app/services/pipeline_service.py` | done | Unique per `(slug, tenant_id)` |
+| MT-T3 | Webhook tenant isolation | `api/app/services/webhook_dispatcher.py`, `api/app/routers/admin_webhooks.py` | done | Filter by tenant_id; payload includes tenant context |
+| MT-T4 | Cross-tenant superuser guards | `api/app/routers/me_api_keys.py`, `api/app/routers/admin_webhooks.py` | done | Reject key creation; require tenant on create |
+| MT-T5 | RFP-award tenant assignment | `api/app/routers/integrations.py` | done | Prefer tenant-scoped system user; default tenant fallback |
+| MT-T6 | Test/DDL compatibility | `api/tests/factories.py`, `api/tests/conftest.py`, `api/tests/test_webhook_dispatcher.py` | done | Factories default to default tenant; fixture fixed |
+| MT-T7 | Full verification gate | — | done | ruff pass, pyright 0 errors, compileall pass, DDL idempotent, pytest 33 pass |
+
+### Done this iteration
+| Task | Completed | Notes |
+|------|-----------|-------|
+| MT-T1 | 2026-07-07 | admin_users.py syntax + lint fixes |
+| MT-T2 | 2026-07-07 | Per-tenant slug uniqueness across clients/projects |
+| MT-T3 | 2026-07-07 | Webhook dispatcher tenant-scoped delivery |
+| MT-T4 | 2026-07-07 | Cross-tenant superuser guardrails |
+| MT-T5 | 2026-07-07 | RFP-award uses tenant-scoped system actor |
+| MT-T6 | 2026-07-07 | Test suite compatible with mandatory tenant columns |
+| MT-T7 | 2026-07-07 | All gates green |
+
+### Acceptance criteria
+- [x] `ruff check .` passes
+- [x] `pyright .` passes (0 errors, 0 warnings)
+- [x] `python -m compileall -q app` passes
+- [x] `python -m app.cli_schema apply-ddl` is idempotent (ran twice)
+- [x] `pytest tests/` passes (33/33)
+
+### Owner blockers
+- none
+
+### Next recommended
+- Mark multi-tenancy SPEC as Approved.
+- Add HTTP-level cross-tenant leak tests for all tenant-scoped routers.

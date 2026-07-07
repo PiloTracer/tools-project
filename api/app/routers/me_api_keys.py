@@ -53,6 +53,11 @@ async def create_api_key(
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
+    if user.tenant_id is None:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail="Cross-tenant superusers cannot create personal API keys; create a tenant-scoped user first",
+        )
     plaintext, key_hash, key_prefix = _generate_key()
 
     api_key = UserApiKey(
@@ -60,6 +65,7 @@ async def create_api_key(
         key_hash=key_hash,
         key_prefix=key_prefix,
         label=body.label.strip() if body.label else None,
+        tenant_id=user.tenant_id,
     )
     db.add(api_key)
     await db.commit()

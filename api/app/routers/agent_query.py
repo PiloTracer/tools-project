@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -200,8 +200,12 @@ def _ok(data) -> dict:
 async def agent_list_projects(
     _admin: Annotated[User, Depends(_require_agent_superuser)],
     db: Annotated[AsyncSession, Depends(get_db)],
+    request: Request,
 ):
     """List all projects with summary stats — single query, no N+1."""
+
+    tenant_id = getattr(request.state, "tenant_id", None)
+    tenant_uuid = uuid.UUID(tenant_id) if tenant_id else None
 
     open_task_subq = (
         select(func.count(Task.id))
@@ -229,8 +233,10 @@ async def agent_list_projects(
             open_ticket_subq.label("open_tickets"),
             member_subq.label("member_count"),
         )
-        .order_by(Project.name.asc())
     )
+    if tenant_uuid is not None:
+        stmt = stmt.where(Project.tenant_id == tenant_uuid)
+    stmt = stmt.order_by(Project.name.asc())
 
     rows = (await db.execute(stmt)).all()
     results = [_project_dict(p, ot or 0, oti or 0, mc or 0) for p, ot, oti, mc in rows]
@@ -243,12 +249,17 @@ async def agent_project_context(
     project_id: uuid.UUID,
     _admin: Annotated[User, Depends(_require_agent_superuser)],
     db: Annotated[AsyncSession, Depends(get_db)],
+    request: Request,
 ):
     """Full project context: details + tasks + tickets + members + clients + GitHub refs."""
+    tenant_id = getattr(request.state, "tenant_id", None)
+    tenant_uuid = uuid.UUID(tenant_id) if tenant_id else None
     project = await db.scalar(
         select(Project).where(Project.id == project_id)
     )
     if project is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Project not found")
+    if tenant_uuid is not None and project.tenant_id != tenant_uuid:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Project not found")
 
     # Tasks
@@ -308,12 +319,17 @@ async def agent_project_context(
 async def agent_list_tasks(
     _admin: Annotated[User, Depends(_require_agent_superuser)],
     db: Annotated[AsyncSession, Depends(get_db)],
+    request: Request,
     ref: str | None = Query(default=None, description="Filter by task ref (e.g. TPR-3)"),
     status: str | None = Query(default=None, description="Filter by status"),
     limit: int = Query(default=50, ge=1, le=200),
 ):
     """List tasks, optionally filtered by ref or status."""
+    tenant_id = getattr(request.state, "tenant_id", None)
+    tenant_uuid = uuid.UUID(tenant_id) if tenant_id else None
     stmt = select(Task, Project.name).join(Project, Task.project_id == Project.id)
+    if tenant_uuid is not None:
+        stmt = stmt.where(Project.tenant_id == tenant_uuid)
     if ref:
         stmt = stmt.where(Task.ref == ref)
     if status:
@@ -329,12 +345,17 @@ async def agent_list_tasks(
 async def agent_list_tickets(
     _admin: Annotated[User, Depends(_require_agent_superuser)],
     db: Annotated[AsyncSession, Depends(get_db)],
+    request: Request,
     ref: str | None = Query(default=None, description="Filter by ticket ref (e.g. TPR-T-12)"),
     status: str | None = Query(default=None, description="Filter by status"),
     limit: int = Query(default=50, ge=1, le=200),
 ):
     """List tickets, optionally filtered by ref or status."""
+    tenant_id = getattr(request.state, "tenant_id", None)
+    tenant_uuid = uuid.UUID(tenant_id) if tenant_id else None
     stmt = select(Ticket, Project.name).join(Project, Ticket.project_id == Project.id)
+    if tenant_uuid is not None:
+        stmt = stmt.where(Project.tenant_id == tenant_uuid)
     if ref:
         stmt = stmt.where(Ticket.ref == ref)
     if status:
@@ -350,21 +371,24 @@ async def agent_list_tickets(
 async def agent_search(
     _admin: Annotated[User, Depends(_require_agent_superuser)],
     db: Annotated[AsyncSession, Depends(get_db)],
+    request: Request,
     q: str = Query(min_length=1),
     limit: int = Query(default=20, ge=1, le=50),
 ):
     """Unified search across projects, tasks, tickets, clients, and prospects."""
     term = q.strip()
     results: list[dict] = []
+    st_tenant_id = getattr(request.state, "tenant_id", None)
+    st_tenant_uuid = uuid.UUID(st_tenant_id) if st_tenant_id else None
 
     # Projects
     if len(results) < limit:
         stmt = (
             select(Project.id, Project.name, Project.slug, Project.status)
-            .where(Project.name.ilike(f"%{term}%"))
-            .order_by(Project.updated_at.desc())
-            .limit(limit - len(results))
         )
+        if st_tenant_uuid is not None:
+            stmt = stmt.where(Project.tenant_id == st_tenant_uuid)
+        stmt = stmt.where(Project.name.ilike(f"%{term}%")).order_by(Project.updated_at.desc()).limit(limit - len(results))
         rows = (await db.execute(stmt)).all()
         for pid, name, slug, status_ in rows:
             results.append({
@@ -378,10 +402,12 @@ async def agent_search(
             select(Task.id, Task.title, Task.ref, Task.status, Task.project_id, Project.name)
             .join(Project, Task.project_id == Project.id)
             .where((Task.title.ilike(f"%{term}%")) | (Task.ref.ilike(f"{term}%")))
-            .order_by(Task.updated_at.desc())
-            .limit(limit - len(results))
         )
-        rows = (await db.execute(stmt)).all()
+        if st_tenant_uuid is not None:
+            stmt = stmt.where(Project.tenant_id == st_tenant_uuid)
+        rows = (await db.execute(
+            stmt.order_by(Task.updated_at.desc()).limit(limit - len(results))
+        )).all()
         for tid, title, ref_, status_, _pid, pname in rows:
             results.append({
                 "kind": "task", "id": str(tid), "label": title,
@@ -395,10 +421,12 @@ async def agent_search(
             select(Ticket.id, Ticket.title, Ticket.ref, Ticket.status, Ticket.project_id, Project.name)
             .join(Project, Ticket.project_id == Project.id)
             .where((Ticket.title.ilike(f"%{term}%")) | (Ticket.ref.ilike(f"{term}%")))
-            .order_by(Ticket.updated_at.desc())
-            .limit(limit - len(results))
         )
-        rows = (await db.execute(stmt)).all()
+        if st_tenant_uuid is not None:
+            stmt = stmt.where(Project.tenant_id == st_tenant_uuid)
+        rows = (await db.execute(
+            stmt.order_by(Ticket.updated_at.desc()).limit(limit - len(results))
+        )).all()
         for tid, title, ref_, status_, _pid, pname in rows:
             results.append({
                 "kind": "ticket", "id": str(tid), "label": title,
@@ -410,10 +438,10 @@ async def agent_search(
     if len(results) < limit:
         stmt = (
             select(Client.id, Client.name, Client.slug)
-            .where(Client.name.ilike(f"%{term}%"))
-            .order_by(Client.name.asc())
-            .limit(limit - len(results))
         )
+        if st_tenant_uuid is not None:
+            stmt = stmt.where(Client.tenant_id == st_tenant_uuid)
+        stmt = stmt.where(Client.name.ilike(f"%{term}%")).order_by(Client.name.asc()).limit(limit - len(results))
         rows = (await db.execute(stmt)).all()
         for cid, name, slug in rows:
             results.append({
@@ -425,10 +453,10 @@ async def agent_search(
     if len(results) < limit:
         stmt = (
             select(Prospect.id, Prospect.company_name, Prospect.pipeline_stage)
-            .where(Prospect.company_name.ilike(f"%{term}%"))
-            .order_by(Prospect.updated_at.desc())
-            .limit(limit - len(results))
         )
+        if st_tenant_uuid is not None:
+            stmt = stmt.where(Prospect.tenant_id == st_tenant_uuid)
+        stmt = stmt.where(Prospect.company_name.ilike(f"%{term}%")).order_by(Prospect.updated_at.desc()).limit(limit - len(results))
         rows = (await db.execute(stmt)).all()
         for pid, company, stage in rows:
             results.append({

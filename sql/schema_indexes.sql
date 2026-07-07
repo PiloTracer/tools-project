@@ -1,7 +1,14 @@
 -- tools-project — indexes, unique constraints, and other non-table DDL.
 -- Applied on every API startup after schema_changes.sql (idempotent).
 
-CREATE UNIQUE INDEX IF NOT EXISTS uq_users_email ON users (email);
+-- Multi-tenancy: users.email unique per tenant (not globally). Cross-tenant superusers
+-- (tenant_id IS NULL) are covered by a separate partial unique index for global uniqueness.
+DROP INDEX IF EXISTS uq_users_email;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_users_email_tenant ON users (email, tenant_id)
+  WHERE tenant_id IS NOT NULL;
+-- Cross-tenant superusers (tenant_id IS NULL) must still have globally unique email.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_users_email_global_superuser ON users (email)
+  WHERE tenant_id IS NULL;
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_projects_slug ON projects (slug);
 CREATE INDEX IF NOT EXISTS ix_projects_owner_id ON projects (owner_id);
@@ -65,7 +72,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_github_commits_link_sha ON github_commits (
 CREATE INDEX IF NOT EXISTS ix_github_commits_link_committed ON github_commits (github_link_id, committed_at DESC);
 
 -- Batch J: CRM
-CREATE UNIQUE INDEX IF NOT EXISTS uq_clients_slug ON clients (slug);
+-- Multi-tenancy: clients.slug unique per tenant.
+DROP INDEX IF EXISTS uq_clients_slug;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_clients_slug_tenant ON clients (slug, tenant_id);
 CREATE INDEX IF NOT EXISTS ix_clients_created_by ON clients (created_by);
 CREATE INDEX IF NOT EXISTS ix_prospects_pipeline_stage ON prospects (pipeline_stage);
 CREATE INDEX IF NOT EXISTS ix_prospects_created_by ON prospects (created_by);
@@ -79,7 +88,9 @@ WITH ranked AS (
 )
 DELETE FROM client_contacts
 WHERE id IN (SELECT id FROM ranked WHERE rn > 1);
-CREATE UNIQUE INDEX IF NOT EXISTS uq_client_contacts_email ON client_contacts (email);
+-- Multi-tenancy: client_contacts.email unique per tenant.
+DROP INDEX IF EXISTS uq_client_contacts_email;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_client_contacts_email_tenant ON client_contacts (email, tenant_id);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_project_clients_project_client ON project_clients (project_id, client_id);
 CREATE INDEX IF NOT EXISTS ix_project_clients_client_id ON project_clients (client_id);
 CREATE INDEX IF NOT EXISTS ix_project_client_access_project_id ON project_client_access (project_id);
@@ -109,3 +120,13 @@ CREATE INDEX IF NOT EXISTS ix_external_refs_source_app ON commit_subject_refs (s
 
 -- Mod 1: webhook subscriptions
 CREATE INDEX IF NOT EXISTS ix_webhook_subscriptions_events ON webhook_subscriptions USING GIN (events);
+
+-- Multi-tenancy: tenant-scoped indexes
+CREATE UNIQUE INDEX IF NOT EXISTS uq_tenants_slug ON tenants (slug);
+CREATE INDEX IF NOT EXISTS ix_users_tenant_id ON users (tenant_id) WHERE tenant_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS ix_projects_tenant_id ON projects (tenant_id);
+CREATE INDEX IF NOT EXISTS ix_prospects_tenant_id ON prospects (tenant_id);
+CREATE INDEX IF NOT EXISTS ix_clients_tenant_id ON clients (tenant_id);
+CREATE INDEX IF NOT EXISTS ix_client_contacts_tenant_id ON client_contacts (tenant_id);
+CREATE INDEX IF NOT EXISTS ix_webhook_subscriptions_tenant_id ON webhook_subscriptions (tenant_id);
+CREATE INDEX IF NOT EXISTS ix_user_api_keys_tenant_id ON user_api_keys (tenant_id);

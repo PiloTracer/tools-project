@@ -77,6 +77,12 @@ class Settings(BaseSettings):
     # RFP integration: shared secret for HMAC-signed webhooks from tools-rfp.
     rfp_webhook_secret: str = ""
 
+    # Multi-tenancy: when true, all requests are tenant-scoped. When false (default),
+    # existing single-tenant behavior is preserved for backward compatibility.
+    multi_tenancy_enabled: bool = False
+    #: Public hostname used for subdomain-based tenant resolution (e.g. "localhost" in dev).
+    public_host: str = "localhost"
+
 
     @classmethod
     def _check_defaults(cls, values: dict) -> dict:

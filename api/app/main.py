@@ -15,6 +15,7 @@ from app.db import get_engine, init_db, session_factory
 from app.github_background import attachment_retention_purge_loop, github_poll_loop
 from app.routers import (
     activities,
+    admin_tenants,
     admin_users,
     admin_webhooks,
     agent_query,
@@ -110,7 +111,8 @@ async def request_id_middleware(request: Request, call_next):
     response = await call_next(request)
     response.headers["X-Request-Id"] = rid
     elapsed = time.time() - start
-    log.info("%s %s %s %.0fms", request.method, request.url.path, response.status_code, elapsed * 1000)
+    tenant_id = getattr(request.state, "tenant_id", None) or "none"
+    log.info("%s %s %s %.0fms tenant=%s", request.method, request.url.path, response.status_code, elapsed * 1000, tenant_id)
     return response
 
 app.include_router(auth.router)
@@ -144,6 +146,7 @@ app.include_router(reports.router)
 app.include_router(agent_query.router)
 app.include_router(integrations.router)
 app.include_router(platform.router)
+app.include_router(admin_tenants.router)
 app.include_router(admin_webhooks.router)
 app.include_router(external_refs.router)
 

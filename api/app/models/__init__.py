@@ -15,6 +15,7 @@ from app.models.project_counter import ProjectCounter
 from app.models.project_member import ProjectMember
 from app.models.prospect import Prospect
 from app.models.task import Task
+from app.models.tenant import Tenant
 from app.models.ticket import Ticket
 from app.models.user import User
 from app.models.user_api_key import UserApiKey
@@ -41,6 +42,7 @@ __all__ = [
     "ProjectMember",
     "Prospect",
     "Task",
+    "Tenant",
     "Ticket",
     "User",
     "UserApiKey",

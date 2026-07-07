@@ -3,12 +3,12 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
-from app.deps import get_current_user, require_superuser
+from app.deps import get_current_tenant, get_current_user, require_superuser
 from app.models.client import Client
 from app.models.prospect import (
     PIPELINE_STAGE_ORDER,
@@ -53,13 +53,20 @@ async def list_prospects(
     user: Annotated[User, Depends(get_current_user)],
     _admin: Annotated[User, Depends(require_superuser)],
     db: Annotated[AsyncSession, Depends(get_db)],
+    request: Request,
     stage: str | None = Query(default=None, max_length=20),
     source: str | None = Query(default=None, max_length=30),
     created_by: uuid.UUID | None = Query(default=None),
     limit: int = Query(default=200, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
 ):
+    tenant = await get_current_tenant(request, db)
+    tenant_id = tenant.id if tenant else None
+    is_cross_tenant_superuser = user.tenant_id is None
+
     base = select(Prospect)
+    if tenant_id is not None and not is_cross_tenant_superuser:
+        base = base.where(Prospect.tenant_id == tenant_id)
     if stage:
         if stage not in VALID_PIPELINE_STAGES:
             raise HTTPException(status_code=422, detail=f"Invalid stage filter: {stage}")
@@ -91,7 +98,18 @@ async def create_prospect(
     user: Annotated[User, Depends(get_current_user)],
     _admin: Annotated[User, Depends(require_superuser)],
     db: Annotated[AsyncSession, Depends(get_db)],
+    request: Request,
 ):
+    tenant = await get_current_tenant(request, db)
+    tenant_id = tenant.id if tenant else None
+    is_cross_tenant_superuser = user.tenant_id is None
+    if is_cross_tenant_superuser and tenant_id is None:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail="tenant_id or tenant_slug is required for cross-tenant superuser",
+        )
+    if tenant_id is None and not is_cross_tenant_superuser:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="tenant_id is required")
     row = Prospect(
         company_name=body.company_name.strip(),
         pipeline_stage=body.pipeline_stage,
@@ -100,6 +118,7 @@ async def create_prospect(
         first_contact_date=body.first_contact_date,
         notes=body.notes.strip() if body.notes else None,
         created_by=user.id,
+        tenant_id=tenant_id if is_cross_tenant_superuser else user.tenant_id,
     )
     db.add(row)
     await db.commit()
@@ -113,9 +132,13 @@ async def get_prospect(
     user: Annotated[User, Depends(get_current_user)],
     _admin: Annotated[User, Depends(require_superuser)],
     db: Annotated[AsyncSession, Depends(get_db)],
+    request: Request,
 ):
+    tenant = await get_current_tenant(request, db)
     row = await db.get(Prospect, prospect_id)
     if not row:
+        raise HTTPException(status_code=404, detail="Prospect not found")
+    if tenant is not None and user.tenant_id is not None and row.tenant_id != user.tenant_id:
         raise HTTPException(status_code=404, detail="Prospect not found")
     client_id = await _enrich_client_id(db, row)
     return ProspectOut.model_validate(row).model_copy(update={"client_id": client_id})
@@ -128,9 +151,13 @@ async def update_prospect(
     user: Annotated[User, Depends(get_current_user)],
     _admin: Annotated[User, Depends(require_superuser)],
     db: Annotated[AsyncSession, Depends(get_db)],
+    request: Request,
 ):
+    tenant = await get_current_tenant(request, db)
     row = await db.get(Prospect, prospect_id)
     if not row:
+        raise HTTPException(status_code=404, detail="Prospect not found")
+    if tenant is not None and user.tenant_id is not None and row.tenant_id != user.tenant_id:
         raise HTTPException(status_code=404, detail="Prospect not found")
     if body.company_name is not None:
         row.company_name = body.company_name.strip()
@@ -155,9 +182,13 @@ async def delete_prospect(
     user: Annotated[User, Depends(get_current_user)],
     _admin: Annotated[User, Depends(require_superuser)],
     db: Annotated[AsyncSession, Depends(get_db)],
+    request: Request,
 ):
+    tenant = await get_current_tenant(request, db)
     row = await db.get(Prospect, prospect_id)
     if not row:
+        raise HTTPException(status_code=404, detail="Prospect not found")
+    if tenant is not None and user.tenant_id is not None and row.tenant_id != user.tenant_id:
         raise HTTPException(status_code=404, detail="Prospect not found")
     await db.delete(row)
     await db.commit()
@@ -171,9 +202,13 @@ async def transition_prospect_stage(
     user: Annotated[User, Depends(get_current_user)],
     _admin: Annotated[User, Depends(require_superuser)],
     db: Annotated[AsyncSession, Depends(get_db)],
+    request: Request,
 ):
+    tenant = await get_current_tenant(request, db)
     row = await db.get(Prospect, prospect_id)
     if not row:
+        raise HTTPException(status_code=404, detail="Prospect not found")
+    if tenant is not None and user.tenant_id is not None and row.tenant_id != user.tenant_id:
         raise HTTPException(status_code=404, detail="Prospect not found")
     if row.pipeline_stage in TERMINAL_STAGES:
         raise HTTPException(
@@ -226,17 +261,25 @@ async def transition_prospect_stage(
 
     await db.commit()
     await db.refresh(row)
-    dispatch_event("prospect.stage_changed", {
-        "prospect_id": str(prospect_id),
-        "company_name": row.company_name,
-        "from_stage": current_stage,
-        "to_stage": target_stage,
-    })
-    if target_stage == "won":
-        dispatch_event("prospect.won", {
+    dispatch_event(
+        "prospect.stage_changed",
+        {
             "prospect_id": str(prospect_id),
             "company_name": row.company_name,
-        })
+            "from_stage": current_stage,
+            "to_stage": target_stage,
+        },
+        tenant_id=row.tenant_id,
+    )
+    if target_stage == "won":
+        dispatch_event(
+            "prospect.won",
+            {
+                "prospect_id": str(prospect_id),
+                "company_name": row.company_name,
+            },
+            tenant_id=row.tenant_id,
+        )
     client_id = await _enrich_client_id(db, row)
     return ProspectStageChangeResponse(
         **ProspectOut.model_validate(row).model_copy(update={"client_id": client_id}).model_dump(),
@@ -251,6 +294,7 @@ async def promote_prospect(
     user: Annotated[User, Depends(get_current_user)],
     _admin: Annotated[User, Depends(require_superuser)],
     db: Annotated[AsyncSession, Depends(get_db)],
+    request: Request,
 ):
     """Promote a won prospect to a client and auto-scaffold an onboarding project.
 
@@ -259,8 +303,11 @@ async def promote_prospect(
       - no client record already exists for this prospect
     Returns the newly created Client and Project records.
     """
+    tenant = await get_current_tenant(request, db)
     row = await db.get(Prospect, prospect_id)
     if not row:
+        raise HTTPException(status_code=404, detail="Prospect not found")
+    if tenant is not None and user.tenant_id is not None and row.tenant_id != user.tenant_id:
         raise HTTPException(status_code=404, detail="Prospect not found")
     if row.pipeline_stage != "won":
         raise HTTPException(
@@ -280,11 +327,15 @@ async def promote_prospect(
     await db.flush()
     await db.refresh(project)
     await db.commit()
-    dispatch_event("prospect.won", {
-        "prospect_id": str(prospect_id),
-        "company_name": row.company_name,
-        "client_id": str(client.id),
-    })
+    dispatch_event(
+        "prospect.won",
+        {
+            "prospect_id": str(prospect_id),
+            "company_name": row.company_name,
+            "client_id": str(client.id),
+        },
+        tenant_id=row.tenant_id,
+    )
     return ProspectPromoteResponse(
         client=ClientOut.model_validate(client),
         project=ProjectOut.model_validate(project),

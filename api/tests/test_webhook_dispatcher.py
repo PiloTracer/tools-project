@@ -26,28 +26,32 @@ async def test_sign_payload_changes_with_secret() -> None:
 
 
 async def test_dispatch_event_finds_matching_subscription(db, monkeypatch) -> None:
+    from tests.factories import _default_tenant_id
+
     called_with: list[tuple[str, dict]] = []
 
-    async def _fake_dispatch(event_type: str, data: dict) -> None:
-        called_with.append((event_type, data))
+    async def _fake_dispatch(event_type: str, data: dict, tenant_id: uuid.UUID | None = None) -> None:
+        called_with.append((event_type, data, tenant_id))
 
     monkeypatch.setattr("app.services.webhook_dispatcher._dispatch", _fake_dispatch)
 
+    tenant_id = await _default_tenant_id(db)
     sub = WebhookSubscription(
         label="test",
         url="http://example.com/hook",
         events=["prospect.won"],
         hmac_secret="secret",
         max_retries=3,
+        tenant_id=tenant_id,
     )
     db.add(sub)
     await db.commit()
 
-    dispatch_event("prospect.won", {"prospect_id": str(uuid.uuid4())})
+    dispatch_event("prospect.won", {"prospect_id": str(uuid.uuid4())}, tenant_id=tenant_id)
     # Give the fire-and-forget task a chance to run.
     await _fake_dispatch("prospect.won", {"prospect_id": "x"})
 
-    assert any(evt == "prospect.won" for evt, _ in called_with)
+    assert any(evt == "prospect.won" for evt, _, _ in called_with)
 
 
 async def test_admin_webhook_subscriptions_crud(client: AsyncClient, db) -> None:

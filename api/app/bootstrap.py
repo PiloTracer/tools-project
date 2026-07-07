@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
+from app.models.tenant import Tenant
 from app.models.user import User
 from app.services.auth_local import hash_password
 
@@ -26,7 +27,20 @@ async def run_bootstrap(session: AsyncSession) -> None:
             "be created until you add credentials or create a user manually."
         )
         return
+
+    # Multi-tenancy: create default tenant before the first user
+    if settings.multi_tenancy_enabled:
+        default_tenant = await session.scalar(
+            select(Tenant).where(Tenant.slug == "default")
+        )
+        if default_tenant is None:
+            default_tenant = Tenant(slug="default", name="Default Organization")
+            session.add(default_tenant)
+            await session.flush()
+            logger.info("Bootstrap created default tenant (slug=default)")
+
     email = settings.bootstrap_admin_email.strip().lower()
+    # Cross-tenant superuser: tenant_id IS NULL, is_superuser = true
     user = User(
         email=email,
         password_hash=hash_password(settings.bootstrap_admin_password),
@@ -34,6 +48,7 @@ async def run_bootstrap(session: AsyncSession) -> None:
         auth_source="local",
         is_active=True,
         is_superuser=True,
+        tenant_id=None,
     )
     session.add(user)
     await session.commit()

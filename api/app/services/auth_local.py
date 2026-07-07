@@ -26,6 +26,7 @@ def create_local_access_token(
     user_id: str,
     email: str,
     is_superuser: bool,
+    tenant_id: str | None = None,
     settings: Settings | None = None,
 ) -> tuple[str, int]:
     settings = settings or get_settings()
@@ -33,13 +34,15 @@ def create_local_access_token(
         minutes=settings.access_token_expire_minutes
     )
     exp_seconds = int(settings.access_token_expire_minutes * 60)
-    payload = {
+    payload: dict = {
         "sub": user_id,
         "email": email,
         "superuser": is_superuser,
         "token_typ": "local",
         "exp": int(expire.timestamp()),
     }
+    if tenant_id is not None:
+        payload["tenant_id"] = tenant_id
     token = jwt.encode(
         payload, settings.jwt_secret, algorithm=settings.jwt_algorithm
     )

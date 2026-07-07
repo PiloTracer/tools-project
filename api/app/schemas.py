@@ -20,6 +20,7 @@ class LocalLoginRequest(BaseModel):
     # Allow development/test domains (e.g. .test) that email-validator rejects.
     email: str = Field(min_length=3, max_length=254)
     password: str = Field(min_length=1, max_length=1024)
+    tenant_slug: str | None = Field(default=None, max_length=50)
 
     @field_validator("email")
     @classmethod
@@ -34,6 +35,14 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     expires_in: int
+    # Multi-tenancy: when email matches multiple tenants, return 300 with choices.
+    # The access_token field will be empty and choices will be populated.
+    choices: list[TenantChoice] | None = None
+
+
+class TenantChoice(BaseModel):
+    tenant_slug: str
+    tenant_name: str
 
 
 class MeResponse(BaseModel):
@@ -45,6 +54,9 @@ class MeResponse(BaseModel):
     auth: str = "local"
     client_contact_id: uuid.UUID | None = None
     client_name: str | None = None
+    tenant_id: uuid.UUID | None = None
+    tenant_slug: str | None = None
+    tenant_name: str | None = None
 
     model_config = {"from_attributes": True}
 
@@ -54,6 +66,7 @@ class AdminUserCreate(BaseModel):
     password: str = Field(min_length=8, max_length=1024)
     display_name: str | None = None
     is_superuser: bool = False
+    tenant_slug: str | None = Field(default=None, max_length=50)
 
 
 class AdminUserUpdate(BaseModel):
@@ -1094,3 +1107,29 @@ class WhoamiCompany(BaseModel):
 class WhoamiResponse(BaseModel):
     user: WhoamiUser
     companies: list[WhoamiCompany]
+
+
+# --- Multi-tenancy ---
+
+class TenantCreate(BaseModel):
+    slug: str = Field(min_length=1, max_length=50)
+    name: str = Field(min_length=1, max_length=200)
+    settings: dict | None = Field(default=None)
+
+
+class TenantUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    settings: dict | None = Field(default=None)
+    is_active: bool | None = Field(default=None)
+
+
+class TenantOut(BaseModel):
+    id: uuid.UUID
+    slug: str
+    name: str
+    settings: dict
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}

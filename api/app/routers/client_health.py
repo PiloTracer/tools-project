@@ -3,12 +3,12 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy import Integer, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
-from app.deps import get_current_user
+from app.deps import get_current_tenant, get_current_user
 from app.models.activity import Activity
 from app.models.client import Client
 from app.models.project import Project
@@ -83,10 +83,17 @@ def _compute_health(
 async def list_client_health(
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
+    request: Request,
 ):
+    tenant = await get_current_tenant(request, db)
+    tenant_id = tenant.id if tenant else None
+    is_cross_tenant_superuser = user.tenant_id is None
     now = datetime.now(UTC)
 
-    clients_result = await db.execute(select(Client).order_by(Client.name))
+    base = select(Client)
+    if tenant_id is not None and not is_cross_tenant_superuser:
+        base = base.where(Client.tenant_id == tenant_id)
+    clients_result = await db.execute(base.order_by(Client.name))
     all_clients = list(clients_result.scalars().all())
 
     items: list[ClientHealthItem] = []
