@@ -28,6 +28,9 @@ type UserRow = {
   auth_source: string;
   is_active: boolean;
   is_superuser: boolean;
+  tenant_id: string | null;
+  tenant_slug: string | null;
+  tenant_name: string | null;
   memberships: UserMembership[];
   client_contacts: UserClientContact[];
 };
@@ -88,6 +91,7 @@ export function AdminUsersPanel({
       password: String(fd.get("password") || ""),
       display_name: String(fd.get("display_name") || "").trim() || null,
       is_superuser: fd.get("is_superuser") === "on",
+      tenant_slug: String(fd.get("tenant_slug") || "").trim() || undefined,
     };
     const r = await fetch("/api/admin/users", {
       method: "POST",
@@ -257,6 +261,10 @@ export function AdminUsersPanel({
           >
             <input name="is_superuser" type="checkbox" style={{ width: "1.1rem", height: "1.1rem", cursor: "pointer" }} />
             <span className="text-sm">Superuser</span>
+          </label>
+          <label className="stack" style={{ gap: "0.25rem" }}>
+            <span className="text-sm muted">Tenant slug (leave empty for same tenant)</span>
+            <input className="input" name="tenant_slug" placeholder="e.g. acme" autoComplete="off" />
           </label>
           <div style={{ display: "flex", gap: "0.5rem" }}>
             <button
@@ -549,6 +557,16 @@ function UserRowView({
             {user.is_superuser && (
               <span className="pill" style={{ fontSize: "0.7rem" }}>
                 Superuser
+              </span>
+            )}
+            {user.tenant_name && (
+              <span className="pill" style={{ fontSize: "0.7rem", background: "var(--bg-elevated)", color: "var(--text-muted)" }}>
+                {user.tenant_name}
+              </span>
+            )}
+            {!user.tenant_id && user.is_superuser && (
+              <span className="pill" style={{ fontSize: "0.7rem", background: "rgb(59 130 246 / 12%)", color: "#3b82f6" }}>
+                Cross-tenant
               </span>
             )}
           </div>

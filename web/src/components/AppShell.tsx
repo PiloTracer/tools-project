@@ -48,7 +48,10 @@ export async function AppShell({ children }: { children: ReactNode }) {
                 <Link href="/settings/api-keys">API Keys</Link>
                 <Link href="/about">About</Link>
                 {me.is_superuser ? (
-                  <Link href="/admin/users">Admin</Link>
+                  <>
+                    <Link href="/admin/users">Admin</Link>
+                    <Link href="/admin/tenants">Tenants</Link>
+                  </>
                 ) : null}
                 <span
                   className="muted text-sm"
