@@ -5,6 +5,8 @@ import { LocalLoginForm } from "@/components/LocalLoginForm";
 async function authConfigFromApi(): Promise<{
   local_enabled: boolean;
   oauth_enabled: boolean;
+  multi_tenant?: boolean;
+  tenant?: { slug: string } | null;
 }> {
   const base =
     process.env.API_INTERNAL_URL?.replace(/\/+$/, "") || "http://api:8300";
@@ -76,7 +78,7 @@ export default async function LoginPage({
       {cfg.local_enabled ? (
         <>
           <p className="muted">Or sign in with a local account:</p>
-          <LocalLoginForm />
+          <LocalLoginForm tenantSlug={cfg.tenant?.slug || null} />
         </>
       ) : (
         <p className="muted">Local accounts are disabled for this deployment.</p>

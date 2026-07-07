@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
-from app.deps import get_current_tenant, get_current_user
+from app.deps import get_current_user
 from app.models.client import Client
 from app.models.client_contact import ClientContact
 from app.models.project import Project
@@ -97,10 +97,9 @@ async def list_users(
 ):
     if not admin.is_superuser:
         raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Admin privileges required")
-    tenant = await get_current_tenant(request, db) if request else None
     is_cross_tenant_superuser = admin.tenant_id is None
     stmt = select(User)
-    if tenant is not None and not is_cross_tenant_superuser:
+    if not is_cross_tenant_superuser:
         stmt = stmt.where(User.tenant_id == admin.tenant_id)
     stmt = stmt.order_by(User.created_at.asc())
     if q:

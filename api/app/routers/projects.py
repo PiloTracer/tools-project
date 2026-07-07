@@ -79,17 +79,13 @@ async def _unique_slug(db: AsyncSession, base: str, tenant_id: uuid.UUID) -> str
 async def list_projects(
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
-    request: Request,
 ):
-    tenant = await get_current_tenant(request, db)
     q = (
         select(Project, ProjectMember.role)
         .join(ProjectMember, ProjectMember.project_id == Project.id)
         .where(ProjectMember.user_id == user.id)
+        .order_by(Project.updated_at.desc())
     )
-    if tenant is not None and user.tenant_id is not None:
-        q = q.where(Project.tenant_id == user.tenant_id)
-    q = q.order_by(Project.updated_at.desc())
     result = await db.execute(q)
     rows = list(result.all())
 

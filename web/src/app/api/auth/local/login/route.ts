@@ -12,9 +12,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "unsupported_media_type" }, { status: 415 });
   }
 
-  let body: { email?: string; password?: string };
+  let body: { email?: string; password?: string; tenant_slug?: string };
   try {
-    body = (await req.json()) as { email?: string; password?: string };
+    body = (await req.json()) as { email?: string; password?: string; tenant_slug?: string };
   } catch {
     return NextResponse.json({ error: "invalid_json" }, { status: 400 });
   }
@@ -26,15 +26,20 @@ export async function POST(req: Request) {
     body: JSON.stringify({
       email: body.email ?? "",
       password: body.password ?? "",
+      tenant_slug: body.tenant_slug || undefined,
     }),
   });
 
   if (!r.ok) {
     let detail = "login_failed";
     try {
-      const j = (await r.json()) as { detail?: string | Array<{ msg?: string }> };
+      const j = (await r.json()) as { detail?: string | Array<{ msg?: string }>; choices?: Array<{ tenant_slug: string; tenant_name: string }> };
       if (typeof j.detail === "string") detail = j.detail;
       else if (Array.isArray(j.detail)) detail = "validation_error";
+      // Multi-tenancy: 300 ambiguous — return choices to client for tenant picker
+      if (r.status === 300 && j.choices) {
+        return NextResponse.json({ choices: j.choices }, { status: 300 });
+      }
     } catch {
       /* keep */
     }

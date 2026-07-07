@@ -6,7 +6,10 @@ export function SignOutButton() {
   const router = useRouter();
 
   async function onSignOut() {
-    await fetch("/api/auth/logout", { method: "POST" });
+    await fetch("/api/auth/logout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
     router.replace("/");
     router.refresh();
   }

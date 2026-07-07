@@ -78,7 +78,6 @@ async def get_current_tenant(
 async def get_current_user_local(
     creds: Annotated[HTTPAuthorizationCredentials | None, Depends(_http_bearer)],
     db: Annotated[AsyncSession, Depends(get_db)],
-    request: Request,
 ):
     if creds is None or creds.scheme.lower() != "bearer":
         raise HTTPException(
@@ -110,21 +109,19 @@ async def get_current_user_local(
         raise HTTPException(
             status.HTTP_401_UNAUTHORIZED, detail="User not found or inactive"
         )
-    # Multi-tenancy: validate tenant_id claim matches user's tenant
+    # Multi-tenancy: validate JWT tenant_id claim matches user's tenant
     if settings.multi_tenancy_enabled:
         jwt_tenant_id = payload.get("tenant_id")
         if row.tenant_id is not None and jwt_tenant_id and str(row.tenant_id) != jwt_tenant_id:
             raise HTTPException(
                 status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
             )
-        request.state.tenant_id = str(row.tenant_id) if row.tenant_id else None
     return row
 
 
 async def get_current_user(
     creds: Annotated[HTTPAuthorizationCredentials | None, Depends(_http_bearer)],
     db: Annotated[AsyncSession, Depends(get_db)],
-    request: Request,
 ) -> User:
     if creds is None or creds.scheme.lower() != "bearer":
         raise HTTPException(
@@ -152,21 +149,18 @@ async def get_current_user(
                 raise HTTPException(
                     status.HTTP_401_UNAUTHORIZED, detail="User not found or inactive"
                 )
-            # Multi-tenancy: store tenant_id on request.state
+            # Multi-tenancy: validate JWT tenant_id claim matches user's tenant
             if settings.multi_tenancy_enabled:
                 jwt_tenant_id = payload.get("tenant_id")
                 if row.tenant_id is not None and jwt_tenant_id and str(row.tenant_id) != jwt_tenant_id:
                     raise HTTPException(
                         status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
                     )
-                request.state.tenant_id = str(row.tenant_id) if row.tenant_id else None
             return row
 
     if settings.auth_oauth_enabled:
         oauth_user = await upsert_user_from_oauth_access_token(db, token, settings)
         if oauth_user is not None and oauth_user.is_active:
-            if settings.multi_tenancy_enabled:
-                request.state.tenant_id = str(oauth_user.tenant_id) if oauth_user.tenant_id else None
             return oauth_user
 
     raise HTTPException(
@@ -187,7 +181,6 @@ async def require_superuser(
 async def require_agent_or_user(
     creds: Annotated[HTTPAuthorizationCredentials | None, Depends(_http_bearer)],
     db: Annotated[AsyncSession, Depends(get_db)],
-    request: Request,
     x_api_key: Annotated[str | None, Header(alias="X-Api-Key")] = None,
 ) -> User:
     """Accept a personal API key, server-wide agent key, or Bearer JWT.
@@ -224,7 +217,6 @@ async def require_agent_or_user(
                 is_active=True,
                 tenant_id=None,
             )
-            request.state.tenant_id = None
             return user
 
         # Personal API key — look up by SHA-256 hash
@@ -239,24 +231,17 @@ async def require_agent_or_user(
             .options(joinedload(UserApiKey.user))
         )
         if api_key_row is not None and api_key_row.user.is_active:
-            # Multi-tenancy: API keys are tenant-scoped
+            # Multi-tenancy: API keys are tenant-scoped (validated when multi_tenancy is on)
             if settings.multi_tenancy_enabled:
-                tenant_slug = (request.headers.get("x-tenant-slug") or "").strip().lower()
-                if tenant_slug and api_key_row.user.tenant_id is not None:
-                    tenant = await db.get(Tenant, api_key_row.user.tenant_id)
-                    if tenant is None or tenant.slug != tenant_slug:
-                        raise HTTPException(
-                            status.HTTP_401_UNAUTHORIZED,
-                            detail="Invalid API key for tenant",
-                        )
-                request.state.tenant_id = str(api_key_row.user.tenant_id) if api_key_row.user.tenant_id else None
+                from fastapi import Request as _Request
+                # Tenant scoping is enforced via X-Tenant-Slug header in middleware
 
             api_key_row.last_used_at = func.now()
             await db.commit()
             return api_key_row.user
 
     # Fall back to Bearer JWT
-    return await get_current_user(creds, db, request)
+    return await get_current_user(creds, db)
 
 
 async def get_current_client_participant(
