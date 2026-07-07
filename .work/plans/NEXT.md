@@ -32,6 +32,10 @@ Active: none — all session follow-ups done
 1. Add automated tests for the ecosystem hub modifications (Mod 1–4).
 2. Run full task gate (ruff, pyright, tests, scope/blast-radius) and close the iteration.
 3. Build satellite apps (CompanyBrain, OpsBoard, SignFlow, LedgerLite) that consume the ecosystem APIs.
+4. **Multi-tenancy:** SPEC reviewed and gaps closed. Next: mark SPEC Approved, then `@code-implementation plan` to break into milestones.
+
+### Intake queue
+- 2026-07-06 · local · "assess making this app multi-tenant" → SPEC created at `.work/features/multi-tenancy/20260706-SPEC.md` (Draft)
 
 ## Current iteration (2026-07-06)
 

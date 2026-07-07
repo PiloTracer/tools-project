@@ -1,8 +1,9 @@
 # Session handoff — tools-project
 
 ## Session status
+**Closed:** 2026-07-07 — reviewed and tightened multi-tenancy feature SPEC: fixed subdomain/Caddy deployment model, OAuth and client portal tenant resolution, API key tenant scoping, cross-tenant superuser mutation rules, migration ordering, and cookie/CORS considerations.
 **Closed:** 2026-07-06 — ecosystem hub modifications (Mod 1–4) implemented, lint/type/test gates green. Committed `15bb6a2`, pushed to `origin/main`.
-**GitHub task registry:** local registry loaded — new feature, no specific ticket assigned
+**GitHub task registry:** local registry loaded — open: TPR-3, TPR-T-11, TPR-T-12
 
 **Date:** 2026-07-06
 
@@ -486,3 +487,23 @@ All 9 penetration test findings resolved. Restart the dev stack to pick up rate 
 - Lint debt: 125 ruff errors and 13 pyright errors remain in untouched files.
 - Test gap: no tests under `api/tests/` for the 4 new features.
 **Next recommended:** Decide whether to (a) create iteration blocks M6–M8 in `NEXT.md` and re-run `@code-verify uncommitted`, or (b) revert out-of-scope files and deploy M5 only. After scope decision, add tests and fix pre-existing lint debt.
+
+---
+
+## Latest action (@ai-director)
+**Date:** 2026-07-06
+**Request:** "assess making this app multi-tenant" → "draft a more detailed plan, and generate the plan accordingly"
+**Classified bucket:** feature-spec-create
+**Routing confidence:** high
+**Executed:**
+1. `@feature-spec create - multi-tenancy` → Created `.work/features/multi-tenancy/20260706-SPEC.md` (Draft) — full multi-tenancy SPEC with row-level isolation strategy, 18 behavioural rules (R1–R18), data model (1 new table + 7 FK columns), migration order, API changes (20+ endpoints), cross-tenant leak test plan, rollout/rollback with feature flag, 6 open questions
+**User correction:** none
+**Blockers:** none — all 6 open questions resolved 2026-07-06.
+- ✅ Email unique per tenant
+- ✅ Dual superuser: cross-tenant (`tenant_id IS NULL`) + per-tenant org admin (`is_superuser=true`, `tenant_id IS NOT NULL`)
+- ✅ Default tenant name: hardcoded "Default Organization"
+- ✅ API keys: tenant-scoped only (no cross-tenant agent access)
+- ✅ Subdomain routing: `{slug}.localhost` + `X-Tenant-Slug` header fallback
+- ✅ Client portal: solved by subdomain routing
+- ✅ Migrations: applied on restart only, fully idempotent (`IF NOT EXISTS`, `ON CONFLICT DO NOTHING`)
+**Next recommended:** Review `.work/features/multi-tenancy/20260706-SPEC.md`, resolve the 6 open questions, then `@code-implementation plan` to break into milestones.
