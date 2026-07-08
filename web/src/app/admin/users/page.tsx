@@ -26,6 +26,9 @@ type UserRow = {
   auth_source: string;
   is_active: boolean;
   is_superuser: boolean;
+  tenant_id: string | null;
+  tenant_slug: string | null;
+  tenant_name: string | null;
   memberships: UserMembership[];
   client_contacts: UserClientContact[];
 };
