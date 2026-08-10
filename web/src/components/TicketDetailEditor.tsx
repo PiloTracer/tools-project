@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { MarkdownBody } from "@/components/MarkdownBody";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { usePendingImages } from "@/shared/client/use-pending-images";
 import { toast } from "@/components/Toast";
@@ -94,7 +95,7 @@ export function TicketDetailEditor({
             Description
           </h3>
           {ticket.description ? (
-            <p style={{ whiteSpace: "pre-wrap", margin: 0 }}>{ticket.description}</p>
+            <MarkdownBody text={ticket.description} />
           ) : (
             <p className="muted text-sm">No description.</p>
           )}

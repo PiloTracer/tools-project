@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { MarkdownBody } from "@/components/MarkdownBody";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { AssigneePicker } from "@/components/AssigneePicker";
 import { usePendingImages } from "@/shared/client/use-pending-images";
@@ -101,7 +102,7 @@ export function TaskDetailEditor({
             Description
           </h3>
           {task.description ? (
-            <p style={{ whiteSpace: "pre-wrap", margin: 0 }}>{task.description}</p>
+            <MarkdownBody text={task.description} />
           ) : (
             <p className="muted text-sm">No description.</p>
           )}

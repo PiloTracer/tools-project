@@ -1,6 +1,8 @@
 "use client";
 
+import { AttachmentImages, attachmentIds } from "@/components/AttachmentImages";
 import { CommitCard, extractCommitMeta } from "@/components/CommitCard";
+import { MarkdownBody } from "@/components/MarkdownBody";
 
 type ActivityRow = {
   id: string;
@@ -29,7 +31,18 @@ export function ActivityList({ activities, projectId }: { activities: ActivityRo
           {activity.kind === "github_commit" ? (
             <CommitCard meta={extractCommitMeta(activity.meta_json)!} projectId={projectId} readonly />
           ) : (
-            <p style={{ margin: "0.35rem 0 0", whiteSpace: "pre-wrap" }}>{activity.body}</p>
+            <>
+              {activity.body !== "(image)" ? (
+                <div style={{ margin: "0.35rem 0 0" }}>
+                  <MarkdownBody text={activity.body} />
+                </div>
+              ) : null}
+              {attachmentIds(activity.meta_json).length > 0 ? (
+                <div style={{ marginTop: "0.35rem" }}>
+                  <AttachmentImages ids={attachmentIds(activity.meta_json)} />
+                </div>
+              ) : null}
+            </>
           )}
         </li>
       ))}

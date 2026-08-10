@@ -3,8 +3,10 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
+import { AttachmentImages, attachmentIds } from "@/components/AttachmentImages";
 import { CommitCard, extractCommitMeta } from "@/components/CommitCard";
 import { CommitPicker } from "@/components/CommitPicker";
+import { MarkdownBody } from "@/components/MarkdownBody";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { SubjectPicker } from "@/components/SubjectPicker";
 import { SubjectPreview } from "@/components/SubjectPreview";
@@ -556,7 +558,18 @@ export function ActivityFeed({
                   {a.kind === "github_commit" ? (
                     <CommitCard meta={extractCommitMeta(a.meta_json)!} projectId={projectId} readonly={!canPost} />
                   ) : (
-                    <p style={{ margin: "0.35rem 0 0", whiteSpace: "pre-wrap" }}>{a.body}</p>
+                    <>
+                      {a.body !== "(image)" ? (
+                        <div style={{ margin: "0.35rem 0 0" }}>
+                          <MarkdownBody text={a.body} />
+                        </div>
+                      ) : null}
+                      {attachmentIds(a.meta_json).length > 0 ? (
+                        <div style={{ marginTop: "0.35rem" }}>
+                          <AttachmentImages ids={attachmentIds(a.meta_json)} />
+                        </div>
+                      ) : null}
+                    </>
                   )}
                   {canPost && projectId ? (
                     <button
@@ -691,7 +704,12 @@ export function ActivityFeed({
                                 </span>
                               ) : null}
                             </div>
-                            <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>{cr.body}</p>
+                            {cr.body !== "(image)" ? <MarkdownBody text={cr.body} /> : null}
+                            {attachmentIds(cr.meta_json).length > 0 ? (
+                              <div style={{ marginTop: "0.35rem" }}>
+                                <AttachmentImages ids={attachmentIds(cr.meta_json)} maxWidth={600} />
+                              </div>
+                            ) : null}
                           </div>
                         </li>
                       );

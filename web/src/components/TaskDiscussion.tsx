@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { AttachmentImages, attachmentIds } from "@/components/AttachmentImages";
+import { MarkdownBody } from "@/components/MarkdownBody";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { usePendingImages } from "@/shared/client/use-pending-images";
 import { toast } from "@/components/Toast";
@@ -136,13 +138,6 @@ export function TaskDiscussion({
     setBusy(false);
   }
 
-  function attachmentIds(meta: Record<string, unknown> | null | undefined): string[] {
-    if (meta == null) return [];
-    const raw = meta.attachment_ids;
-    if (!Array.isArray(raw)) return [];
-    return raw.filter((x): x is string => typeof x === "string");
-  }
-
   return (
     <div className="card wide stack" style={{ gap: "1rem" }}>
       <h2 style={{ marginTop: 0 }}>Activity</h2>
@@ -177,18 +172,10 @@ export function TaskDiscussion({
                       </span>
                     ) : null}
                   </div>
-                  {a.body !== "(image)" ? <div style={{ whiteSpace: "pre-wrap" }}>{a.body}</div> : null}
+                  {a.body !== "(image)" ? <MarkdownBody text={a.body} /> : null}
                   {ids.length > 0 ? (
-                    <div className="stack" style={{ gap: "0.5rem", marginTop: a.body !== "(image)" ? "0.5rem" : 0 }}>
-                      {ids.map((id) => (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          key={id}
-                          src={`/api/attachments/${id}`}
-                          alt=""
-                          style={{ maxWidth: "min(100%, 720px)", height: "auto", borderRadius: 8 }}
-                        />
-                      ))}
+                    <div style={{ marginTop: a.body !== "(image)" ? "0.5rem" : 0 }}>
+                      <AttachmentImages ids={ids} />
                     </div>
                   ) : null}
                   {canEdit ? (
@@ -225,13 +212,10 @@ export function TaskDiscussion({
                                 </span>
                               ) : null}
                             </div>
-                            {cr.body !== "(image)" ? <div style={{ whiteSpace: "pre-wrap" }}>{cr.body}</div> : null}
+                            {cr.body !== "(image)" ? <MarkdownBody text={cr.body} /> : null}
                             {cids.length > 0 ? (
-                              <div className="stack" style={{ gap: "0.4rem", marginTop: "0.35rem" }}>
-                                {cids.map((id) => (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img key={id} src={`/api/attachments/${id}`} alt="" style={{ maxWidth: "min(100%, 600px)", height: "auto", borderRadius: 6 }} />
-                                ))}
+                              <div style={{ marginTop: "0.35rem" }}>
+                                <AttachmentImages ids={cids} maxWidth={600} />
                               </div>
                             ) : null}
                           </div>
