@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-06-30T18:00:36.019701+00:00",
+  "updated_at": "2026-08-10T21:01:59.787092+00:00",
   "tasks": [
     {
       "ref": "TPR-1",
@@ -105,6 +105,13 @@
       "status": "open",
       "project_id": "d942e263-efbc-4d96-bc9a-ea33654c3cb4",
       "description": "Penetration test report is provided at:\n/mnt/work/Projects/.ai.soc/strix_runs/tools-project_9307/penetration_test_report.md\n\nYou must analyze carefully, evaluate which items are vulnerabilities and issues that require fixing and implement the recommended resolutions."
+    },
+    {
+      "ref": "TPR-T-13",
+      "title": "when signed out does not redirect to signin form",
+      "status": "open",
+      "project_id": "d942e263-efbc-4d96-bc9a-ea33654c3cb4",
+      "description": "User logs into the project app, leaves the window inactive, then the session expires.\nan error is shown, and the user is now signed out, but, I think the user/page shuold be automatically redirected to the signin form.\nleaving the behavior as is is confusing, cause the user will click on a menu option and get frustrated."
     }
   ]
 }
