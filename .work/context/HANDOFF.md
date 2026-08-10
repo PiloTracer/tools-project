@@ -1,13 +1,14 @@
 # Session handoff — tools-project
 
 ## Session status
+**Open:** 2026-08-10 — goal: not specified (see NEXT.md § Recommended next)
 **Closed:** 2026-07-07 — verified and repaired multi-tenancy implementation: fixed syntax error in `admin_users.py`, tenant-scoped slug generation, webhook tenant isolation, cross-tenant superuser guards, RFP-award tenant assignment, and test factory/DDL compatibility. All gates green: ruff, pyright, compileall, DDL idempotency, pytest 33/33.
 **Closed:** 2026-07-08 — multi-tenancy implementation complete: schema, models, auth, 17+ routers scoped, services, tests (8/8 pass). Feature gated behind `MULTI_TENANCY_ENABLED=false` (backward compatible).
 **Closed:** 2026-07-07 — reviewed and tightened multi-tenancy feature SPEC: fixed subdomain/Caddy deployment model, OAuth and client portal tenant resolution, API key tenant scoping, cross-tenant superuser mutation rules, migration ordering, and cookie/CORS considerations.
 **Closed:** 2026-07-06 — ecosystem hub modifications (Mod 1–4) implemented, lint/type/test gates green. Committed `15bb6a2`, pushed to `origin/main`.
 **GitHub task registry:** local registry loaded — open: TPR-3, TPR-T-11, TPR-T-12
 
-**Date:** 2026-07-06
+**Date:** 2026-08-10
 
 ### This session (2026-07-06)
 
