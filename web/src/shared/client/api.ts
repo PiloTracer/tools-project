@@ -20,9 +20,22 @@ function extractDetail(body: unknown): string | undefined {
 }
 
 /**
+ * Hard-navigate to the signin page, preserving the current location so the
+ * user returns to it after signing in again. Used when the session has
+ * expired (API answers 401). A full navigation (not router.push) flushes the
+ * stale RSC cache that still holds pre-expiry page data.
+ */
+export function redirectToLogin(): void {
+  if (typeof window === "undefined") return;
+  const next = window.location.pathname + window.location.search;
+  window.location.assign(`/login?next=${encodeURIComponent(next)}`);
+}
+
+/**
  * Thin fetch wrapper that normalizes error handling.
  * On success returns `{ ok: true, data: T }`.
  * On failure returns `{ ok: false, error: string }` (network, HTTP error, or parse failure).
+ * On 401 the session has expired: redirects to the signin page.
  */
 export async function apiRequest<T = unknown>(
   url: string,
@@ -33,6 +46,11 @@ export async function apiRequest<T = unknown>(
     r = await fetch(url, init);
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Network error" };
+  }
+
+  if (r.status === 401) {
+    redirectToLogin();
+    return { ok: false, error: "Session expired — please sign in again" };
   }
 
   if (!r.ok) {

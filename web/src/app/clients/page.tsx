@@ -9,6 +9,7 @@ import { Dialog } from "@/components/Dialog";
 import { toast } from "@/components/Toast";
 import { useDownload } from "@/components/useDownload";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
+import { redirectToLogin } from "@/shared/client/api";
 
 type ClientRow = {
   id: string;
@@ -64,6 +65,7 @@ export default function ClientsPage() {
     setError(null);
     try {
       const r = await fetch("/api/clients");
+      if (r.status === 401) { redirectToLogin(); return; }
       if (!r.ok) throw new Error(`Failed to load (${r.status})`);
       const data = await r.json() as { items: ClientRow[] };
       setRows(data.items ?? []);

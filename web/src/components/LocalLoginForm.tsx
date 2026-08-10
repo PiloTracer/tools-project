@@ -8,7 +8,7 @@ interface TenantChoice {
   tenant_name: string;
 }
 
-export function LocalLoginForm({ tenantSlug }: { tenantSlug?: string | null }) {
+export function LocalLoginForm({ tenantSlug, next }: { tenantSlug?: string | null; next?: string }) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -40,7 +40,7 @@ export function LocalLoginForm({ tenantSlug }: { tenantSlug?: string | null }) {
         setPending(false);
         return;
       }
-      router.replace("/projects");
+      router.replace(next ?? "/projects");
       router.refresh();
     } catch {
       setError("Network error");

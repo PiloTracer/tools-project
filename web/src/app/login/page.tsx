@@ -46,6 +46,11 @@ export default async function LoginPage({
   const sp = await searchParams;
   const err = typeof sp.error === "string" ? sp.error : undefined;
   const oauthErr = typeof sp.oauth_error === "string" ? sp.oauth_error : undefined;
+  // Only allow same-origin paths as redirect targets (open-redirect guard).
+  const next =
+    typeof sp.next === "string" && sp.next.startsWith("/") && !sp.next.startsWith("//")
+      ? sp.next
+      : undefined;
   const hint = err ? HINTS[err] : undefined;
   const cfg = await authConfigFromApi();
 
@@ -78,7 +83,7 @@ export default async function LoginPage({
       {cfg.local_enabled ? (
         <>
           <p className="muted">Or sign in with a local account:</p>
-          <LocalLoginForm tenantSlug={cfg.tenant?.slug || null} />
+          <LocalLoginForm tenantSlug={cfg.tenant?.slug || null} next={next} />
         </>
       ) : (
         <p className="muted">Local accounts are disabled for this deployment.</p>

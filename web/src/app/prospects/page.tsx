@@ -13,7 +13,7 @@ import { PipelineFunnel, type PipelineStageRow } from "@/components/PipelineFunn
 import { useDownload } from "@/components/useDownload";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { ProspectBoard } from "@/components/ProspectBoard";
-import { apiRequest } from "@/shared/client/api";
+import { apiRequest, redirectToLogin } from "@/shared/client/api";
 
 const PIPELINE_STAGES = [
   "target", "connected", "engaged", "call_scheduled", "call_done",
@@ -107,6 +107,7 @@ export default function ProspectsPage() {
     if (opts?.source) params.set("source", opts.source);
     try {
       const r = await fetch(`/api/prospects${params.toString() ? `?${params}` : ""}`);
+      if (r.status === 401) { redirectToLogin(); return; }
       if (!r.ok) throw new Error(`Failed to load (${r.status})`);
       const data = await r.json() as { items: ProspectRow[] };
       setRows(data.items ?? []);
