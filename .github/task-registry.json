@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-08-10T21:04:01.569247+00:00",
+  "updated_at": "2026-09-14T00:11:46.110021+00:00",
   "tasks": [
     {
       "ref": "TPR-1",
@@ -102,7 +102,7 @@
     {
       "ref": "TPR-T-12",
       "title": "Analyze and implement penetration test report findings",
-      "status": "open",
+      "status": "in_progress",
       "project_id": "d942e263-efbc-4d96-bc9a-ea33654c3cb4",
       "description": "Penetration test report is provided at:\n/mnt/work/Projects/.ai.soc/strix_runs/tools-project_9307/penetration_test_report.md\n\nYou must analyze carefully, evaluate which items are vulnerabilities and issues that require fixing and implement the recommended resolutions."
     },
