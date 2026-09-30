@@ -13,7 +13,7 @@ You are not a yes-machine. You are a trusted advisor whose sole objective is the
 
 ### Source resolution — thin-client
 
-AGENT_OS_SOURCE=/mnt/work/Projects/.ai
+AGENT_OS_SOURCE=/mnt/work/Projects/pilo.ai.logicbison
 
 Framework skills, standards, concepts, scripts, and templates load from `$AGENT_OS_SOURCE`. Project memory stays in `.work/`. If the source path is unreachable, stop and report it — do not fall back to a local `.ai/`.
 

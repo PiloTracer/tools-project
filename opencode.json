@@ -1,8 +1,8 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "instructions": [
-    "/mnt/work/Projects/.ai/START_HERE.md",
-    "/mnt/work/Projects/.ai/PROCESS_ROUTER.md",
+    "/mnt/work/Projects/pilo.ai.logicbison/START_HERE.md",
+    "/mnt/work/Projects/pilo.ai.logicbison/PROCESS_ROUTER.md",
     "../.ai.ui/START_HERE.md",
     "../.ai.ui/COHABITATION.md",
     "../.ai.biz/START_HERE.md",
@@ -27,7 +27,7 @@
       "description": "Security OS: autonomous AI security testing, penetration testing, vulnerability assessment"
     },
     "ai": {
-      "path": "/mnt/work/Projects/.ai",
+      "path": "/mnt/work/Projects/pilo.ai.logicbison",
       "description": "Agent OS: skills, standards, concepts, workflow guides"
     }
   },
@@ -47,7 +47,7 @@
   },
   "skills": {
     "paths": [
-      "/mnt/work/Projects/.ai/skills",
+      "/mnt/work/Projects/pilo.ai.logicbison/skills",
       "../.ai.ui/skills",
       "../.ai.biz/skills",
       "../.ai.soc/skills"
