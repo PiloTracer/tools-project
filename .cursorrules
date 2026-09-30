@@ -348,7 +348,7 @@ Do **not** run `npm install` on the host for containerized frontends.
 | `postgresql` | PostgreSQL 16 | `tpr_pg_${COMPOSE_PROJECT_NAME}` |
 | `(none)` | No cache/broker in current stack | — |
 
-Stack identity: `.env` (`COMPOSE_PROJECT_NAME`, host ports). Prefer **`bin/start.sh`** for isolated compose invocations.
+Stack identity: `.env.dev` (dev) / `.env.prd` (production) — `COMPOSE_PROJECT_NAME`, host ports; a bare `.env` is never read. Prefer **`bin/start.sh <dev|prd>`** for isolated compose invocations, and **`bin/env-check.sh`** to verify a mode env file (required keys, non-empty requirements, 1-to-1 line alignment with `.env.example`, `--diff` for a side-by-side view).
 
 ### Running Tests (example — customize service and paths)
 

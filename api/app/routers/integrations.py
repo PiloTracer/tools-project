@@ -19,6 +19,7 @@ from app.services.pipeline_service import (
     auto_scaffold_onboarding_project,
     promote_prospect_to_client,
 )
+from app.services.tenancy import get_default_tenant
 
 log = logging.getLogger(__name__)
 
@@ -91,8 +92,7 @@ async def rfp_award(
     system_user = await _get_system_user(db)
     tenant_id = system_user.tenant_id
     if tenant_id is None:
-        from app.models.tenant import Tenant
-        default_tenant = await db.scalar(select(Tenant).where(Tenant.slug == "default"))
+        default_tenant = await get_default_tenant(db)
         if default_tenant is None:
             raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Default tenant not found")
         tenant_id = default_tenant.id

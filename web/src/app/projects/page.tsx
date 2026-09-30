@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { apiServerFetch, fetchMe } from "@/shared/server/session";
+import { multiTenancyEnabled, tenantSlugFromCookies } from "@/shared/server/tenant";
 
 type ProjectRow = {
   id: string;
@@ -30,6 +31,13 @@ export default async function ProjectsPage() {
   const me = await fetchMe();
   if (!me) {
     redirect("/login");
+  }
+
+  // Multi-tenancy: a session without a tenant selection cannot read tenant-scoped
+  // data (the API answers 401 "Tenant context required"). Middleware normally
+  // catches this earlier; this keeps the landing page correct on its own.
+  if (multiTenancyEnabled() && !(await tenantSlugFromCookies())) {
+    redirect("/select-tenant?next=%2Fprojects");
   }
 
   const r = await apiServerFetch("/v1/projects");

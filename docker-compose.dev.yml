@@ -1,7 +1,9 @@
 # tools-project — Docker development
 #
-# Copy `.env.example` → `.env`, then set PUBLIC_HOST, WEB_DEV_HOST_PORT, API_HOST_PORT,
+# Copy `.env.example` → `.env.dev`, then set PUBLIC_HOST, WEB_DEV_HOST_PORT, API_HOST_PORT,
 # POSTGRES_HOST_PORT, and derived URLs (or rely on the defaults in `.env.example`).
+# Prefer `./bin/start.sh dev` (dev) or `./bin/start.sh prd` — it always passes an explicit
+# `--env-file` and refuses Compose's implicit `.env` (which this project never uses).
 #
 # API mounts repo ./sql at /sql (declarative schema; no Alembic — see .cursorrules).
 #
@@ -52,18 +54,26 @@ services:
       SQL_SCHEMA_APPLY: ${SQL_SCHEMA_APPLY:-true}
       ATTACHMENTS_DIR: ${ATTACHMENTS_DIR:-/data/attachments}
       ATTACHMENT_RETENTION_DAYS: ${ATTACHMENT_RETENTION_DAYS:-0}
+      ATTACHMENT_MAX_PER_PROJECT: ${ATTACHMENT_MAX_PER_PROJECT:-500}
+      ATTACHMENT_MAX_BYTES_PER_PROJECT: ${ATTACHMENT_MAX_BYTES_PER_PROJECT:-0}
+      ATTACHMENT_RETENTION_PURGE_INTERVAL_SECONDS: ${ATTACHMENT_RETENTION_PURGE_INTERVAL_SECONDS:-3600}
       AUTH_LOCAL_ENABLED: ${AUTH_LOCAL_ENABLED:-true}
       AUTH_OAUTH_ENABLED: ${AUTH_OAUTH_ENABLED:-true}
       JWT_SECRET: ${JWT_SECRET:-change_me_generate_a_long_random_secret}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-480}
       BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-admin@example.com}
       BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-dev-bootstrap-change-me}
       BOOTSTRAP_ADMIN_DISPLAY_NAME: ${BOOTSTRAP_ADMIN_DISPLAY_NAME:-Administrator}
       OAUTH_USER_INFO_ENDPOINT: ${OAUTH_USER_INFO_ENDPOINT:-https://dev.aiepic.app/api/users/me}
+      OAUTH_ALLOWED_USERINFO_HOSTS: ${OAUTH_ALLOWED_USERINFO_HOSTS:-}
       GITHUB_SYNC_ENABLED: ${GITHUB_SYNC_ENABLED:-true}
       GITHUB_POLL_INTERVAL_SECONDS: ${GITHUB_POLL_INTERVAL_SECONDS:-300}
       GITHUB_POLL_INITIAL_DELAY_SECONDS: ${GITHUB_POLL_INITIAL_DELAY_SECONDS:-8}
       GITHUB_COMMITS_PER_SYNC: ${GITHUB_COMMITS_PER_SYNC:-100}
       GITHUB_TOKEN_ENCRYPTION_KEY: ${GITHUB_TOKEN_ENCRYPTION_KEY:-change_me}
+      AGENT_API_KEY: ${AGENT_API_KEY:-}
+      RFP_WEBHOOK_SECRET: ${RFP_WEBHOOK_SECRET:-}
       MULTI_TENANCY_ENABLED: ${MULTI_TENANCY_ENABLED:-false}
       PUBLIC_HOST: ${PUBLIC_HOST:-localhost}
     ports:
@@ -120,11 +130,15 @@ services:
       OAUTH_TOKEN_ENDPOINT: ${OAUTH_TOKEN_ENDPOINT:-https://dev.aiepic.app/oauth/token}
       OAUTH_USER_INFO_ENDPOINT: ${OAUTH_USER_INFO_ENDPOINT:-https://dev.aiepic.app/api/users/me}
       NEXT_PUBLIC_OAUTH_AUTHORIZATION_ENDPOINT: ${NEXT_PUBLIC_OAUTH_AUTHORIZATION_ENDPOINT:-https://dev.aiepic.app/oauth/authorize}
+      OAUTH_PKCE_STATE_SECRET: ${OAUTH_PKCE_STATE_SECRET:-}
       OAUTH_SCOPES: ${OAUTH_SCOPES:-profile email}
       SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-prj_auth}
       REFRESH_COOKIE_NAME: ${REFRESH_COOKIE_NAME:-prj_refresh}
+      TENANT_COOKIE_NAME: ${TENANT_COOKIE_NAME:-prj_tenant}
       AUTH_LOCAL_ENABLED: ${AUTH_LOCAL_ENABLED:-true}
       AUTH_OAUTH_ENABLED: ${AUTH_OAUTH_ENABLED:-true}
+      MULTI_TENANCY_ENABLED: ${MULTI_TENANCY_ENABLED:-false}
+      PUBLIC_HOST: ${PUBLIC_HOST:-localhost}
     extra_hosts:
       - "dev.aiepic.app:host-gateway"
       - "host.docker.internal:host-gateway"

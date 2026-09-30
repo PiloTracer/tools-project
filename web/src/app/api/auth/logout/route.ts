@@ -26,6 +26,7 @@ export async function POST(req: Request) {
 
   const access = process.env.SESSION_COOKIE_NAME || "prj_auth";
   const refresh = process.env.REFRESH_COOKIE_NAME || "prj_refresh";
+  const tenant = process.env.TENANT_COOKIE_NAME || "prj_tenant";
   const secure = process.env.NODE_ENV === "production";
   const res = NextResponse.json({ ok: true });
   res.cookies.set(access, "", {
@@ -42,5 +43,14 @@ export async function POST(req: Request) {
     path: "/",
     maxAge: 0,
   });
+  // Clear the tenant selection with the session so the next sign-in starts clean.
+  res.cookies.set(tenant, "", {
+    httpOnly: true,
+    secure,
+    sameSite: "strict",
+    path: "/",
+    maxAge: 0,
+  });
+  res.cookies.set("prj_tenant_choices", "", { path: "/", maxAge: 0 });
   return res;
 }

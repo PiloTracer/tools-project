@@ -18,6 +18,7 @@ from app.schemas import (
     ClientUpdate,
     slugify,
 )
+from app.services.tenancy import resolve_write_tenant_id
 from app.services.webhook_dispatcher import dispatch_event
 
 router = APIRouter(prefix="/v1/clients", tags=["clients"])
@@ -76,16 +77,7 @@ async def create_client(
     request: Request,
 ):
     tenant = await get_current_tenant(request, db)
-    tenant_id = tenant.id if tenant else None
-    is_cross_tenant_superuser = user.tenant_id is None
-    if is_cross_tenant_superuser and tenant_id is None:
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST,
-            detail="tenant_id or tenant_slug is required for cross-tenant superuser",
-        )
-    effective_tenant_id = tenant_id if is_cross_tenant_superuser else user.tenant_id
-    if effective_tenant_id is None:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="tenant_id is required")
+    effective_tenant_id = resolve_write_tenant_id(user, tenant)
     slug = await _unique_slug(db, body.name, effective_tenant_id)
     row = Client(
         name=body.name.strip(),

@@ -43,3 +43,6 @@ tsconfig.tsbuildinfo
 
 # Next.js auto-generated (changes between dev/prod builds)
 **/next-env.d.ts
+
+.reasonix/tasks
+.reasonix/truncated-results

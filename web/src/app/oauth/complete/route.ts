@@ -14,6 +14,14 @@ import { oauthServerFetch } from "@/shared/server/oauth-fetch";
 import { absoluteUrl } from "@/shared/server/app-origin";
 import { oauthEnabledServer } from "@/shared/server/auth-flags";
 import { resolvePkceVerifier } from "@/shared/server/oauth-pkce-store";
+import {
+  multiTenancyEnabled,
+  normalizeTenantSlug,
+  TENANT_CHOICES_COOKIE,
+  TENANT_COOKIE,
+  TENANT_COOKIE_MAX_AGE,
+  tenantSlugFromHost,
+} from "@/shared/server/tenant";
 
 const COOKIE = {
   access: process.env.SESSION_COOKIE_NAME || "prj_auth",
@@ -98,7 +106,60 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(absoluteUrl(req, "/login?error=userinfo"));
   }
 
-  const dest = absoluteUrl(req, "/projects");
+  // Resolve the API-side user (and its tenant) before handing out a session:
+  // tenant-scoped calls need `X-Tenant-Slug`, and unknown / ambiguous accounts
+  // must not end up in a half-authenticated state (SPEC R9b/R9c/R2b).
+  const base =
+    process.env.API_INTERNAL_URL?.replace(/\/+$/, "") || "http://api:8300";
+  const hostSlug = multiTenancyEnabled() ? tenantSlugFromHost(req.headers.get("host")) : null;
+  let tenantFromApi: string | null = null;
+  let choices: Array<{ tenant_slug: string; tenant_name: string }> = [];
+  try {
+    const meResp = await fetch(`${base}/v1/auth/me`, {
+      headers: { Authorization: `Bearer ${tokens.access_token}` },
+      cache: "no-store",
+    });
+    if (meResp.status === 300) {
+      const body = (await meResp.json().catch(() => ({}))) as {
+        detail?: { choices?: Array<{ tenant_slug: string; tenant_name: string }> };
+        choices?: Array<{ tenant_slug: string; tenant_name: string }>;
+      };
+      choices = body.choices ?? body.detail?.choices ?? [];
+      const dest = absoluteUrl(req, "/select-tenant");
+      const res = NextResponse.redirect(dest);
+      res.cookies.set(COOKIE.access, tokens.access_token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: tokens.expires_in,
+      });
+      res.cookies.set(TENANT_CHOICES_COOKIE, JSON.stringify(choices), {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: 600,
+      });
+      return res;
+    }
+    if (!meResp.ok) {
+      return NextResponse.redirect(
+        absoluteUrl(req, "/login?error=account_not_provisioned"),
+      );
+    }
+    const meBody = (await meResp.json()) as { tenant_slug?: string | null };
+    tenantFromApi = normalizeTenantSlug(meBody.tenant_slug) ?? hostSlug;
+  } catch {
+    return NextResponse.redirect(
+      absoluteUrl(req, "/login?error=userinfo"),
+    );
+  }
+
+  const dest = absoluteUrl(
+    req,
+    tenantFromApi || !multiTenancyEnabled() ? "/projects" : "/select-tenant",
+  );
   const res = NextResponse.redirect(dest);
   res.cookies.set(COOKIE.access, tokens.access_token, {
     httpOnly: true,
@@ -114,5 +175,13 @@ export async function GET(req: NextRequest) {
     path: "/",
     maxAge: 30 * 24 * 60 * 60,
   });
+  res.cookies.set(TENANT_COOKIE, tenantFromApi ?? "", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: tenantFromApi ? Math.min(tokens.expires_in, TENANT_COOKIE_MAX_AGE) : 0,
+  });
+  res.cookies.set(TENANT_CHOICES_COOKIE, "", { path: "/", maxAge: 0 });
   return res;
 }

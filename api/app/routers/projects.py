@@ -43,6 +43,7 @@ from app.services.project_access import (
     parse_member_role,
     require_project_access,
 )
+from app.services.tenancy import resolve_write_tenant_id
 
 router = APIRouter(prefix="/v1/projects", tags=["projects"])
 
@@ -149,23 +150,7 @@ async def create_project(
     request: Request,
 ):
     tenant = await get_current_tenant(request, db)
-    is_cross_tenant_superuser = user.tenant_id is None
-    if is_cross_tenant_superuser and tenant is None:
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST,
-            detail="tenant_id or tenant_slug is required for cross-tenant superuser",
-        )
-    effective_tenant_id: uuid.UUID
-    if not is_cross_tenant_superuser:
-        if user.tenant_id is None:
-            raise HTTPException(
-                status.HTTP_400_BAD_REQUEST,
-                detail="tenant_id is required",
-            )
-        effective_tenant_id = user.tenant_id
-    else:
-        assert tenant is not None
-        effective_tenant_id = tenant.id
+    effective_tenant_id = resolve_write_tenant_id(user, tenant)
     base_slug = (body.slug.strip() if body.slug else _slugify(body.name)).strip()
     slug = await _unique_slug(db, base_slug, effective_tenant_id)
     row = Project(

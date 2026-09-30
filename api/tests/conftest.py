@@ -26,6 +26,7 @@ os.environ["BOOTSTRAP_ADMIN_PASSWORD"] = "admin-test-password"
 os.environ["RFP_WEBHOOK_SECRET"] = "test-rfp-secret"
 
 from app.bootstrap import run_bootstrap  # noqa: E402
+from app.config import get_settings  # noqa: E402
 from app.db import get_db  # noqa: E402
 from app.main import app  # noqa: E402
 from app.schema_sql import run_post_bootstrap, run_pre_bootstrap  # noqa: E402
@@ -37,6 +38,15 @@ def event_loop():
     loop = asyncio.get_event_loop_policy().new_event_loop()
     yield loop
     loop.close()
+
+
+@pytest.fixture
+def multi_tenant_on(monkeypatch: pytest.MonkeyPatch):
+    """Run one test with MULTI_TENANCY_ENABLED=true (settings are lru_cached)."""
+    monkeypatch.setenv("MULTI_TENANCY_ENABLED", "true")
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
 
 
 async def _create_test_database() -> None:

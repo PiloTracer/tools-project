@@ -8,8 +8,10 @@ RUN apt-get update && apt-get install --no-install-recommends -y libatomic1 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY pyproject.toml README.md ./
+# Dev image installs the `dev` extra so `pytest tests/ -q` works inside the container
+# (see .cursorrules § Running Tests). The production image stays runtime-only.
 RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir -e . \
+    && pip install --no-cache-dir -e '.[dev]' \
     && pip install --no-cache-dir ruff==0.11.6 pyright==1.1.399
 
 COPY app ./app

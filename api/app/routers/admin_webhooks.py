@@ -13,6 +13,7 @@ from app.db import get_db
 from app.deps import get_current_tenant, get_current_user
 from app.models.user import User
 from app.models.webhook_subscription import WebhookSubscription
+from app.services.tenancy import resolve_write_tenant_id
 
 router = APIRouter(prefix="/v1/admin/webhook-subscriptions", tags=["admin"])
 
@@ -49,13 +50,7 @@ async def create_webhook_subscription(
     if not user.is_superuser:
         raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Admin only")
     tenant = await get_current_tenant(request, db)
-    tenant_id = tenant.id if tenant else None
-    is_cross_tenant_superuser = user.tenant_id is None
-    if is_cross_tenant_superuser and tenant_id is None:
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST,
-            detail="tenant_id or tenant_slug is required for cross-tenant superuser",
-        )
+    effective_tenant_id = resolve_write_tenant_id(user, tenant)
     secret = "whsec_" + secrets.token_urlsafe(32)
     sub = WebhookSubscription(
         url=body.url.strip(),
@@ -63,7 +58,7 @@ async def create_webhook_subscription(
         label=body.label.strip() if body.label else None,
         hmac_secret=secret,
         created_by=user.id,
-        tenant_id=tenant_id if is_cross_tenant_superuser else user.tenant_id,
+        tenant_id=effective_tenant_id,
     )
     db.add(sub)
     await db.commit()

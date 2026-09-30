@@ -6,15 +6,23 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
-from app.models.tenant import Tenant
 from app.models.user import User
 from app.services.auth_local import hash_password
+from app.services.tenancy import ensure_default_tenant
 
 logger = logging.getLogger(__name__)
 
 
 async def run_bootstrap(session: AsyncSession) -> None:
     settings = get_settings()
+
+    # Every deployment needs the `default` tenant row: tenant-scoped columns are
+    # NOT NULL and get_current_tenant resolves `default` when multi-tenancy is
+    # off (SPEC R4c — single-tenant deployments live entirely in `default`).
+    tenant = await ensure_default_tenant(session)
+    await session.commit()
+    logger.debug("Bootstrap ensured default tenant (id=%s)", tenant.id)
+
     if not settings.auth_local_enabled:
         return
     exists = await session.scalar(select(User).limit(1))
@@ -27,17 +35,6 @@ async def run_bootstrap(session: AsyncSession) -> None:
             "be created until you add credentials or create a user manually."
         )
         return
-
-    # Multi-tenancy: create default tenant before the first user
-    if settings.multi_tenancy_enabled:
-        default_tenant = await session.scalar(
-            select(Tenant).where(Tenant.slug == "default")
-        )
-        if default_tenant is None:
-            default_tenant = Tenant(slug="default", name="Default Organization")
-            session.add(default_tenant)
-            await session.flush()
-            logger.info("Bootstrap created default tenant (slug=default)")
 
     email = settings.bootstrap_admin_email.strip().lower()
     # Cross-tenant superuser: tenant_id IS NULL, is_superuser = true

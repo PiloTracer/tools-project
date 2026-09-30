@@ -22,9 +22,21 @@ MIT — free for personal and commercial use. See [LICENSE](LICENSE) for the ful
 ## Quick start
 
 ```bash
-cp .env.example .env
-docker compose --profile dev up --build
+cp .env.example .env.dev
+./bin/start.sh dev          # interactive dev menu (also: ./bin/start.sh dev start)
 ```
+
+Verify a configuration before starting (never reads `.env`; mode files only):
+
+```bash
+./bin/env-check.sh          # every mode file present here — dev and prd
+./bin/env-check.sh prd      # one mode, with the full list of missing keys
+./bin/env-check.sh --diff   # side-by-side: .env.example | .env.dev | .env.prd, line by line
+```
+
+The three env files are kept on the same line layout, so a key that is on line *x* of
+`.env.example` is on line *x* of `.env.dev` and `.env.prd`. Production's file lives in the
+repo root or in `$TOOLS_PROJECT_SECRET_DIR` (default: sibling `tools-project-secret/`).
 
 - **Web:** http://localhost:18513
 - **API:** http://localhost:8300/docs
@@ -78,8 +90,12 @@ docker compose -f docker-compose.prd.yml --env-file .env.prd up -d --build
 Or use the interactive menu:
 
 ```bash
-./bin/start.sh
+./bin/start.sh dev          # dev menu  (env .env.dev)
+./bin/start.sh prd          # prod menu (env .env.prd)
+./bin/start.sh dev status   # single command, non-interactive
 ```
+
+The mode (`dev`/`prd`) is mandatory; the script refuses to run without it and never reads a bare `.env`.
 
 ## Project Health
 

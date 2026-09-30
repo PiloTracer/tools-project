@@ -45,7 +45,7 @@ Integrated/hybrid: **consume** dashboard OAuth — do not replace the IdP. Stand
 | **API** | http://localhost:**8300** — `/healthz`, `/docs`, `/v1/auth/config` |
 | **Postgres** | host **55433** → container `5432` (`POSTGRES_HOST_PORT`) |
 
-Compose does **not** require a root `.env` file; defaults are in **`docker-compose.yml`**. Use **`.env`** for secrets and non-default auth (never commit).
+Compose does **not** require a root `.env` file; defaults live in the compose files. The stack control plane (`bin/start.sh <dev|prd>`) reads exactly one env file per mode — **`.env.dev`** or **`.env.prd`** (both gitignored; a bare `.env` is never read).
 
 ## Repository map
 

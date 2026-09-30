@@ -1,7 +1,20 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
+import { TENANT_COOKIE } from "@/shared/server/tenant";
+
 const SESSION = process.env.SESSION_COOKIE_NAME || "prj_auth";
+
+/**
+ * Tenant selection forwarded to the API as `X-Tenant-Slug` (multi-tenancy R2b).
+ * A cross-tenant superuser's JWT carries no tenant claim, so the selection made
+ * at login / on the tenant picker is what scopes these requests.
+ */
+async function tenantHeader(): Promise<string | null> {
+  const jar = await cookies();
+  const slug = jar.get(TENANT_COOKIE)?.value?.trim().toLowerCase();
+  return slug || null;
+}
 
 export async function proxyToApi(
   path: string,
@@ -19,6 +32,8 @@ export async function proxyToApi(
   if (init?.body != null && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
+  const tenant = await tenantHeader();
+  if (tenant) headers.set("X-Tenant-Slug", tenant);
   const r = await fetch(`${base}${path}`, { ...init, headers });
   if (r.status === 204) {
     return new NextResponse(null, { status: 204 });
@@ -44,9 +59,12 @@ export async function proxyFormDataToApi(
   }
   const base =
     process.env.API_INTERNAL_URL?.replace(/\/+$/, "") || "http://api:8300";
+  const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
+  const tenant = await tenantHeader();
+  if (tenant) headers["X-Tenant-Slug"] = tenant;
   const r = await fetch(`${base}${path}`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${token}` },
+    headers,
     body: formData,
   });
   if (r.status === 204) {
@@ -69,8 +87,11 @@ export async function proxyBinaryFromApi(path: string): Promise<NextResponse> {
   }
   const base =
     process.env.API_INTERNAL_URL?.replace(/\/+$/, "") || "http://api:8300";
+  const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
+  const tenant = await tenantHeader();
+  if (tenant) headers["X-Tenant-Slug"] = tenant;
   const r = await fetch(`${base}${path}`, {
-    headers: { Authorization: `Bearer ${token}` },
+    headers,
     cache: "no-store",
   });
   const buf = await r.arrayBuffer();

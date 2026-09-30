@@ -6,8 +6,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import get_settings
 from app.db import get_db
-from app.deps import get_current_user
+from app.deps import get_current_tenant, get_current_user
 from app.models.client import Client
 from app.models.client_contact import ClientContact
 from app.models.project import Project
@@ -28,6 +29,7 @@ from app.schemas import (
 )
 from app.services.auth_local import hash_password
 from app.services.project_access import parse_member_role
+from app.services.tenancy import resolve_write_tenant_id
 
 router = APIRouter(prefix="/v1/admin/users", tags=["admin-users"])
 
@@ -130,16 +132,20 @@ async def create_user(
 
     # Resolve target tenant_id
     target_tenant_id: uuid.UUID | None
-    if is_cross_tenant_superuser:
-        if body.tenant_slug:
-            tenant_row = await db.scalar(select(Tenant).where(Tenant.slug == body.tenant_slug))
-            if tenant_row is None:
-                raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Tenant not found")
-            target_tenant_id = tenant_row.id
-        else:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="tenant_slug is required for cross-tenant superuser")
-    else:
+    if not is_cross_tenant_superuser:
         target_tenant_id = admin.tenant_id
+    elif get_settings().multi_tenancy_enabled:
+        if not body.tenant_slug:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="tenant_slug is required for cross-tenant superuser")
+        tenant_row = await db.scalar(select(Tenant).where(Tenant.slug == body.tenant_slug))
+        if tenant_row is None:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Tenant not found")
+        target_tenant_id = tenant_row.id
+    else:
+        # Single-tenant deployment: there is exactly one tenant, so the bootstrap
+        # cross-tenant superuser creates users inside `default` — an explicit
+        # tenant_slug has no meaning here and is ignored.
+        target_tenant_id = resolve_write_tenant_id(admin, await get_current_tenant(request, db))
 
     email = body.email.strip().lower()
     # Per-tenant email uniqueness: check within target tenant

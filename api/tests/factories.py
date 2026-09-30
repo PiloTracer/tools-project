@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.client import Client
@@ -12,20 +11,14 @@ from app.models.client_contact import ClientContact
 from app.models.project import Project
 from app.models.project_member import ProjectMember
 from app.models.prospect import Prospect
-from app.models.tenant import Tenant
 from app.models.user import User
 from app.services.auth_local import create_local_access_token, hash_password
 from app.services.project_access import MemberRole
+from app.services.tenancy import ensure_default_tenant
 
 
 async def _default_tenant_id(db: AsyncSession) -> uuid.UUID:
-    tenant = await db.scalar(select(Tenant).where(Tenant.slug == "default"))
-    if tenant is None:
-        tenant = Tenant(slug="default", name="Default Organization")
-        db.add(tenant)
-        await db.flush()
-        await db.refresh(tenant)
-    return tenant.id
+    return (await ensure_default_tenant(db)).id
 
 
 async def create_user(

@@ -1,16 +1,84 @@
 # Session handoff — tools-project
 
 ## Session status
-**Open:** 2026-09-29 — goal: **cross-LLM verification of the plan-sync P1 commit** (user directive — next session must review this commit with a *different* LLM than the one that authored it, before any new feature work; procedure in NEXT.md § Recommended next item 1)
+**Closed:** 2026-09-30 — **cross-LLM verification of the plan-sync P1 commit (`11432fe`) — PASS**, plus the TNT iteration (tenant-context fix, multi-tenant selection, stack control plane + 1-to-1 env-file contract) implemented, gated, live-verified and **committed/pushed on owner instruction** (`@session-control close commit push`).
+**Open:** ~~2026-09-29 — goal: cross-LLM verification of the plan-sync P1 commit~~ → discharged 2026-09-30 (see "Cross-LLM verification — plan-sync P1" below).
 **Closed:** 2026-07-07 — verified and repaired multi-tenancy implementation: fixed syntax error in `admin_users.py`, tenant-scoped slug generation, webhook tenant isolation, cross-tenant superuser guards, RFP-award tenant assignment, and test factory/DDL compatibility. All gates green: ruff, pyright, compileall, DDL idempotency, pytest 33/33.
 **Closed:** 2026-07-08 — multi-tenancy implementation complete: schema, models, auth, 17+ routers scoped, services, tests (8/8 pass). Feature gated behind `MULTI_TENANCY_ENABLED=false` (backward compatible).
 **Closed:** 2026-07-07 — reviewed and tightened multi-tenancy feature SPEC: fixed subdomain/Caddy deployment model, OAuth and client portal tenant resolution, API key tenant scoping, cross-tenant superuser mutation rules, migration ordering, and cookie/CORS considerations.
 **Closed:** 2026-07-06 — ecosystem hub modifications (Mod 1–4) implemented, lint/type/test gates green. Committed `15bb6a2`, pushed to `origin/main`.
 **GitHub task registry:** local registry loaded — open: TPR-3, TPR-T-11, TPR-T-12
 
-**Date:** 2026-09-29
+**Date:** 2026-09-30
 
-### This session (2026-09-29 — plan-sync P1: milestones + plan-import API)
+### Cross-LLM verification — plan-sync P1 (commit `11432fe`) — **PASS**
+
+Procedure from NEXT.md § Recommended next item 1, executed by a different model than the
+authoring session:
+
+- **(a) Commit located:** `11432fe feat: add plan import API that syncs plans into milestones`
+  (21 files, +2231/−26, includes `.work/features/plan-sync/20260929-SPEC.md`, the iteration
+  block and the P2 work order).
+- **(b) Diff reviewed against SPEC R1–R27** by reading the code (not by trusting its tests):
+  R1/R2 (`milestones.py` `sort_order` ordering; `status='active'` clears other active rows in the
+  same transaction), R3 (task totals via `sum(case(status='done'))`), R4
+  (`ON DELETE SET NULL` on `tasks.milestone_id`), R5/R6 (`_cross_validate`: duplicate refs,
+  `milestone_ref` membership, envelope limits), R7 (`dry_run` → full validation + `db.rollback()`),
+  R8 (single commit at the end of `run_plan_import`), R9 (exactly one `kind='system'` summary
+  activity, written only after commit), R10 (no webhook dispatch in the import path), R11
+  (`require_agent_or_user` on `plan-import` only + `can_create_tasks` gate), R12/R27 (partial
+  unique indexes on `(project_id, plan_ref)`; additive idempotent DDL re-run on every start),
+  R13 (local `status` never overwritten on update; divergence reported as a conflict), R14
+  (`PLAN_TASK_STATUS_MAP` + `plan_state='active'`), R15/R16 (obsolete matrix — all four rows;
+  `in_progress`/`active` rows left unchanged and reported), R17 (reactivation restores
+  `todo`/`pending` only for obsolete rows), R18 (no `db.delete`/`DELETE` in the import path),
+  R19 (`{created, updated, obsolete, reactivated, conflicts[]}`), R20 (in-progress orphans and
+  `sort_order` collisions reported), R23 (registry gate keeps the GitHub-link/token check while
+  `auto_prefix_enabled` depends on `project_key` alone), R24 (`allocate_ref` per imported task),
+  R25 (`milestone_id` + `plan_state` task filters). **R26 (v1 web UI) is deferred to plan-sync P3
+  by the iteration's documented out-of-scope list — deliberate, not a P1 defect.**
+- **(c) Gates re-run in the container (2026-09-30T16:41:50-06:00):** `ruff check .` clean ·
+  `pyright .` 0 errors · `pytest -q` **69 passed** with `tests/test_plan_sync.py` **16/16** in
+  isolation · schema runner (`python -m app.cli_schema apply-ddl`) ×2 clean · API container
+  restart ×2 → `/healthz` ok · live DDL check: `milestones` = 15 columns, 5 indexes,
+  `tasks.plan_state` default `active`.
+- **Isolation note:** the verification ran against the working tree (HEAD + the uncommitted TNT
+  iteration). The plan-sync implementation files (`plan_import.py`, `milestones.py`,
+  `models/milestone.py`, `sql/schema_*.sql`) are **untouched** by TNT
+  (`git diff --name-only`); the only shared file is `schemas.py`, where TNT adds tenant fields to
+  `TokenResponse` (additive).
+- **Verdict: PASS — no SPEC violations found.** The 2026-09-29 directive is discharged; new
+  feature work is unblocked.
+
+### This session (2026-09-30 — TNT: tenant context)
+
+Fixed the owner-reported production defect (`POST /v1/projects` → `400 tenant_id or tenant_slug
+is required for cross-tenant superuser` for the bootstrapped admin while
+`MULTI_TENANCY_ENABLED=false`) and completed the multi-tenant client plumbing:
+
+- Single-tenant mode resolves the `default` tenant (SPEC §Feature flag); bootstrap + schema
+  backfill guarantee that row; every tenant-scoped create stamps it — the bootstrapped admin can
+  write again.
+- Multi-tenant mode: subdomain → `X-Tenant-Slug` → authenticated user's tenant; a foreign
+  tenant is `403` (R2b); nothing resolvable is `401`.
+- Login: tenant-aware (tenant-less superusers included) with a real `300 Multiple Choices`;
+  OAuth: tenant-scoped lookup, `300` on ambiguity, no auto-provisioning (R9b/R9c).
+- Web: tenant cookie forwarded as `X-Tenant-Slug`, `/select-tenant` picker, login/oauth/logout
+  lifecycle, middleware guard — first time the multi-tenant web path works end-to-end (verified
+  live in both modes).
+- Env passthrough completed for both compose files; dev image installs the `dev` extra so the
+  documented in-container `pytest` command works.
+- Gates: ruff clean · pyright 0 errors · pytest **69/69** (20 new) · schema runner ×2 ·
+  restart ×2 · web eslint + `next build` · live single-tenant and multi-tenant checks ·
+  touch-scope pass / blast-radius warn (protected hits owner-approved in-message).
+- Iteration block + MOD-06 risk summary (`merge_with_conditions`) in NEXT.md «Current
+  iteration — TNT»; staging scope + draft commit message handed to the owner (the agent does not
+  commit).
+- Two files in the tree are **not** from this session: `.gitignore` (host tooling added
+  `.reasonix/*` ignores) and `.work/feedback/20260930-uncommitted-changes-feedback.md` (a separate
+  session's report) — the owner decides keep or revert.
+
+### Prior session (2026-09-29 — plan-sync P1: milestones + plan-import API)
 
 Shipped plan-sync P1 end-to-end (SPEC `.work/features/plan-sync/20260929-SPEC.md`, Approved):
 

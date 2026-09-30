@@ -2,7 +2,7 @@
 
 **Purpose:** Backlog derived from **`.work/plans/legacy-plans/proposal/20260515-full-project.md`** (phases §10–§11) and repo reality.  
 **North star:** Phase **1** (domain core) → **2** (activity & tickets depth) → **3** (GitHub & polish) — see **§ Batch I — GitHub integration** below for the **active** specification.  
-**Run dev stack:** `.cursorrules` / `docker compose --profile dev up --build` or `./bin/start.sh`.
+**Run dev stack:** `./bin/start.sh dev` (mode is mandatory: `dev` → `.env.dev`, `prd` → `.env.prd`; a bare `.env` is never read).
 
 **Schema:** declarative **`sql/`** only — no Alembic. On API startup: `schema_changes.sql` → `schema_indexes.sql` → bootstrap → `schema_backfill.sql` → `schema_inserts.sql`.
 
@@ -26,8 +26,8 @@ Security fixes  ████████████████████  8/
 Pen test rem.   ████████████████████  9/9   Done (all findings addressed)
 Multi-tenancy   ████████████████████  Done  (implementation verified; 33 tests pass)
 
-Open: **NEXT SESSION — cross-LLM verify the plan-sync P1 commit** (user directive 2026-09-29; run before any new feature work)
-Active: none
+Open: none (**cross-LLM verification of the plan-sync P1 commit `11432fe` — PASS 2026-09-30**; see HANDOFF § Cross-LLM verification)
+Active: **TNT iteration complete** (tenant context: single-tenant writes + multi-tenant selection; stack control plane + env-file contract) — **committed 2026-09-30** on owner instruction
 
 ### Recommended next
 1. **NEXT SESSION (user directive 2026-09-29): cross-LLM verification of the plan-sync P1 commit.** Open the session with a *different* LLM than the one that authored the commit. Procedure: (a) `git log -1 --oneline` + `git show --stat HEAD` to locate the plan-sync commit; (b) review the diff against `.work/features/plan-sync/20260929-SPEC.md` rules R1–R27; (c) re-run gates inside the container (`docker exec tpr_api_tools_project_dev bash -c "cd /app && ruff check . && pyright . && python -m pytest -q"`); (d) record pass/fail in HANDOFF. **No new feature work until verification passes.**
@@ -40,6 +40,128 @@ Active: none
 
 ### Intake queue
 - 2026-07-06 · local · "assess making this app multi-tenant" → SPEC created at `.work/features/multi-tenancy/20260706-SPEC.md` (Draft)
+
+## Current iteration — TNT: tenant context (single-tenant writes + multi-tenant selection)
+
+**Milestone ref:** TNT · source: `.work/features/multi-tenancy/20260706-SPEC.md` (§Feature flag, R2, R2b, R4a/R4c, R5, R9b, R9c, R13a)
+**Status:** complete — owner commit decision pending
+**Started / Completed:** 2026-09-30
+**Trigger:** owner-reported production defect — `POST /v1/projects` answered `400 tenant_id or tenant_slug is required for cross-tenant superuser` for the bootstrapped admin (`admin@example.com`, `tenant_id IS NULL`) while production runs `MULTI_TENANCY_ENABLED=false` (confirmed live: `GET https://project.cloudsys.win/v1/auth/config` → `multi_tenant:false`). Same defect was logged as a backlog candidate at the end of the plan-sync P1 block below.
+
+### In scope
+- Single-tenant (flag off): `get_current_tenant` returns the `default` tenant (SPEC §Feature flag); bootstrap + schema backfill guarantee that row; tenant-scoped creates stamp it
+- Multi-tenant (flag on): subdomain → `X-Tenant-Slug` → authenticated user's tenant resolution, `403` when a caller names another tenant (R2b), `401` when nothing resolves
+- Login: tenant-aware local login incl. tenant-less superusers, real `300 Multiple Choices` for per-tenant duplicate emails (R5/R9b)
+- OAuth: tenant-scoped lookup, `300` on ambiguity, no auto-provisioning (R9b/R9c)
+- Web: tenant selection cookie forwarded as `X-Tenant-Slug`, `/select-tenant` picker, login/oauth/logout lifecycle, middleware guard
+- Env passthrough: every `Settings` field reachable through `docker-compose.dev.yml` / `docker-compose.prd.yml`; `.env.example` / `.env.dev` document them
+- Dev image installs the `dev` extra so `pytest` runs in-container
+
+### Out of scope (explicit)
+- Marking the multi-tenancy SPEC `Approved` (owner action) and flipping `MULTI_TENANCY_ENABLED` in production (stays `false`)
+- HTTP-level cross-tenant leak tests for *all* tenant-scoped routers (this iteration covers auth/login/tenancy resolution + clients; prospects/client_contacts/admin_users/admin_webhooks/agent_query remain per NEXT § Recommended next 2)
+- plan-sync P2/P3, satellite apps
+
+### Tasks
+| ID | Description | Files | Status | Notes |
+|----|-------------|-------|--------|-------|
+| TNT-T1 | Shared tenancy helpers (default tenant, write-tenant resolution) | `api/app/services/tenancy.py` | done | new module |
+| TNT-T2 | Tenant resolution dependency + auth deps publish the caller's tenant | `api/app/deps.py`, `api/app/main.py` | done | flag-off → `default`; flag-on → subdomain/header/user; 403 on foreign tenant |
+| TNT-T3 | Bootstrap always ensures the `default` tenant | `api/app/bootstrap.py` | done | was flag-gated |
+| TNT-T4 | Tenant-scoped creates stamp the resolved tenant | `api/app/routers/projects.py`, `api/app/routers/clients.py`, `api/app/routers/prospects.py`, `api/app/routers/admin_webhooks.py`, `api/app/routers/admin_users.py`, `api/app/routers/me_api_keys.py`, `api/app/routers/integrations.py` | done | single-tenant admin no longer needs `tenant_slug`; multi-tenant keeps R13a |
+| TNT-T5 | Local login tenant context + `300 Multiple Choices`; token echoes tenant binding | `api/app/routers/auth.py`, `api/app/schemas.py` | done | cross-tenant superuser can log in on any tenant context |
+| TNT-T6 | OAuth tenant-scoped lookup, ambiguity → `300`, no auto-provisioning | `api/app/services/oauth_userinfo.py` | done | R9b/R9c |
+| TNT-T7 | Web tenant plumbing: cookie, `X-Tenant-Slug` forwarding, picker, lifecycle, guard | `web/src/shared/server/tenant.ts`, `web/src/shared/server/session.ts`, `web/src/shared/server/proxy-api.ts`, `web/src/middleware.ts`, `web/src/app/api/auth/tenant/route.ts`, `web/src/app/api/auth/local/login/route.ts`, `web/src/app/api/auth/logout/route.ts`, `web/src/app/oauth/complete/route.ts`, `web/src/app/select-tenant/page.tsx`, `web/src/app/select-tenant/SelectTenantPanel.tsx`, `web/src/app/projects/page.tsx`, `web/src/app/login/page.tsx`, `web/src/shared/types/me.ts` | done | picker validates against `/v1/admin/tenants` (fail-closed) |
+| TNT-T8 | Env passthrough for API + web services, both stacks | `docker-compose.dev.yml`, `docker-compose.prd.yml`, `.env.example`, `.env.dev` | done | protected surfaces — owner-approved in-message 2026-09-30 |
+| TNT-T9 | Dev image installs the `dev` extra (pytest in container) | `api/Dockerfile.dev` | done | protected surface — owner-approved in-message 2026-09-30 |
+| TNT-T10 | Regression tests: resolution, login, OAuth scope | `api/tests/test_tenancy_resolution.py`, `api/tests/test_login_tenant_context.py`, `api/tests/test_oauth_tenant_scope.py`, `api/tests/conftest.py`, `api/tests/factories.py` | done | 20 new tests |
+| TNT-T11 | Gates: ruff, pyright, pytest, schema runner ×2, restart ×2, web check + build, live dual-mode checks | (validation steps) | done | see below |
+| TNT-T12 | Foreign dirty files present but **not** part of this iteration (declared for scope honesty) | `.gitignore`, `.work/feedback/20260930-uncommitted-changes-feedback.md` | n-a | `.gitignore` changed by host tooling during the session; feedback report authored by a separate session — owner decides keep/revert |
+| TNT-T13 | Iteration bookkeeping + change-safety evidence | `.work/plans/NEXT.md`, `.work/context/HANDOFF.md` | done | iteration block, MOD-06 summary, cross-LLM verification record |
+| TNT-T14 | Stack control plane: mandatory dev/prd mode, mode-only env files, `bin/env-check.sh` preflight | `bin/start.sh`, `bin/env-check.sh`, `.env.example`, `.env.dev`, `README.md`, `.work/docs/QUICK_START.md`, `.work/context/CONTEXT.md`, `api/README.md` | done | no bare `.env` reachable; env completeness verified before every Docker action |
+| TNT-T15 | Env files 1-to-1 aligned (example / dev / prd) + prd duplicate-key repair + dev SSO wiring + doc references | `.cursorrules`, `docker-compose.dev.yml`, `bin/env-check.sh`, `.env.example`, `.env.dev`, `README.md`, `api/README.md` | done | prd file repaired in `/mnt/work/Projects/tools-project-secret/` (timestamped backup kept); values preserved, only `PUBLIC_HOST` de-duplicated |
+
+### Acceptance criteria
+- [x] Single-tenant: bootstrapped admin creates project/client/prospect/webhook/user/API key → 201, rows in the `default` tenant (T1–T4)
+- [x] Single-tenant: tenant-bound user behavior unchanged (T2)
+- [x] Multi-tenant: Bearer-only session resolves the user's own tenant; foreign `X-Tenant-Slug` → 403; cross-tenant superuser writes into the selected tenant; nothing resolved → 401 (T2, T4)
+- [x] Ambiguous email → `300` with choices (local login and OAuth); unknown OAuth email → 401 (T5, T6)
+- [x] Missing `default` row → 500 with actionable detail instead of a NULL-tenant write (T2/T4)
+- [x] Web: login persists the tenant; BFF forwards `X-Tenant-Slug`; session without a selection routes to the picker; picker rejects unknown slugs (T7)
+- [x] Every `Settings` field reachable from both compose files (T8)
+- [x] Gates green inside the container + web build (T11)
+
+### Validation steps
+- [x] 2026-09-30T16:41:50-06:00 `docker exec tpr_api_tools_project_dev bash -c "cd /app && ruff check . && pyright . && python -m pytest -q"` → ruff `All checks passed`; pyright `0 errors, 0 warnings, 0 informations`; `69 passed`
+- [x] Schema runner ×2 (documented `MIGRATION_RUN_CMD`): `python -m app.cli_schema apply-ddl` → no errors; only pre-existing `SQL file empty or unparsed, skipping: /sql/schema_inserts.sql` (that file is 0 bytes)
+- [x] API container restart ×2 → `/healthz` `{"status":"ok","db":"ok"}`; `SELECT slug,name FROM tenants WHERE slug='default'` → `default | Default Organization`
+- [x] Web: `npm run check` (eslint) clean; `npm run build` → `✓ Compiled successfully`; route table includes `/select-tenant` and the middleware
+- [x] Live single-tenant: `POST /v1/projects` as `admin@example.com` → 201; `GET /v1/projects` → 200; `/v1/auth/config` → `multi_tenant:false`; web `/projects` → 200
+- [x] Live multi-tenant (stack run with `MULTI_TENANCY_ENABLED=true`, no new DB rows): login with `tenant_slug=default` → 200 + `prj_tenant` cookie; `/projects` with cookie → 200 (proves header forwarding); without cookie → 307 `/select-tenant?next=%2Fprojects`; `/select-tenant` → 200 listing `Default Organization`; `POST /api/auth/tenant {default}` → 200, `{does-not-exist}` → 404
+- [x] `touch-scope-verify --strict` → pass (scope declared by this block); `blast-radius-check` → warn (high lines/areas + protected hits, owner-approved)
+
+### Owner blockers
+- Protected surfaces touched (`docker-compose.dev.yml`, `docker-compose.prd.yml`, `.env.example`, `api/Dockerfile.dev`) — approved by the owner in the same message that requested them (2026-09-30: items 1–3), per `.cursorrules` § Protected Files.
+- Commit is **not** performed by the agent: staging scope + draft message handed over (standing rule).
+
+### Concept / NFR registry (this iteration)
+| Concept id | Applies | Status | Evidence / trigger |
+|------------|---------|--------|-------------------|
+| MOD-01 | yes | done | Diff crosses 3 boundaries (api / web / deploy config) — coupling note inside the MOD-06 summary below (no new runtime coupling: existing HTTP surface only) |
+| MOD-02 | no | n-a | No new synchronous network hop: the web→API path is unchanged; only one header added |
+| MOD-03 | no | n-a | No new billable unit |
+| MOD-04 | no | n-a | No new deployable or on-call surface |
+| MOD-05 | no | n-a | No service extraction |
+| MOD-06 | **yes** | done | AI-assisted: yes — risk summary attached below; recommendation `merge_with_conditions` |
+| MOD-07 | no | n-a | No app-side LLM prompt composition |
+| MOD-08 | no | n-a | No IaC change |
+
+#### MOD-06 output — AI change risk summary (TNT, 2026-09-30)
+
+```markdown
+## AI change risk summary
+- AI-assisted: yes
+- Boundaries crossed: 3 — API service (`api/`), web app (`web/`), deployment config
+  (`docker-compose.dev.yml`, `docker-compose.prd.yml`, `.env.example`, `api/Dockerfile.dev`).
+  [measured: `git diff --name-only` + untracked list; 38 files, ~754 changed lines]
+- New cross-boundary deps: none at runtime — the web app reaches the API only through the
+  existing HTTP surface (one added request header `X-Tenant-Slug`); no new route family,
+  service, shared model, or DB access path. Config coupling is intentional and symmetric
+  (both compose files + `.env.example` carry the same variable set).
+- Test isolation: ok for the API — command:
+  `docker exec tpr_api_tools_project_dev bash -c "cd /app && python -m pytest -q
+  tests/test_tenancy_resolution.py tests/test_login_tenant_context.py
+  tests/test_oauth_tenant_scope.py"` (20 tests isolate tenant resolution, login and OAuth
+  scope); full suite `69 passed` [measured 2026-09-30T16:41:50-06:00].
+  Weak for the web app — repo has no JS test runner (`web/package.json` = lint only);
+  web evidence is eslint + `next build` + live curl/redirect checks [measured].
+- Human architectural review: required — reason: >1 boundary crossed and the change alters
+  authorization/tenant-resolution semantics (who may read/write which tenant's rows) in a
+  system serving production traffic.
+- Blast radius: if this change is wrong, the failure modes are (a) a tenant-scoped write is
+  attributed to the wrong tenant, or (b) a caller reads another tenant's rows. (a) is bounded
+  by `resolve_write_tenant_id` + the NOT NULL `tenant_id` columns (a missing tenant now fails
+  loudly instead of writing NULL); (b) is bounded by resolution order (caller's own tenant wins;
+  a foreign subdomain/slug is 403) and by the `users` CHECK constraint that keeps tenant-less
+  users superuser-only. Single-tenant deployments are unaffected in behaviour except that the
+  bootstrapped admin gains the writes it should always have had. Worst operational case: a
+  multi-tenant deployment (production is *not* one today) rejects requests it previously
+  served — fail-closed, no data loss, no migration to roll back (no schema change in this diff).
+
+## Recommendation
+merge_with_conditions — all gates green and both modes live-verified, but the diff crosses
+3 boundaries and changes auth semantics in a deployment with no JS test runner.
+
+## Conditions if merge_with_conditions
+- Must add tests: web-side coverage for the tenant cookie lifecycle once a JS test runner
+  exists; API leak tests for the remaining tenant-scoped routers (prospects,
+  client_contacts, admin_users, admin_webhooks, agent_query) — tracked as NEXT § Recommended
+  next 2.
+- Must split PR: exclude the two foreign dirty files (`.gitignore`,
+  `.work/feedback/20260930-uncommitted-changes-feedback.md`) from the staging scope.
+- Owner review of the OAuth no-auto-provisioning behaviour change (SPEC R9c alignment) and of
+  the protected-file edits before merge.
+```
 
 ## Current iteration — plan-sync P1: schema + import API
 
@@ -163,7 +285,7 @@ pytest 49/49), live smoke test 14/14, no destructive operations.
 
 **Left in dev DB:** project "Plan Sync Smoke Test" (`bd3b7835-cb2c-454e-b091-513df5233436`, slug `plan-sync-smoke`, key PSMOKE) from the live smoke run — no project DELETE endpoint exists; safe to remove manually if undesired.
 
-**Observation (pre-existing, not plan-sync):** in single-tenant mode the bootstrap admin (`tenant_id` NULL) cannot `POST /v1/projects` (400 "tenant_id or tenant_slug is required for cross-tenant superuser") because `get_current_tenant` returns None when `MULTI_TENANCY_ENABLED=false`. Smoke test used the tenant-bound dev user instead. Backlog candidate.
+**Observation (pre-existing, not plan-sync):** in single-tenant mode the bootstrap admin (`tenant_id` NULL) cannot `POST /v1/projects` (400 "tenant_id or tenant_slug is required for cross-tenant superuser") because `get_current_tenant` returns None when `MULTI_TENANCY_ENABLED=false`. Smoke test used the tenant-bound dev user instead. **Fixed 2026-09-30** — see «Current iteration — TNT» above (this defect reached production; owner-reported).
 
 ## Current iteration (2026-07-06)
 

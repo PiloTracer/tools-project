@@ -29,6 +29,7 @@ from app.schemas import (
     ProspectUpdate,
 )
 from app.services.pipeline_service import auto_scaffold_onboarding_project, promote_prospect_to_client
+from app.services.tenancy import resolve_write_tenant_id
 from app.services.webhook_dispatcher import dispatch_event
 
 
@@ -101,15 +102,7 @@ async def create_prospect(
     request: Request,
 ):
     tenant = await get_current_tenant(request, db)
-    tenant_id = tenant.id if tenant else None
-    is_cross_tenant_superuser = user.tenant_id is None
-    if is_cross_tenant_superuser and tenant_id is None:
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST,
-            detail="tenant_id or tenant_slug is required for cross-tenant superuser",
-        )
-    if tenant_id is None and not is_cross_tenant_superuser:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="tenant_id is required")
+    effective_tenant_id = resolve_write_tenant_id(user, tenant)
     row = Prospect(
         company_name=body.company_name.strip(),
         pipeline_stage=body.pipeline_stage,
@@ -118,7 +111,7 @@ async def create_prospect(
         first_contact_date=body.first_contact_date,
         notes=body.notes.strip() if body.notes else None,
         created_by=user.id,
-        tenant_id=tenant_id if is_cross_tenant_superuser else user.tenant_id,
+        tenant_id=effective_tenant_id,
     )
     db.add(row)
     await db.commit()

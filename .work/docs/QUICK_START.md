@@ -12,13 +12,13 @@ Get tools-project running on your machine in 5 minutes.
 ```bash
 git clone <repo-url> tools-project
 cd tools-project
-cp .env.example .env
+cp .env.example .env.dev     # dev stack; production uses .env.prd
 ```
 
 ## 2. Start the stack
 
 ```bash
-docker compose --profile dev up --build
+./bin/start.sh dev            # interactive dev menu (non-interactive: ./bin/start.sh dev start)
 ```
 
 This starts:
@@ -34,7 +34,7 @@ This starts:
 
 ## 4. Sign in
 
-Default bootstrap credentials (from `.env`):
+Default bootstrap credentials (from `.env.dev`):
 - Email: `admin@example.com`
 - Password: `dev-bootstrap-change-me`
 

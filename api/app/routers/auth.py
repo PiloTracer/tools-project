@@ -4,7 +4,8 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy import select
+from fastapi.responses import JSONResponse
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
@@ -54,8 +55,9 @@ async def local_login(
         )
     email = body.email.strip().lower()
 
-    # Multi-tenancy: resolve tenant context from subdomain
+    # Multi-tenancy: resolve tenant context from subdomain / tenant_slug
     tenant_id: uuid.UUID | None = None
+    requested_tenant: Tenant | None = None
     if s.multi_tenancy_enabled:
         host = (request.headers.get("host") or "").split(":")[0].lower()
         public_host = s.public_host.lower()
@@ -64,58 +66,71 @@ async def local_login(
             tenant = await db.scalar(select(Tenant).where(Tenant.slug == slug))
             if tenant is not None and tenant.is_active:
                 tenant_id = tenant.id
+                requested_tenant = tenant
 
         if body.tenant_slug and not tenant_id:
             tenant = await db.scalar(select(Tenant).where(Tenant.slug == body.tenant_slug))
             if tenant is not None and tenant.is_active:
                 tenant_id = tenant.id
+                requested_tenant = tenant
 
-    # Tenant-scoped user lookup
+    # Tenant-scoped user lookup. Cross-tenant superusers (tenant_id IS NULL) stay
+    # reachable from every tenant context (R4a/R4c), so a tenant-bound account
+    # with the same email wins over the tenant-less superuser row.
+    user_stmt = select(User).where(User.email == email)
     if tenant_id is not None:
-        user = await db.scalar(
-            select(User).where(User.email == email, User.tenant_id == tenant_id)
+        user_stmt = user_stmt.where(
+            or_(User.tenant_id == tenant_id, User.tenant_id.is_(None))
         )
-    else:
-        user = await db.scalar(select(User).where(User.email == email))
+    user_stmt = user_stmt.order_by(User.tenant_id.is_(None).asc())
 
-    if user is None or not user.is_active or not user.password_hash:
-        # Check if password is correct for ambiguous-email detection (don't leak existence)
-        if not s.multi_tenancy_enabled or tenant_id is not None:
-            raise HTTPException(
-                status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid email or password",
-            )
-        # In multi-tenant mode without tenant context: check all tenants for password match
-        candidates = list((await db.scalars(
-            select(User).where(User.email == email)
-        )).all())
-        authenticated = [u for u in candidates if u.is_active and u.password_hash and verify_password(body.password, u.password_hash)]
+    user: User
+    if tenant_id is None:
+        # No tenant context: authenticate against every account carrying this email
+        # (per-tenant emails allow duplicates — R5). Never pick one arbitrarily.
+        candidates = list((await db.scalars(user_stmt)).all())
+        authenticated = [
+            u
+            for u in candidates
+            if u.is_active and u.password_hash and verify_password(body.password, u.password_hash)
+        ]
         if not authenticated:
             raise HTTPException(
                 status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid email or password",
             )
-        if len(authenticated) == 1:
-            user = authenticated[0]
-        else:
-            # Multiple tenants — return 300 with choices
+        if s.multi_tenancy_enabled and len(authenticated) > 1:
+            # Multiple tenants — 300 Multiple Choices with the tenant list (R9b/R13)
             tenant_ids = [u.tenant_id for u in authenticated if u.tenant_id is not None]
             tenant_rows: list[Tenant] = []
             if tenant_ids:
                 tenant_rows = list((await db.scalars(
-                    select(Tenant).where(Tenant.id.in_(tenant_ids))
+                    select(Tenant).where(Tenant.id.in_(tenant_ids)).order_by(Tenant.name.asc())
                 )).all())
             choices = [
                 TenantChoice(tenant_slug=t.slug, tenant_name=t.name)
                 for t in tenant_rows
             ]
-            return TokenResponse(access_token="", expires_in=0, choices=choices)
+            return JSONResponse(
+                status_code=status.HTTP_300_MULTIPLE_CHOICES,
+                content=TokenResponse(
+                    access_token="", expires_in=0, choices=choices
+                ).model_dump(mode="json"),
+            )
+        user = authenticated[0]
     else:
-        if not verify_password(body.password, user.password_hash):
+        found = await db.scalar(user_stmt)
+        if (
+            found is None
+            or not found.is_active
+            or not found.password_hash
+            or not verify_password(body.password, found.password_hash)
+        ):
             raise HTTPException(
                 status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid email or password",
             )
+        user = found
 
     token, expires_in = create_local_access_token(
         user_id=str(user.id),
@@ -124,7 +139,21 @@ async def local_login(
         tenant_id=str(user.tenant_id) if user.tenant_id else None,
         settings=s,
     )
-    return TokenResponse(access_token=token, expires_in=expires_in)
+    # Echo the tenant binding (tenant_id/tenant_slug = the user's own tenant, None
+    # for a cross-tenant superuser) and the tenant context this login resolved, so
+    # the web client can persist the selection for X-Tenant-Slug on later calls.
+    bound_tenant_slug: str | None = None
+    if s.multi_tenancy_enabled and user.tenant_id is not None:
+        bound_tenant = await db.get(Tenant, user.tenant_id)
+        if bound_tenant is not None:
+            bound_tenant_slug = bound_tenant.slug
+    return TokenResponse(
+        access_token=token,
+        expires_in=expires_in,
+        tenant_id=user.tenant_id,
+        tenant_slug=bound_tenant_slug,
+        request_tenant_slug=requested_tenant.slug if requested_tenant is not None else None,
+    )
 
 
 @router.get(
@@ -134,8 +163,8 @@ async def local_login(
     description=(
         "Requires `Authorization: Bearer`. Local JWTs are decoded with `JWT_SECRET` when "
         "`AUTH_LOCAL_ENABLED` is true; otherwise the bearer token is treated as an OAuth access "
-        "token and the user record is resolved via `OAUTH_USER_INFO_ENDPOINT` (userinfo upsert), "
-        "not JWKS signature verification."
+        "token and the user record is resolved via `OAUTH_USER_INFO_ENDPOINT` (userinfo lookup — "
+        "accounts are provisioned by an admin, never auto-created), not JWKS signature verification."
     ),
 )
 async def auth_me(

@@ -47,6 +47,12 @@ class TokenResponse(BaseModel):
     # Multi-tenancy: when email matches multiple tenants, return 300 with choices.
     # The access_token field will be empty and choices will be populated.
     choices: list[TenantChoice] | None = None
+    # Tenant binding of the authenticated user (None for a cross-tenant superuser)
+    tenant_id: uuid.UUID | None = None
+    tenant_slug: str | None = None
+    # Tenant context this login resolved (subdomain / requested tenant_slug), if any —
+    # lets the web client persist the selection for X-Tenant-Slug on later calls.
+    request_tenant_slug: str | None = None
 
 
 class TenantChoice(BaseModel):

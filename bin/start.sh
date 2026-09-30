@@ -1,25 +1,36 @@
 #!/usr/bin/env bash
 #
-# tools-project — start/stop menu for the **this-repo-only** dev stack.
+# tools-project — start/stop control for the **this-repo-only** Docker Compose stacks.
+#
+# Mode is MANDATORY (first argument): `dev` or `prd`. Nothing runs without it, and a bare
+# `.env` is never read: the env file is exactly `.env.dev` (dev) or `.env.prd` (prd); the
+# script refuses to run when that file is missing.
 #
 # Safety:
 # - Every action runs `docker compose` with a fixed compose file, fixed project directory,
-#   profile `dev`, and explicit `--project-name` (default / from .env: COMPOSE_PROJECT_NAME).
+#   an explicit `--env-file` (never Compose's implicit `.env`), and explicit `--project-name`
+#   (default / from the env file: COMPOSE_PROJECT_NAME).
 # - No global `docker stop`, `docker kill`, prune, or container ID wildcards.
-# - Interactive menu (`dev` / no args): `START_SH_MENU=1` streams compose up/down/run to the TTY
-#   and pauses for a keypress after each compose step (CLI subcommands keep non-interactive behavior).
+# - Interactive menu (`<mode>` with no command): `START_SH_MENU=1` streams compose up/down/run
+#   to the TTY and pauses for a keypress after each compose step (CLI subcommands stay
+#   non-interactive).
 #
-# Usage: from anywhere —  ./bin/start.sh   or   /path/to/tools-project/bin/start.sh
+# Usage: from anywhere —
+#   /path/to/tools-project/bin/start.sh dev              # interactive dev menu  (.env.dev)
+#   /path/to/tools-project/bin/start.sh prd              # interactive prod menu (.env.prd)
+#   /path/to/tools-project/bin/start.sh <dev|prd> <cmd>  # e.g. `dev start`, `prd status`
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 PROFILE="dev"
-# Default compose file — overridden in load_env() for prd mode.
+# Compose file + env file are set by load_env() from the mandatory mode argument.
 COMPOSE_ABS="$REPO_ROOT/docker-compose.dev.yml"
-# Must match the default in docker-compose.dev.yml for ${COMPOSE_PROJECT_NAME:-…}
+ENV_FILE=""
+# Must match the `name:` default in docker-compose.dev.yml / docker-compose.prd.yml
 DEFAULT_PROJECT_NAME="tools_project_dev"
+DEFAULT_PROJECT_NAME_PRD="tools_project_prd"
 
 # Read KEY=value from a dotenv file without `source` (safe for values like `profile email`,
 # unquoted URLs, etc.). Splits on the first `=`. Returns via stdout; exit 1 if key missing.
@@ -52,33 +63,55 @@ read_dotenv_value() {
   return 1
 }
 
-ENV_MODE="${ENV_MODE:-dev}"
+ENV_MODE=""
 ENV_FILE=""
 
+# Resolve mode → env file + compose file. The mode argument is mandatory and validated by
+# `main()`; anything but `dev`/`prd` never reaches here. A missing env file is fatal — the
+# script must never fall back to Compose's implicit `.env`.
+#
+# Production env file lives in the repo root or in an external secret directory
+# ($TOOLS_PROJECT_SECRET_DIR, else the sibling `tools-project-secret/`).
+# Keep in sync with bin/env-check.sh.
+resolve_prd_file() {
+  local cand
+  for cand in "$REPO_ROOT/.env.prd" \
+              "${TOOLS_PROJECT_SECRET_DIR:-$REPO_ROOT/../tools-project-secret}/.env.prd"; do
+    [[ -f "$cand" ]] && { printf '%s' "$cand"; return 0; }
+  done
+  printf '%s' "$REPO_ROOT/.env.prd"
+}
+
 load_env() {
-  local env_name="${1:-dev}"
-  ENV_MODE="$env_name"
-  local envf
+  local env_name="${1:-}"
   case "$env_name" in
-    dev|"")
-      envf="$REPO_ROOT/.env.dev"
-      [[ -f "$envf" ]] || envf="$REPO_ROOT/.env"
+    dev)
       ENV_MODE="dev"
+      ENV_FILE="$REPO_ROOT/.env.dev"
       COMPOSE_ABS="$REPO_ROOT/docker-compose.dev.yml"
       ;;
     prd)
-      envf="$REPO_ROOT/.env.prd"
       ENV_MODE="prd"
+      ENV_FILE="$(resolve_prd_file)"
       COMPOSE_ABS="$REPO_ROOT/docker-compose.prd.yml"
       ;;
     *)
-      envf="$REPO_ROOT/.env"
-      ENV_MODE="$env_name"
-      COMPOSE_ABS="$REPO_ROOT/docker-compose.dev.yml"
+      printf 'ERROR: mode must be `dev` or `prd` (got: %s)\n' "${env_name:-<none>}" >&2
+      exit 1
       ;;
   esac
-  ENV_FILE="$envf"
-  COMPOSE_PROJECT_NAME="$DEFAULT_PROJECT_NAME"
+  if [[ ! -f "$ENV_FILE" ]]; then
+    printf 'ERROR: %s not found.\n' "$ENV_FILE" >&2
+    printf '       Copy .env.example to .env.dev (dev) or .env.prd (production, also looked up in\n' >&2
+    printf '       $TOOLS_PROJECT_SECRET_DIR / ../tools-project-secret) — a bare `.env` is never read.\n' >&2
+    exit 1
+  fi
+
+  if [[ "$ENV_MODE" == "prd" ]]; then
+    COMPOSE_PROJECT_NAME="$DEFAULT_PROJECT_NAME_PRD"
+  else
+    COMPOSE_PROJECT_NAME="$DEFAULT_PROJECT_NAME"
+  fi
   PUBLIC_HOST="${PUBLIC_HOST:-localhost}"
   WEB_DEV_HOST_PORT="${WEB_DEV_HOST_PORT:-18513}"
   API_HOST_PORT="${API_HOST_PORT:-8300}"
@@ -88,19 +121,17 @@ load_env() {
   GLOBAL_BASE_PATH="${GLOBAL_BASE_PATH:-$REPO_ROOT/.backups}"
   BOOTSTRAP_ADMIN_EMAIL="${BOOTSTRAP_ADMIN_EMAIL:-}"
   BOOTSTRAP_ADMIN_PASSWORD="${BOOTSTRAP_ADMIN_PASSWORD:-}"
-  if [[ -f "$envf" ]]; then
-    local v
-    v="$(read_dotenv_value "$envf" COMPOSE_PROJECT_NAME)" && COMPOSE_PROJECT_NAME="$v"
-    v="$(read_dotenv_value "$envf" PUBLIC_HOST)" && PUBLIC_HOST="$v"
-    v="$(read_dotenv_value "$envf" WEB_DEV_HOST_PORT)" && WEB_DEV_HOST_PORT="$v"
-    v="$(read_dotenv_value "$envf" API_HOST_PORT)" && API_HOST_PORT="$v"
-    v="$(read_dotenv_value "$envf" POSTGRES_USER)" && POSTGRES_USER="$v"
-    v="$(read_dotenv_value "$envf" POSTGRES_PASSWORD)" && POSTGRES_PASSWORD="$v"
-    v="$(read_dotenv_value "$envf" POSTGRES_DB)" && POSTGRES_DB="$v"
-    v="$(read_dotenv_value "$envf" GLOBAL_BASE_PATH)" && GLOBAL_BASE_PATH="$v"
-    v="$(read_dotenv_value "$envf" BOOTSTRAP_ADMIN_EMAIL)" && BOOTSTRAP_ADMIN_EMAIL="$v"
-    v="$(read_dotenv_value "$envf" BOOTSTRAP_ADMIN_PASSWORD)" && BOOTSTRAP_ADMIN_PASSWORD="$v"
-  fi
+  local v
+  v="$(read_dotenv_value "$ENV_FILE" COMPOSE_PROJECT_NAME)" && COMPOSE_PROJECT_NAME="$v"
+  v="$(read_dotenv_value "$ENV_FILE" PUBLIC_HOST)" && PUBLIC_HOST="$v"
+  v="$(read_dotenv_value "$ENV_FILE" WEB_DEV_HOST_PORT)" && WEB_DEV_HOST_PORT="$v"
+  v="$(read_dotenv_value "$ENV_FILE" API_HOST_PORT)" && API_HOST_PORT="$v"
+  v="$(read_dotenv_value "$ENV_FILE" POSTGRES_USER)" && POSTGRES_USER="$v"
+  v="$(read_dotenv_value "$ENV_FILE" POSTGRES_PASSWORD)" && POSTGRES_PASSWORD="$v"
+  v="$(read_dotenv_value "$ENV_FILE" POSTGRES_DB)" && POSTGRES_DB="$v"
+  v="$(read_dotenv_value "$ENV_FILE" GLOBAL_BASE_PATH)" && GLOBAL_BASE_PATH="$v"
+  v="$(read_dotenv_value "$ENV_FILE" BOOTSTRAP_ADMIN_EMAIL)" && BOOTSTRAP_ADMIN_EMAIL="$v"
+  v="$(read_dotenv_value "$ENV_FILE" BOOTSTRAP_ADMIN_PASSWORD)" && BOOTSTRAP_ADMIN_PASSWORD="$v"
   export COMPOSE_PROJECT_NAME PUBLIC_HOST WEB_DEV_HOST_PORT API_HOST_PORT COMPOSE_ABS
   export POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB GLOBAL_BASE_PATH
   export ENV_MODE BOOTSTRAP_ADMIN_EMAIL BOOTSTRAP_ADMIN_PASSWORD
@@ -114,15 +145,18 @@ require_compose_file() {
 }
 
 # Expanded on each invocation (after load_env sets COMPOSE_PROJECT_NAME) — required for bash `set -u`.
+# The env file is always passed explicitly: Compose must never fall back to an implicit `.env`.
 _compose_invoke() {
-  local env_flag=()
-  [[ -n "$ENV_FILE" && -f "$ENV_FILE" ]] && env_flag=(--env-file "$ENV_FILE")
+  if [[ -z "$ENV_FILE" || ! -f "$ENV_FILE" ]]; then
+    printf 'ERROR: no env file resolved (%s) — refusing to run compose.\n' "${ENV_FILE:-<none>}" >&2
+    exit 1
+  fi
   docker compose \
     --project-directory "$REPO_ROOT" \
     -f "$COMPOSE_ABS" \
     -p "$COMPOSE_PROJECT_NAME" \
     --profile "$PROFILE" \
-    "${env_flag[@]}" \
+    --env-file "$ENV_FILE" \
     "$@"
 }
 
@@ -177,12 +211,15 @@ wait_ack_if_menu() {
 print_banner() {
   printf '\n'
   printf '=== tools-project (siloed Docker Compose stack) ===\n'
+  printf '  Mode:             %s\n' "$ENV_MODE"
   printf '  Repo root:        %s\n' "$REPO_ROOT"
+  printf '  Env file:         %s\n' "$ENV_FILE"
   printf '  Compose file:     %s\n' "$COMPOSE_ABS"
   printf '  COMPOSE_PROJECT_NAME (isolates resources): %s\n' "$COMPOSE_PROJECT_NAME"
   printf '  Profile:          %s\n' "$PROFILE"
   printf '\n'
   printf 'Only containers/networks/volumes for this project name are affected.\n'
+  printf 'Env file verified by bin/env-check.sh (%s).\n' "$ENV_MODE"
   printf '\n'
 }
 
@@ -636,29 +673,110 @@ EOF
   fi
 }
 
+usage() {
+  cat <<EOF
+Usage: ${0##*/} <dev|prd> [command]
+
+  ${0##*/} dev                 interactive dev menu        (.env.dev  + docker-compose.dev.yml)
+  ${0##*/} prd                 interactive production menu (.env.prd  + docker-compose.prd.yml)
+  ${0##*/} <dev|prd> <command> run one command against that stack
+
+Commands:
+  start-fg (detached up --build, then logs -f; Ctrl+C stops the tail only)
+  start | stop | restart | status | logs | build | cleanup | clean
+  backup | restore | nuke | drop-tables | rebuild-schema | urls | env-check
+
+The mode is mandatory: with no (or an unknown) mode this script does nothing.
+The env file is always the mode's file — a bare \`.env\` is never read.
+Every run verifies the env file first (bin/env-check.sh); bypass once with
+START_SH_SKIP_ENV_CHECK=1.
+
+Check the configuration without touching the stack:
+  bin/env-check.sh            # every mode file present on this machine (.env.dev / .env.prd)
+  bin/env-check.sh prd        # production only, with the full missing-key list
+  bin/env-check.sh --diff     # side-by-side: example | dev | prd, line by line
+  bin/env-check.sh --help
+EOF
+}
+
+run_menu() {
+  START_SH_MENU=1
+  MENU_QUIET=0
+  while true; do
+    show_menu
+    if ! read -r -p 'Choose [0-15]: ' choice; then
+      printf '\n'
+      exit 0
+    fi
+    set +e
+    case "$choice" in
+      1) cmd_start_attached ;;
+      2) cmd_start_detached ;;
+      3) cmd_stop ;;
+      4) cmd_restart ;;
+      5) cmd_status ;;
+      6) cmd_logs ;;
+      7) cmd_build_only ;;
+      8) cmd_cleanup_stack ;;
+      9) cmd_backup ;;
+      10) cmd_restore ;;
+      11) cmd_nuke ;;
+      12) cmd_drop_tables ;;
+      13) cmd_rebuild_schema ;;
+      14) cmd_rebuild ;;
+      15) cmd_clean ;;
+      0) printf 'Bye.\n'; exit 0 ;;
+      *) printf 'Invalid option.\n\n' ;;
+    esac
+    set -e
+  done
+}
+
 main() {
-  load_env "${1:-}"
+  local mode="${1:-}"
+  local command="${2:-}"
+
+  case "$mode" in
+    -h|--help|help) usage; exit 0 ;;
+    dev|prd) ;;
+    "")
+      printf 'ERROR: mode argument required (dev|prd) — nothing to do.\n\n' >&2
+      usage >&2
+      exit 1
+      ;;
+    *)
+      printf 'ERROR: unknown mode `%s` (expected dev|prd) — nothing to do.\n\n' "$mode" >&2
+      usage >&2
+      exit 1
+      ;;
+  esac
+
+  load_env "$mode"
   require_compose_file
 
-  if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
-    print_banner
-    printf '%s [command]\n' "${0##*/}"
-    printf '  With no args (or `dev`), opens interactive dev menu (uses .env.dev / .env).\n'
-    printf '  `prd` opens interactive production menu (uses .env only).\n'
-    printf '  Commands: start-fg (detached up --build, then logs -f; Ctrl+C stops tail only) |\n'
-    printf '           start | stop | restart | status | logs | build | cleanup |\n'
-    printf '           clean | backup | restore | nuke | drop-tables | rebuild-schema | urls\n'
-    exit 0
+  # Every mode run verifies its env file before touching Docker: required keys present,
+  # non-empty where Compose demands it, and in key parity with .env.example.
+  if [[ "${START_SH_SKIP_ENV_CHECK:-0}" != "1" && "$command" != "env-check" ]]; then
+    if ! "$SCRIPT_DIR/env-check.sh" "$mode" --quiet; then
+      printf '\nERROR: %s is incomplete — refusing to touch the %s stack.\n' \
+        "${ENV_FILE##*/}" "$mode" >&2
+      printf '       Fix the keys listed above (or `%s %s env-check` for the full report).\n' \
+        "${0##*/}" "$mode" >&2
+      printf '       Emergency bypass (skips the check): START_SH_SKIP_ENV_CHECK=1\n' >&2
+      exit 1
+    fi
   fi
 
-  case "${1:-}" in
-    start-fg) cmd_start_attached ;;
-    start)    cmd_start_detached ;;
-    stop)     cmd_stop ;;
-    restart)  cmd_restart ;;
-    status)   cmd_status ;;
-    logs)     cmd_logs ;;
-    build)    cmd_build_only ;;
+  case "$command" in
+    "")            run_menu ;;
+    -h|--help|help) usage; exit 0 ;;
+    start-fg)      cmd_start_attached ;;
+    start)         cmd_start_detached ;;
+    stop)          cmd_stop ;;
+    restart)       cmd_restart ;;
+    status)        cmd_status ;;
+    logs)          cmd_logs ;;
+    build)         cmd_build_only ;;
     cleanup)       cmd_cleanup_stack ;;
     clean)         cmd_clean ;;
     backup)        cmd_backup ;;
@@ -667,97 +785,10 @@ main() {
     drop-tables)   cmd_drop_tables ;;
     rebuild-schema) cmd_rebuild_schema ;;
     urls)          urls_hint ;;
-    dev)
-      START_SH_MENU=1
-      MENU_QUIET=0
-      while true; do
-        show_menu
-        read -r -p 'Choose [0-15]: ' choice || true
-        set +e
-        case "$choice" in
-          1) cmd_start_attached ;;
-          2) cmd_start_detached ;;
-          3) cmd_stop ;;
-          4) cmd_restart ;;
-          5) cmd_status ;;
-          6) cmd_logs ;;
-          7) cmd_build_only ;;
-          8) cmd_cleanup_stack ;;
-          9) cmd_backup ;;
-          10) cmd_restore ;;
-          11) cmd_nuke ;;
-          12) cmd_drop_tables ;;
-          13) cmd_rebuild_schema ;;
-          14) cmd_rebuild ;;
-          15) cmd_clean ;;
-          0) printf 'Bye.\n'; exit 0 ;;
-          *) printf 'Invalid option.\n\n' ;;
-        esac
-        set -e
-      done
-      ;;
-    prd)
-      START_SH_MENU=1
-      MENU_QUIET=0
-      while true; do
-        show_menu
-        read -r -p 'Choose [0-15]: ' choice || true
-        set +e
-        case "$choice" in
-          1) cmd_start_attached ;;
-          2) cmd_start_detached ;;
-          3) cmd_stop ;;
-          4) cmd_restart ;;
-          5) cmd_status ;;
-          6) cmd_logs ;;
-          7) cmd_build_only ;;
-          8) cmd_cleanup_stack ;;
-          9) cmd_backup ;;
-          10) cmd_restore ;;
-          11) cmd_nuke ;;
-          12) cmd_drop_tables ;;
-          13) cmd_rebuild_schema ;;
-          14) cmd_rebuild ;;
-          15) cmd_clean ;;
-          0) printf 'Bye.\n'; exit 0 ;;
-          *) printf 'Invalid option.\n\n' ;;
-        esac
-        set -e
-      done
-      ;;
-    "")
-      # Default (no args): same as dev mode.
-      load_env dev
-      START_SH_MENU=1
-      MENU_QUIET=0
-      while true; do
-        show_menu
-        read -r -p 'Choose [0-15]: ' choice || true
-        set +e
-        case "$choice" in
-          1) cmd_start_attached ;;
-          2) cmd_start_detached ;;
-          3) cmd_stop ;;
-          4) cmd_restart ;;
-          5) cmd_status ;;
-          6) cmd_logs ;;
-          7) cmd_build_only ;;
-          8) cmd_cleanup_stack ;;
-          9) cmd_backup ;;
-          10) cmd_restore ;;
-          11) cmd_nuke ;;
-          12) cmd_drop_tables ;;
-          13) cmd_rebuild_schema ;;
-          14) cmd_rebuild ;;
-          15) cmd_clean ;;
-          0) printf 'Bye.\n'; exit 0 ;;
-          *) printf 'Invalid option.\n\n' ;;
-        esac
-        set -e
-      done
-      ;;
+    env-check)     "$SCRIPT_DIR/env-check.sh" "$ENV_MODE" ;;
     *)
-      printf 'Unknown command: %s (try --help)\n' "$1" >&2
+      printf 'ERROR: unknown command `%s`.\n\n' "$command" >&2
+      usage >&2
       exit 1
       ;;
   esac

@@ -5,15 +5,17 @@ import secrets
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import get_settings
 from app.db import get_db
-from app.deps import get_current_user
+from app.deps import get_current_tenant, get_current_user
 from app.models.user import User
 from app.models.user_api_key import UserApiKey
 from app.schemas import UserApiKeyCreate, UserApiKeyListResponse, UserApiKeyOut, UserApiKeySecretOut
+from app.services.tenancy import resolve_write_tenant_id
 
 router = APIRouter(prefix="/v1/me/keys", tags=["me"])
 
@@ -49,15 +51,20 @@ async def list_api_keys(
 
 @router.post("", response_model=UserApiKeySecretOut, status_code=status.HTTP_201_CREATED)
 async def create_api_key(
+    request: Request,
     body: UserApiKeyCreate,
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    if user.tenant_id is None:
+    if user.tenant_id is None and get_settings().multi_tenancy_enabled:
+        # Multi-tenant: keys are locked to one tenant (SPEC §13.4), so a
+        # cross-tenant superuser has no tenant to key into.
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
             detail="Cross-tenant superusers cannot create personal API keys; create a tenant-scoped user first",
         )
+    # Single-tenant deployment: the bootstrap superuser keys into the one tenant.
+    tenant_id = resolve_write_tenant_id(user, await get_current_tenant(request, db))
     plaintext, key_hash, key_prefix = _generate_key()
 
     api_key = UserApiKey(
@@ -65,7 +72,7 @@ async def create_api_key(
         key_hash=key_hash,
         key_prefix=key_prefix,
         label=body.label.strip() if body.label else None,
-        tenant_id=user.tenant_id,
+        tenant_id=tenant_id,
     )
     db.add(api_key)
     await db.commit()

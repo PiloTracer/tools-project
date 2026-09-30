@@ -112,7 +112,13 @@ async def request_id_middleware(request: Request, call_next):
     response = await call_next(request)
     response.headers["X-Request-Id"] = rid
     elapsed = time.time() - start
-    tenant_id = getattr(request.state, "tenant_id", None) or "none"
+    # Prefer the tenant resolved for this request; fall back to the caller's tenant.
+    resolved = getattr(request.state, "_tenant", None)
+    tenant_id = (
+        str(resolved.id)
+        if resolved is not None
+        else getattr(request.state, "tenant_id", None) or "none"
+    )
     log.info("%s %s %s %.0fms tenant=%s", request.method, request.url.path, response.status_code, elapsed * 1000, tenant_id)
     return response
 

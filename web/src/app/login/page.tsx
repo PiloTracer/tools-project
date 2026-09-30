@@ -35,6 +35,8 @@ const HINTS: Record<string, string> = {
   userinfo: "Could not load your user profile from the IdP after login.",
   oauth_disabled:
     "tools-dashboard OAuth is turned off for this deployment (`AUTH_OAUTH_ENABLED`). Use email/password or enable OAuth in `.env`.",
+  account_not_provisioned:
+    "Your SSO account is not provisioned in this deployment yet — ask an administrator to create it, then sign in again.",
   admin_auth: "Sign in with a local superuser to access admin.",
 };
 
