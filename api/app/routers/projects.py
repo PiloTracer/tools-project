@@ -253,16 +253,18 @@ async def patch_project(
                     detail=f"Project key '{v}' is already in use by another project.",
                 )
         proj.project_key = v if v else None
+    # D6 (plan-sync SPEC R23): the GitHub link + token gate applies only to the
+    # registry setting. auto_prefix_enabled depends on project_key alone, so an
+    # imported project without a GitHub link can still receive task refs.
     wants_registry = body.github_task_registry_enabled is True
-    wants_prefix = body.auto_prefix_enabled is True
-    if wants_registry or wants_prefix:
+    if wants_registry:
         link = await db.scalar(
             select(GithubLink).where(GithubLink.project_id == project_id).limit(1)
         )
         if link is None:
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST,
-                detail="A GitHub repository must be linked before enabling commit association settings.",
+                detail="A GitHub repository must be linked before enabling the task registry.",
             )
         try:
             token = decrypt_github_token(link.token_cipher)

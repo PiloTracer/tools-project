@@ -6,7 +6,7 @@
 
 **Schema:** declarative **`sql/`** only — no Alembic. On API startup: `schema_changes.sql` → `schema_indexes.sql` → bootstrap → `schema_backfill.sql` → `schema_inserts.sql`.
 
-****Latest (repo):** **2026-07-07** — Multi-tenancy implementation verified and repaired: all lint/type/test/DDL gates green (33 tests pass). Feature remains gated behind `MULTI_TENANCY_ENABLED=false`; default tenant backfill keeps existing single-tenant behavior working.
+****Latest (repo):** **2026-09-29** — plan-sync P1 complete: milestones + plan-import API shipped, all gates green (ruff, pyright, 49 tests), migration idempotent across restart×2, live smoke test passed. Prior: **2026-07-07** — Multi-tenancy implementation verified and repaired: all lint/type/test/DDL gates green (33 tests pass). Feature remains gated behind `MULTI_TENANCY_ENABLED=false`; default tenant backfill keeps existing single-tenant behavior working.
 
 ### Status at a glance (visual)
 
@@ -26,17 +26,144 @@ Security fixes  ████████████████████  8/
 Pen test rem.   ████████████████████  9/9   Done (all findings addressed)
 Multi-tenancy   ████████████████████  Done  (implementation verified; 33 tests pass)
 
-Open: none — all session follow-ups resolved
-Active: none — all session follow-ups done
+Open: **NEXT SESSION — cross-LLM verify the plan-sync P1 commit** (user directive 2026-09-29; run before any new feature work)
+Active: none
 
 ### Recommended next
-1. **Multi-tenancy:** mark `.work/features/multi-tenancy/20260706-SPEC.md` as **Approved**, then add HTTP-level cross-tenant leak tests for all tenant-scoped routers (prospects, clients, client_contacts, admin_users, admin_webhooks, projects, agent_query).
-2. Add automated tests for the ecosystem hub modifications (Mod 1–4) if not already covered.
-3. Build satellite apps (CompanyBrain, OpsBoard, SignFlow, LedgerLite) that consume the ecosystem APIs.
-4. Restart the dev stack and smoke-test tenant-scoped login + CRUD end-to-end.
+1. **NEXT SESSION (user directive 2026-09-29): cross-LLM verification of the plan-sync P1 commit.** Open the session with a *different* LLM than the one that authored the commit. Procedure: (a) `git log -1 --oneline` + `git show --stat HEAD` to locate the plan-sync commit; (b) review the diff against `.work/features/plan-sync/20260929-SPEC.md` rules R1–R27; (c) re-run gates inside the container (`docker exec tpr_api_tools_project_dev bash -c "cd /app && ruff check . && pyright . && python -m pytest -q"`); (d) record pass/fail in HANDOFF. **No new feature work until verification passes.**
+2. **Multi-tenancy:** mark `.work/features/multi-tenancy/20260706-SPEC.md` as **Approved**, then add HTTP-level cross-tenant leak tests for all tenant-scoped routers (prospects, clients, client_contacts, admin_users, admin_webhooks, projects, agent_query).
+3. Add automated tests for the ecosystem hub modifications (Mod 1–4) if not already covered.
+4. Build satellite apps (CompanyBrain, OpsBoard, SignFlow, LedgerLite) that consume the ecosystem APIs.
+5. Restart the dev stack and smoke-test tenant-scoped login + CRUD end-to-end.
+6. **plan-sync P3:** web UI — milestone list, task-by-milestone filter, obsolete badge (SPEC §2); next iteration per plan-sync P1 scope split.
+7. **plan-sync P2:** `@plan-sync` agent skill — work order for the framework handed over at `.work/prompts/20260929-plan-sync-skill-instructions.md` (decision: direct HTTP, option (a); MCP stays read-only). Deliver to `pilo.ai.logicbison`, then `@deploy-basic` here to pick up the skills table row.
 
 ### Intake queue
 - 2026-07-06 · local · "assess making this app multi-tenant" → SPEC created at `.work/features/multi-tenancy/20260706-SPEC.md` (Draft)
+
+## Current iteration — plan-sync P1: schema + import API
+
+**Milestone ref:** plan-sync P1 · source: `.work/features/plan-sync/20260929-SPEC.md` (Approved) + `.work/plans/proposals/20260929-plan-sync-proposal.md` §15 P1
+**Status:** complete (2026-09-29)
+**Started:** 2026-09-29
+**Completed:** 2026-09-29 — gates green (ruff, pyright, pytest 49/49), migration restart×2 idempotent, live smoke test 14/14 checks OK
+**Waiver:** no plan-master exists in this repo (brownfield, legacy plans only); operator instruction 2026-09-29 ("go full" on plan-sync) is the implementation authorization. Tasks trace to SPEC rules R1–R27 instead of a master-plan §19 table.
+
+### In scope
+- DDL: `milestones` table, `tasks.milestone_id`/`plan_ref`/`plan_state`, indexes (idempotent, restart-run) — SPEC R27
+- Milestone model + registration; task columns
+- Schemas: `MilestoneCreate/Out`, `PlanImportManifest/Result`, `TaskOut`+filters
+- `plan_import` service: validate, transactional upsert, obsolete matrix, conflict report, side-effect suppression — SPEC R5–R20
+- Milestone router: CRUD + `POST /v1/projects/{id}/plan-import` (JWT or X-Api-Key) — SPEC R2, R3, R11
+- D6: `auto_prefix_enabled` decoupled from GitHub link gate — SPEC R23
+- Task list filters `milestone_id`, `plan_state` — SPEC R25
+- Backend tests T1–T11 + migration idempotency T12; gates ruff/pyright/pytest
+
+### Out of scope (explicit)
+- Web UI (next iteration, P3)
+- Agent skill `@plan-sync` (framework repo, P2)
+- BC→component mapping, sync banner (P4)
+- Kanban-by-milestone, gantt, registries import (SPEC §2)
+
+### Tasks
+| ID | Description | Files | Status | Notes |
+|----|-------------|-------|--------|-------|
+| T1 | DDL: milestones table + 3 task columns + indexes | `sql/schema_changes.sql`, `sql/schema_indexes.sql` | done | idempotent only (ADR-0004); verified restart×2, zero errors |
+| T2 | Milestone model + Task columns + registration | `api/app/models/milestone.py`, `api/app/models/task.py`, `api/app/models/__init__.py` | done | partial uniques stay in SQL |
+| T3 | Schemas: milestones, manifest, result, task filters | `api/app/schemas.py` | done | |
+| T4 | plan_import service (validate/upsert/obsolete/report) | `api/app/services/plan_import.py` | done | + flush after milestone loop (autoflush disabled in test factory; tasks need milestone ids) |
+| T5 | Milestone router + import endpoint + registration | `api/app/routers/milestones.py`, `api/app/main.py` | done | + `agent_identity.ensure_agent_user` FK anchor (agent key's synthetic user is not in `users`) |
+| T6 | D6: split auto_prefix vs registry gating | `api/app/routers/projects.py` | done | registry gate preserved (400 verified live) |
+| T7 | Task list filters milestone_id, plan_state | `api/app/routers/tasks.py` | done | |
+| T8 | Tests: import matrix, auth, D6, filters | `api/tests/test_plan_sync.py` | done | 16 tests; SPEC §11 T1–T11 |
+| T9 | Gates: ruff, pyright, pytest + migration restart×2 | (validation steps) | done | container-exec; plus live smoke test (14 checks) |
+
+### Acceptance criteria
+- [x] Fresh import manifest → 12 milestones + 153 tasks; second import idempotent (T1, T2)
+- [x] Obsolete matrix all 4 rows + in-progress conflict never auto-killed (T4)
+- [x] Local `done` survives re-import; nothing deleted (T3, R18)
+- [x] `dry_run` writes nothing; commit atomic (T6)
+- [x] 1 summary activity for 10-task import; no webhooks (T7)
+- [x] X-Api-Key allowed only on import; role checks enforced (T8)
+- [x] `auto_prefix_enabled` works without GitHub link; imported tasks get refs (T10)
+- [x] Restart twice → migration idempotent, zero errors (T12)
+- [x] Gates green: ruff, pyright, pytest (T13)
+
+### Validation steps
+- [x] `docker compose -f docker-compose.dev.yml exec api ruff check .` → All checks passed
+- [x] `docker compose -f docker-compose.dev.yml exec api pyright .` → 0 errors
+- [x] `docker compose -f docker-compose.dev.yml exec api pytest -q` → 49 passed
+- [x] Restart API container twice; confirm `Executing SQL file` lines + no errors; spot-check `\d milestones` → 15 columns incl. plan_ref/plan_state; tasks has milestone_id/plan_ref/plan_state
+- [x] Manual: `POST /v1/projects/{id}/plan-import?dry_run=true` returns diff, DB unchanged → live smoke [5]/[6] (counts 2/5, tasks total 0)
+
+### Owner blockers
+- none
+
+### Concept / NFR registry (this iteration)
+| Concept id | Applies | Status | Evidence / trigger |
+|------------|---------|--------|-------------------|
+| MOD-01 | yes | done | Coupling audit in proposal Appendix C: score `low`, `proceed_with_guards`; diff touches api+sql only (web deferred) |
+| MOD-02 | no | n-a | No new synchronous network hop |
+| MOD-03 | no | n-a | No new billable unit |
+| MOD-04 | no | n-a | No new deployable/on-call surface |
+| MOD-05 | no | n-a | No service extraction |
+| MOD-06 | **yes** | done | AI-assisted: yes; risk summary attached below (2026-09-29) |
+| MOD-07 | no | n-a | No app-side LLM prompt composition |
+| MOD-08 | no | n-a | No IaC change |
+
+#### MOD-06 output — AI change risk summary (plan-sync P1, 2026-09-29)
+
+```markdown
+## AI change risk summary
+- AI-assisted: yes
+- Boundaries crossed: 1 — API service (Python app + its own restart-run SQL schema;
+  one deploy unit: api container). Web untouched; framework repo untouched (P2
+  deferred); `.work` docs are not a code boundary. Aligns with MOD-01 Appendix C
+  (score: low, proceed_with_guards).
+- New cross-boundary deps: none — intra-package imports only
+  (routers/services/models within api); no new network hop, service, or shared DB access.
+- Test isolation: ok — command: `docker exec tpr_api_tools_project_dev python -m pytest -q
+  tests/test_plan_sync.py` (16 tests isolate import/obsolete/auth/D6/filter logic;
+  failure→fix cycle observed during this session). Full suite: 49 passed [measured]
+- Human architectural review: optional — reason: boundaries_crossed ≤ 1 and
+  isolated tests exist; owner reviews before merge regardless.
+- Blast radius: if wrong, a single project's task/milestone metadata could be
+  mis-statused or wrongly marked obsolete — never deleted (R18), single transactional
+  write path, dry_run available, one summary activity row for audit. Migration is
+  additive and idempotent (IF NOT EXISTS), verified across restart×2 [measured].
+  The deps.py edit touches the shared X-Api-Key auth path (platform/agent_query)
+  but is value-identical (named constants + dead-import removal), covered by the
+  full 49-test suite [measured].
+
+## Recommendation
+merge_ok — single boundary, isolated tests green, gates green (ruff, pyright,
+pytest 49/49), live smoke test 14/14, no destructive operations.
+
+## Conditions if merge_with_conditions
+- (none)
+```
+
+### Cross-LLM verification
+- Triggered: no (not a high-risk threat-model milestone)
+
+### Done this iteration
+| Task | Completed | Notes |
+|------|-----------|-------|
+| T1 DDL | 2026-09-29 | milestones table (15 cols) + 3 task columns + 7 indexes; restart×2 idempotent |
+| T2 models | 2026-09-29 | `models/milestone.py` + Task/Project relationships |
+| T3 schemas | 2026-09-29 | milestone + manifest + result schemas, `MILESTONE_STATUSES`, `PLAN_TASK_STATUS_MAP` |
+| T4 service | 2026-09-29 | `services/plan_import.py` R5–R20; +flush fix (task.milestone_id was NULL without it) |
+| T5 router | 2026-09-29 | milestones CRUD + plan-import endpoint; +`services/agent_identity.py` FK anchor for agent-key writes |
+| T6 D6 gate | 2026-09-29 | auto_prefix decoupled from GitHub link; registry gate retained |
+| T7 filters | 2026-09-29 | `milestone_id` + `plan_state` query filters |
+| T8 tests | 2026-09-29 | `tests/test_plan_sync.py` — 16 tests (SPEC T1–T11, D6, D7, R2, R13) |
+| T9 gates | 2026-09-29 | ruff clean, pyright 0 errors, pytest 49/49, restart×2, live smoke 14/14 |
+| Pre-existing lint debt | 2026-09-29 | cleared 3 baseline findings outside plan-sync scope to get gates green: `client_portal.py` SIM102 (nested if), `admin_users.py` pyright nullable `user_id` guard, `deps.py` dead `Request` import — all behavior-neutral |
+| MOD-06 | 2026-09-29 | risk summary attached above; recommendation merge_ok |
+
+**Left in dev DB:** project "Plan Sync Smoke Test" (`bd3b7835-cb2c-454e-b091-513df5233436`, slug `plan-sync-smoke`, key PSMOKE) from the live smoke run — no project DELETE endpoint exists; safe to remove manually if undesired.
+
+**Observation (pre-existing, not plan-sync):** in single-tenant mode the bootstrap admin (`tenant_id` NULL) cannot `POST /v1/projects` (400 "tenant_id or tenant_slug is required for cross-tenant superuser") because `get_current_tenant` returns None when `MULTI_TENANCY_ENABLED=false`. Smoke test used the tenant-bound dev user instead. Backlog candidate.
 
 ## Current iteration (2026-07-06)
 

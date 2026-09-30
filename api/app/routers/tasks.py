@@ -62,6 +62,8 @@ async def list_tasks(
     task_status: str | None = Query(default=None, alias="status"),
     assignee_id: uuid.UUID | None = None,
     component_id: uuid.UUID | None = None,
+    milestone_id: uuid.UUID | None = None,
+    plan_state: str | None = Query(default=None, pattern=r"^(active|obsolete)$"),
     is_todo: bool | None = Query(default=None),
     q: str | None = None,
     limit: int = Query(default=200, ge=1, le=500),
@@ -84,6 +86,10 @@ async def list_tasks(
         base = base.where(Task.assignee_id == assignee_id)
     if component_id is not None:
         base = base.where(Task.component_id == component_id)
+    if milestone_id is not None:
+        base = base.where(Task.milestone_id == milestone_id)
+    if plan_state is not None:
+        base = base.where(Task.plan_state == plan_state)
     if is_todo is not None:
         base = base.where(Task.is_todo == is_todo)
     if is_client_participant(acc):

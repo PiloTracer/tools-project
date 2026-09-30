@@ -49,6 +49,13 @@ class Task(Base):
         nullable=True,
     )
     is_todo: Mapped[bool] = mapped_column(Boolean, default=False)
+    milestone_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("milestones.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    plan_ref: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    plan_state: Mapped[str] = mapped_column(String(16), default="active")
     closed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
@@ -60,3 +67,4 @@ class Task(Base):
     )
 
     project = relationship("Project", back_populates="tasks")
+    milestone = relationship("Milestone", back_populates="tasks")

@@ -45,4 +45,7 @@ class Project(Base):
     components = relationship(
         "Component", back_populates="project", cascade="all, delete-orphan"
     )
+    milestones = relationship(
+        "Milestone", back_populates="project", cascade="all, delete-orphan"
+    )
     tasks = relationship("Task", back_populates="project", cascade="all, delete-orphan")

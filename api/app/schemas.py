@@ -11,6 +11,15 @@ from pydantic import BaseModel, EmailStr, Field, field_validator, model_validato
 
 TASK_STATUSES: frozenset[str] = frozenset({"todo", "in_progress", "blocked", "done", "cancelled"})
 TICKET_STATUSES: frozenset[str] = frozenset({"open", "in_progress", "waiting_customer", "resolved", "closed"})
+MILESTONE_STATUSES: frozenset[str] = frozenset({"pending", "active", "blocked", "done", "cancelled"})
+# Plan vocabulary (source markdown) → app task status (plan-sync SPEC R14).
+PLAN_TASK_STATUS_MAP: dict[str, str] = {
+    "pending": "todo",
+    "done": "done",
+    "blocked": "blocked",
+    "deferred": "cancelled",
+}
+PLAN_STATE_VALUES: frozenset[str] = frozenset({"active", "obsolete"})
 ACTIVITY_KINDS: frozenset[str] = frozenset({
     "comment", "status_change", "assignment", "attachment", "github_commit", "mention", "system", "transition",
 })
@@ -246,6 +255,69 @@ class ComponentListResponse(BaseModel):
     items: list[ComponentOut]
 
 
+# --- Plan-sync: milestones (plan-sync SPEC §6) ---
+
+class MilestoneCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    key: str | None = Field(default=None, max_length=32, pattern=r"^M\d+$")
+    summary: str | None = Field(default=None, max_length=4000)
+    description: str | None = Field(default=None, max_length=32000)
+    status: str = Field(default="pending", max_length=40)
+    sort_order: int = Field(default=0, ge=0, le=100000)
+    start_at: datetime | None = None
+    due_at: datetime | None = None
+
+    @field_validator("status")
+    @classmethod
+    def _validate_status(cls, v: str) -> str:
+        if v not in MILESTONE_STATUSES:
+            raise ValueError(f"Invalid milestone status: {v}")
+        return v
+
+
+class MilestonePatch(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    key: str | None = Field(default=None, max_length=32, pattern=r"^M\d+$")
+    summary: str | None = Field(default=None, max_length=4000)
+    description: str | None = Field(default=None, max_length=32000)
+    status: str | None = Field(default=None, max_length=40)
+    sort_order: int | None = Field(default=None, ge=0, le=100000)
+    start_at: datetime | None = None
+    due_at: datetime | None = None
+
+    @field_validator("status")
+    @classmethod
+    def _validate_status(cls, v: str | None) -> str | None:
+        if v is not None and v not in MILESTONE_STATUSES:
+            raise ValueError(f"Invalid milestone status: {v}")
+        return v
+
+
+class MilestoneOut(BaseModel):
+    id: uuid.UUID
+    project_id: uuid.UUID
+    key: str | None = None
+    name: str
+    summary: str | None = None
+    description: str | None = None
+    status: str
+    plan_state: str
+    sort_order: int
+    start_at: datetime | None = None
+    due_at: datetime | None = None
+    plan_ref: str | None = None
+    created_at: datetime
+    updated_at: datetime
+    task_total: int = 0
+    task_done: int = 0
+
+    model_config = {"from_attributes": True}
+
+
+class MilestoneListResponse(BaseModel):
+    items: list[MilestoneOut]
+
+
 class TaskCreate(BaseModel):
     title: str = Field(min_length=1, max_length=500)
     description: str | None = Field(default=None, max_length=32000)
@@ -287,6 +359,9 @@ class TaskOut(BaseModel):
     reporter_id: uuid.UUID
     due_at: datetime | None
     parent_task_id: uuid.UUID | None
+    milestone_id: uuid.UUID | None = None
+    plan_ref: str | None = None
+    plan_state: str = "active"
     is_todo: bool
     closed_at: datetime | None = None
     created_at: datetime
@@ -299,6 +374,111 @@ class TaskListResponse(BaseModel):
     items: list[TaskOut]
     total: int | None = None
     has_more: bool = False
+
+
+# --- Plan-sync: manifest import (plan-sync SPEC §6, R5-R6) ---
+
+PLAN_REF_RE = re.compile(r"^M\d+$")
+TASK_REF_RE = re.compile(r"^M\d+-T\d+$")
+
+
+class ManifestProject(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    key: str | None = Field(default=None, max_length=32)
+    description: str | None = Field(default=None, max_length=8000)
+
+
+class ManifestMilestone(BaseModel):
+    plan_ref: str = Field(min_length=1, max_length=64)
+    key: str | None = Field(default=None, max_length=32)
+    name: str = Field(min_length=1, max_length=200)
+    summary: str | None = Field(default=None, max_length=4000)
+    description: str | None = Field(default=None, max_length=32000)
+    status: str = Field(default="pending", max_length=40)
+    sort_order: int = Field(default=0, ge=0, le=100000)
+    start_at: datetime | None = None
+    due_at: datetime | None = None
+
+    @field_validator("plan_ref", "key")
+    @classmethod
+    def _validate_ref(cls, v: str | None) -> str | None:
+        if v is not None and not PLAN_REF_RE.match(v):
+            raise ValueError(f"Milestone ref must match M{{N}}: {v}")
+        return v
+
+    @field_validator("status")
+    @classmethod
+    def _validate_status(cls, v: str) -> str:
+        if v not in MILESTONE_STATUSES:
+            raise ValueError(f"Invalid milestone status: {v}")
+        return v
+
+
+class ManifestTask(BaseModel):
+    plan_ref: str = Field(min_length=1, max_length=64)
+    milestone_ref: str = Field(min_length=1, max_length=64)
+    title: str = Field(min_length=1, max_length=200)
+    description: str | None = Field(default=None, max_length=32000)
+    status: str = Field(default="pending", max_length=40)
+    priority: str | None = Field(default=None, max_length=20)
+
+    @field_validator("plan_ref")
+    @classmethod
+    def _validate_task_ref(cls, v: str) -> str:
+        if not TASK_REF_RE.match(v):
+            raise ValueError(f"Task ref must match M{{N}}-T{{N}}: {v}")
+        return v
+
+    @field_validator("milestone_ref")
+    @classmethod
+    def _validate_ms_ref(cls, v: str) -> str:
+        if not PLAN_REF_RE.match(v):
+            raise ValueError(f"milestone_ref must match M{{N}}: {v}")
+        return v
+
+    @field_validator("status")
+    @classmethod
+    def _validate_status(cls, v: str) -> str:
+        if v not in PLAN_TASK_STATUS_MAP and v not in TASK_STATUSES:
+            raise ValueError(f"Invalid task status: {v}")
+        return v
+
+
+class PlanImportManifest(BaseModel):
+    manifest_version: int
+    source_path: str = Field(default="", max_length=1000)
+    plan_version: str = Field(default="", max_length=40)
+    project: ManifestProject
+    milestones: list[ManifestMilestone] = Field(default_factory=list, max_length=100)
+    tasks: list[ManifestTask] = Field(default_factory=list, max_length=500)
+    components: list[dict] = Field(default_factory=list, max_length=100)
+
+    @field_validator("manifest_version")
+    @classmethod
+    def _validate_version(cls, v: int) -> int:
+        if v != 1:
+            raise ValueError(f"Unsupported manifest_version: {v}")
+        return v
+
+
+class ImportConflict(BaseModel):
+    kind: str
+    plan_ref: str | None = None
+    detail: str
+
+
+class ImportEntityCounts(BaseModel):
+    created: int = 0
+    updated: int = 0
+    obsolete: int = 0
+    reactivated: int = 0
+
+
+class PlanImportResult(BaseModel):
+    dry_run: bool
+    milestones: ImportEntityCounts = Field(default_factory=ImportEntityCounts)
+    tasks: ImportEntityCounts = Field(default_factory=ImportEntityCounts)
+    conflicts: list[ImportConflict] = Field(default_factory=list)
 
 
 # --- Batch F: activity, tickets, /me today & mentions ---

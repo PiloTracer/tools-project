@@ -68,6 +68,10 @@ async def _enrich_users(
             .order_by(Client.name.asc()),
         )
         for cc, client_name in contact_rows.all():
+            # The query filters user_id.in_(user_ids), so this is never None;
+            # guard only to satisfy the nullable column type.
+            if cc.user_id is None:
+                continue
             contacts_map.setdefault(cc.user_id, []).append(
                 UserClientContactOut(
                     id=cc.id,

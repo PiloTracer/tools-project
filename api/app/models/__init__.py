@@ -8,6 +8,7 @@ from app.models.github_commit import GithubCommit
 from app.models.github_link import GithubLink
 from app.models.inbox_item import InboxItem
 from app.models.mention import Mention
+from app.models.milestone import Milestone
 from app.models.project import Project
 from app.models.project_client import ProjectClient
 from app.models.project_client_access import ProjectClientAccess
@@ -35,6 +36,7 @@ __all__ = [
     "GithubLink",
     "InboxItem",
     "Mention",
+    "Milestone",
     "Project",
     "ProjectClient",
     "ProjectClientAccess",

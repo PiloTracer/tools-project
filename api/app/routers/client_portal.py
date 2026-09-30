@@ -54,12 +54,15 @@ async def _require_client_contact(
             detail="User is not linked to a client contact",
         )
     # Multi-tenancy: verify client's tenant matches user's tenant
-    if user.tenant_id is not None and contact.tenant_id is not None:
-        if contact.tenant_id != user.tenant_id:
-            raise HTTPException(
-                status.HTTP_403_FORBIDDEN,
-                detail="User is not linked to a client contact",
-            )
+    if (
+        user.tenant_id is not None
+        and contact.tenant_id is not None
+        and contact.tenant_id != user.tenant_id
+    ):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            detail="User is not linked to a client contact",
+        )
     return contact
 
 

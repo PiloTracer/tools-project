@@ -130,3 +130,15 @@ CREATE INDEX IF NOT EXISTS ix_clients_tenant_id ON clients (tenant_id);
 CREATE INDEX IF NOT EXISTS ix_client_contacts_tenant_id ON client_contacts (tenant_id);
 CREATE INDEX IF NOT EXISTS ix_webhook_subscriptions_tenant_id ON webhook_subscriptions (tenant_id);
 CREATE INDEX IF NOT EXISTS ix_user_api_keys_tenant_id ON user_api_keys (tenant_id);
+
+-- Plan-sync: milestones + task plan provenance (partial uniques live here, not in ORM models)
+CREATE UNIQUE INDEX IF NOT EXISTS uq_milestones_project_key
+    ON milestones (project_id, key) WHERE key IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_milestones_project_ref
+    ON milestones (project_id, plan_ref) WHERE plan_ref IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_tasks_project_plan_ref
+    ON tasks (project_id, plan_ref) WHERE plan_ref IS NOT NULL;
+CREATE INDEX IF NOT EXISTS ix_milestones_project_status ON milestones (project_id, status);
+CREATE INDEX IF NOT EXISTS ix_milestones_project_sort ON milestones (project_id, sort_order);
+CREATE INDEX IF NOT EXISTS ix_tasks_project_milestone ON tasks (project_id, milestone_id);
+CREATE INDEX IF NOT EXISTS ix_tasks_project_plan_state ON tasks (project_id, plan_state);

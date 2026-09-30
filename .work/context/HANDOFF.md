@@ -1,16 +1,30 @@
 # Session handoff — tools-project
 
 ## Session status
-**Open:** 2026-08-10 — goal: not specified (see NEXT.md § Recommended next)
+**Open:** 2026-09-29 — goal: **cross-LLM verification of the plan-sync P1 commit** (user directive — next session must review this commit with a *different* LLM than the one that authored it, before any new feature work; procedure in NEXT.md § Recommended next item 1)
 **Closed:** 2026-07-07 — verified and repaired multi-tenancy implementation: fixed syntax error in `admin_users.py`, tenant-scoped slug generation, webhook tenant isolation, cross-tenant superuser guards, RFP-award tenant assignment, and test factory/DDL compatibility. All gates green: ruff, pyright, compileall, DDL idempotency, pytest 33/33.
 **Closed:** 2026-07-08 — multi-tenancy implementation complete: schema, models, auth, 17+ routers scoped, services, tests (8/8 pass). Feature gated behind `MULTI_TENANCY_ENABLED=false` (backward compatible).
 **Closed:** 2026-07-07 — reviewed and tightened multi-tenancy feature SPEC: fixed subdomain/Caddy deployment model, OAuth and client portal tenant resolution, API key tenant scoping, cross-tenant superuser mutation rules, migration ordering, and cookie/CORS considerations.
 **Closed:** 2026-07-06 — ecosystem hub modifications (Mod 1–4) implemented, lint/type/test gates green. Committed `15bb6a2`, pushed to `origin/main`.
 **GitHub task registry:** local registry loaded — open: TPR-3, TPR-T-11, TPR-T-12
 
-**Date:** 2026-08-10
+**Date:** 2026-09-29
 
-### This session (2026-07-06)
+### This session (2026-09-29 — plan-sync P1: milestones + plan-import API)
+
+Shipped plan-sync P1 end-to-end (SPEC `.work/features/plan-sync/20260929-SPEC.md`, Approved):
+
+- **DDL:** `milestones` table + `tasks.milestone_id` / `plan_ref` / `plan_state` — appended idempotently into existing `sql/schema_changes.sql` + `schema_indexes.sql` (no new migration files; restart-run).
+- **New:** `api/app/models/milestone.py`, `api/app/routers/milestones.py` (CRUD + `POST /v1/projects/{id}/plan-import`), `api/app/services/plan_import.py` (transactional upsert, obsolete matrix, conflict report), `api/app/services/agent_identity.py` (idempotent agent-user upsert — fixes X-Api-Key FK 500), `api/tests/test_plan_sync.py` (16 tests).
+- **Modified:** D6 gate split in `projects.py` (registry-only link gate), task filters `milestone_id`/`plan_state`, models/schemas registration; lint debt cleared in `client_portal.py`, `admin_users.py`, `deps.py`.
+- **Gates:** ruff pass · pyright 0 errors · pytest **49/49** · migration restart×2 idempotent · live smoke test 14/14 checks OK.
+- NEXT.md iteration "plan-sync P1" marked complete; MOD-06 run → `merge_ok`.
+- P2 work order delivered: `.work/prompts/20260929-plan-sync-skill-instructions.md` (direct HTTP option (a); MCP stays read-only).
+- Decisions: plan upload = REST endpoint only (no upload UI — P3 is display/filter); status vocab + manifest v1 locked.
+
+**Cross-LLM verification (user directive 2026-09-29):** this session's commit must be reviewed next session by a *different* LLM (diff vs SPEC R1–R27 + re-run gates). Do not start new feature work first.
+
+### Prior session (2026-07-06)
 
 Landed ecosystem hub modifications 1–4:
 

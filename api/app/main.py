@@ -33,6 +33,7 @@ from app.routers import (
     integrations,
     me_api_keys,
     me_focus,
+    milestones,
     platform,
     project_client_access,
     project_clients,
@@ -124,6 +125,9 @@ app.include_router(components.router)
 app.include_router(components.detail_router)
 app.include_router(tasks.project_router)
 app.include_router(tasks.detail_router)
+app.include_router(milestones.router)
+app.include_router(milestones.detail_router)
+app.include_router(milestones.import_router)
 app.include_router(activities.router)
 app.include_router(tickets.router)
 app.include_router(tickets.detail_router)

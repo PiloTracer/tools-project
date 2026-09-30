@@ -15,6 +15,7 @@ from app.db import get_db
 from app.models.client_contact import ClientContact
 from app.models.tenant import Tenant
 from app.models.user import User
+from app.services.agent_identity import AGENT_USER_EMAIL, AGENT_USER_ID
 from app.services.auth_local import decode_local_token
 from app.services.oauth_userinfo import upsert_user_from_oauth_access_token
 
@@ -210,8 +211,8 @@ async def require_agent_or_user(
                     detail="Shared agent API key is not allowed in multi-tenant mode; use a personal API key",
                 )
             user = User(
-                id=uuid.uuid5(uuid.NAMESPACE_DNS, "agent.localhost"),
-                email="agent@localhost",
+                id=AGENT_USER_ID,
+                email=AGENT_USER_EMAIL,
                 display_name="Agent",
                 is_superuser=True,
                 is_active=True,
@@ -231,11 +232,9 @@ async def require_agent_or_user(
             .options(joinedload(UserApiKey.user))
         )
         if api_key_row is not None and api_key_row.user.is_active:
-            # Multi-tenancy: API keys are tenant-scoped (validated when multi_tenancy is on)
-            if settings.multi_tenancy_enabled:
-                from fastapi import Request as _Request
-                # Tenant scoping is enforced via X-Tenant-Slug header in middleware
-
+            # Multi-tenancy: API keys are tenant-scoped (validated when
+            # multi_tenancy is on); cross-tenant requests are rejected via the
+            # X-Tenant-Slug header middleware.
             api_key_row.last_used_at = func.now()
             await db.commit()
             return api_key_row.user

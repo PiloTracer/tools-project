@@ -374,4 +374,31 @@ ALTER TABLE client_contacts ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES t
 ALTER TABLE webhook_subscriptions ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id);
 ALTER TABLE user_api_keys ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id);
 
+-- Plan-sync: milestones (sequence dimension) for plan imports (SPEC plan-sync R1, R27).
+-- Idempotent — re-run on every API start (schema_sql lifespan runner).
+
+CREATE TABLE IF NOT EXISTS milestones (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    project_id UUID NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
+    key VARCHAR(32),
+    name VARCHAR(200) NOT NULL,
+    summary TEXT,
+    description TEXT,
+    status VARCHAR(40) NOT NULL DEFAULT 'pending',
+    plan_state VARCHAR(16) NOT NULL DEFAULT 'active',
+    sort_order INT NOT NULL DEFAULT 0,
+    start_at TIMESTAMPTZ,
+    due_at TIMESTAMPTZ,
+    plan_ref VARCHAR(64),
+    created_by UUID REFERENCES users (id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Plan-sync: plan provenance on tasks (SPEC plan-sync R27). Additive; existing rows untouched.
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS milestone_id UUID REFERENCES milestones (id) ON DELETE SET NULL;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS plan_ref VARCHAR(64);
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS plan_state VARCHAR(16) NOT NULL DEFAULT 'active';
+
+
 
