@@ -5,6 +5,7 @@ import { useState, useMemo, useEffect, useRef } from "react";
 
 import { Dialog } from "@/components/Dialog";
 import { toast } from "@/components/Toast";
+import { apiErrorMessage } from "@/shared/client/api";
 
 type UserMembership = {
   project_id: string;
@@ -63,6 +64,7 @@ export function AdminUsersPanel({
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [createError, setCreateError] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     if (!search.trim()) return users;
@@ -86,9 +88,23 @@ export function AdminUsersPanel({
   async function createUser(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
+    const email = String(fd.get("email") || "").trim();
+    const password = String(fd.get("password") || "");
+    // Validate the way the API does. The browser's `type=email` accepts
+    // addresses the API rejects (e.g. `user@host` without a dot in the domain),
+    // which came back as a raw 422 validation error.
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setCreateError("Enter a valid email address with a domain, e.g. name@example.com");
+      return;
+    }
+    if (password.length < 8) {
+      setCreateError("Password must be at least 8 characters");
+      return;
+    }
+    setCreateError(null);
     const body = {
-      email: String(fd.get("email") || "").trim(),
-      password: String(fd.get("password") || ""),
+      email,
+      password,
       display_name: String(fd.get("display_name") || "").trim() || null,
       is_superuser: fd.get("is_superuser") === "on",
       tenant_slug: String(fd.get("tenant_slug") || "").trim() || undefined,
@@ -100,14 +116,12 @@ export function AdminUsersPanel({
     });
     const text = await r.text();
     if (!r.ok) {
-      try {
-        const j = JSON.parse(text) as { detail?: string };
-        toast(j.detail ?? text, "error");
-      } catch {
-        toast(text || `Error ${r.status}`, "error");
-      }
+      const message = apiErrorMessage(text, r.status);
+      setCreateError(message);
+      toast(message, "error");
       return;
     }
+    setCreateError(null);
     setShowCreate(false);
     toast("User created");
     await refreshList();
@@ -157,7 +171,10 @@ export function AdminUsersPanel({
         <button
           type="button"
           className="btn btn-primary"
-          onClick={() => setShowCreate(true)}
+          onClick={() => {
+            setCreateError(null);
+            setShowCreate(true);
+          }}
         >
           + Create user
         </button>
@@ -264,8 +281,19 @@ export function AdminUsersPanel({
           </label>
           <label className="stack" style={{ gap: "0.25rem" }}>
             <span className="text-sm muted">Tenant slug (leave empty for same tenant)</span>
-            <input className="input" name="tenant_slug" placeholder="e.g. acme" autoComplete="off" />
+            <input
+              className="input"
+              name="tenant_slug"
+              placeholder="e.g. acme"
+              maxLength={50}
+              autoComplete="off"
+            />
           </label>
+          {createError ? (
+            <p className="err text-sm" style={{ margin: 0 }}>
+              {createError}
+            </p>
+          ) : null}
           <div style={{ display: "flex", gap: "0.5rem" }}>
             <button
               type="submit"

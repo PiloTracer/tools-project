@@ -1,22 +1,67 @@
 type ApiErrorBody = {
-  detail?: string | Array<{ msg?: string; type?: string }>;
+  detail?: string | Array<{ msg?: string; type?: string; loc?: unknown[] }>;
   error?: string;
 };
 
 export type ApiResult<T> = { ok: true; data: T } | { ok: false; error: string };
 
-function extractDetail(body: unknown): string | undefined {
+/**
+ * Turns a parsed error body into a displayable string.
+ *
+ * FastAPI answers validation failures (422) with `detail` as an **array of
+ * objects** (`{type, loc, msg, input, ctx}`). Rendering that array as a React
+ * child throws React error #31 and unmounts the whole page, so every caller
+ * that displays an API error must normalize it first.
+ */
+export function extractDetail(body: unknown): string | undefined {
   if (!body || typeof body !== "object") return undefined;
   const b = body as ApiErrorBody;
   if (typeof b.detail === "string") return b.detail;
   if (Array.isArray(b.detail)) {
     return b.detail
-      .map((e) => e.msg ?? e.type)
+      .map((e) => {
+        const where = Array.isArray(e?.loc)
+          ? e.loc.filter((p) => p !== "body" && p !== "query" && p !== "path").join(".")
+          : "";
+        const what = e?.msg ?? e?.type ?? "invalid value";
+        return where ? `${where}: ${what}` : what;
+      })
       .filter(Boolean)
       .join("; ");
   }
   if (typeof b.error === "string") return b.error;
   return undefined;
+}
+
+/** Never throws. Turns any error body (already parsed) into a displayable string. */
+export function errorTextFromBody(body: unknown, status?: number): string {
+  const detail = extractDetail(body);
+  if (detail) return detail;
+  if (typeof body === "string" && body.trim()) return body.trim();
+  if (body !== undefined && body !== null) {
+    try {
+      const s = JSON.stringify(body);
+      if (s && s !== "{}" && s !== "null") {
+        return s.length > 300 ? `${s.slice(0, 300)}…` : s;
+      }
+    } catch {
+      /* not serializable */
+    }
+  }
+  return status ? `Error ${status}` : "Request failed";
+}
+
+/** Never throws. Parses an error response body (raw text) into a displayable string. */
+export function apiErrorMessage(text: string, status?: number): string {
+  if (text) {
+    try {
+      return errorTextFromBody(JSON.parse(text), status);
+    } catch {
+      /* body is not JSON */
+    }
+    if (text.trim()) return text.trim();
+  }
+  return status ? `Error ${status}` : "Request failed";
 }
 
 /**

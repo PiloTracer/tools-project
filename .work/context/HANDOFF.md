@@ -127,6 +127,36 @@ real browser (headless Chrome driven over CDP; scratch client kept in `/tmp`, no
 - Gates: eslint clean, `next build` compiled, touch-scope pass, blast-radius warn (web-only, declared
   scope), live browser checks green. Nothing committed in this turn pending the owner's instruction.
 
+### Admin → Users: "This page couldn't load" (2026-09-30, owner report from production)
+
+Owner tried to create the collaborator account and `/admin/users` died. Evidence from their console
+plus the prod API log: `POST /v1/admin/users → 422`, then `Uncaught Error: Minified React error #31`
+(object with keys `{type, loc, msg, input, ctx}` = a FastAPI validation error).
+
+- **Root cause:** the 422 body's `detail` is an *array of objects*; `AdminUsersPanel` passed it
+  straight to `toast()`, and React cannot render an object as a child — error #31 unmounted the tree,
+  so the page died with the browser's generic message and the real error never reached the owner.
+  The same pattern existed in ~25 call sites across the app (tasks, tickets, projects, inbox,
+  activity): any 422 anywhere could white-screen a page.
+- **Rejected values reproduced against the API** (dev schema == prod schema): email without a domain
+  dot (`collaborator@company` — accepted by the browser's `type="email"`, refused by `EmailStr`),
+  password shorter than 8 chars, malformed email.
+- **Fixed:** `apiErrorMessage()` / `errorTextFromBody()` in `shared/client/api.ts` (never throw, handle
+  `detail` string or array with `loc`, `error`, raw text); `Toast` normalizes non-string messages so no
+  call site can hand React a raw object; `AdminUsersPanel` validates email (domain dot), password
+  length and tenant-slug length the way the API does with an inline error plus toast; `TenantsPanel`
+  (same crash class, 2 sites) normalized; new `web/src/app/error.tsx` route error boundary so any
+  future render crash shows a message + retry instead of a dead page.
+- Left alone on purpose: `throw new Error(j.detail ?? …)` sites (raw JSON in the message, ugly but they
+  cannot crash) and the `setError(j.error)` sites fed by our own BFF routes, which already normalize
+  FastAPI arrays.
+- Verified in headless Chrome (prod-like cross-tenant superuser): the reported 422 now shows a
+  readable inline message, a *real* server-side 422 keeps the page alive, valid creation succeeds and
+  the row appears, 0 console errors.
+- Owner-facing note: the account email needs a real domain (`name@company.com`) and an 8+ character
+  password; Members still requires the account to exist first. **Prod needs a web deploy** — the fix
+  is not live until then.
+
 ### Prior session (2026-09-29 — plan-sync P1: milestones + plan-import API)
 
 Shipped plan-sync P1 end-to-end (SPEC `.work/features/plan-sync/20260929-SPEC.md`, Approved):

@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { TenantRow } from "./page";
+import { errorTextFromBody } from "@/shared/client/api";
 
 export function TenantsPanel({
   tenants,
@@ -38,8 +39,8 @@ export function TenantsPanel({
         body: JSON.stringify({ slug: slug.trim().toLowerCase(), name: name.trim() }),
       });
       if (!r.ok) {
-        const j = (await r.json().catch(() => ({}))) as { detail?: string };
-        setError(j.detail || `Failed (${r.status})`);
+        const j = await r.json().catch(() => ({}));
+        setError(errorTextFromBody(j, r.status));
         return;
       }
       const created = (await r.json()) as TenantRow;
@@ -68,8 +69,8 @@ export function TenantsPanel({
         body: JSON.stringify({ name: editName.trim(), is_active: editActive }),
       });
       if (!r.ok) {
-        const j = (await r.json().catch(() => ({}))) as { detail?: string };
-        setError(j.detail || `Failed (${r.status})`);
+        const j = await r.json().catch(() => ({}));
+        setError(errorTextFromBody(j, r.status));
         return;
       }
       const updated = (await r.json()) as TenantRow;

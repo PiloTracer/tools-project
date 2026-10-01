@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 
+import { errorTextFromBody } from "@/shared/client/api";
+
 type ToastKind = "success" | "error";
 
 let toastQueue: Array<{ id: number; message: string; kind: ToastKind }> = [];
@@ -12,9 +14,13 @@ function notify() {
   listeners.forEach((l) => l());
 }
 
-export function toast(message: string, kind: ToastKind = "success") {
+export function toast(message: unknown, kind: ToastKind = "success") {
+  // Callers often pass a parsed API error body. A FastAPI validation error is an
+  // array of objects; handing that to React as a child crashes the page
+  // (React error #31), so normalize anything that is not a plain string.
+  const text = typeof message === "string" ? message : errorTextFromBody(message);
   const id = ++toastId;
-  toastQueue = [...toastQueue, { id, message, kind }];
+  toastQueue = [...toastQueue, { id, message: text, kind }];
   notify();
   setTimeout(() => {
     toastQueue = toastQueue.filter((t) => t.id !== id);
