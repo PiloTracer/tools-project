@@ -19,7 +19,7 @@ A **project management hub with integrated CRM** — manage projects, tasks, tic
 
 MIT — free for personal and commercial use. See [LICENSE](LICENSE) for the full text.
 
-## Quick start
+## Quick start.
 
 ```bash
 cp .env.example .env.dev
