@@ -46,12 +46,17 @@ export function MilestoneGroups({
   milestones,
   tasks,
   onSetMilestoneFilter,
+  taskHref,
 }: {
   projectId: string;
   milestones: MilestoneRow[];
   tasks: TaskLike[];
   onSetMilestoneFilter?: (milestoneId: string) => void;
+  /** Link builder that preserves the current view + filters. */
+  taskHref?: (taskId: string) => string;
 }) {
+  const href = (taskId: string) =>
+    taskHref ? taskHref(taskId) : `/projects/${projectId}/tasks/${taskId}`;
   const byMilestone = new Map<string, TaskLike[]>();
   const unassigned: TaskLike[] = [];
   for (const t of tasks) {
@@ -157,11 +162,7 @@ export function MilestoneGroups({
                         {t.ref}
                       </span>
                     ) : null}
-                    <Link
-                      href={`/projects/${projectId}/tasks/${t.id}`}
-                      style={{ flex: 1, minWidth: "12rem" }}
-                      title={t.title}
-                    >
+                    <Link href={href(t.id)} style={{ flex: 1, minWidth: "12rem" }} title={t.title}>
                       {taskLabel(t.title)}
                     </Link>
                     <span className={statusPill(t.status)} style={{ fontSize: "0.6rem" }}>
@@ -204,11 +205,7 @@ export function MilestoneGroups({
                     <CopyRefButton code={t.ref} />
                   </span>
                 ) : null}
-                <Link
-                  href={`/projects/${projectId}/tasks/${t.id}`}
-                  style={{ flex: 1, minWidth: "12rem" }}
-                  title={t.title}
-                >
+                <Link href={href(t.id)} style={{ flex: 1, minWidth: "12rem" }} title={t.title}>
                   {taskLabel(t.title)}
                 </Link>
                 <span className={statusPill(t.status)} style={{ fontSize: "0.6rem" }}>

@@ -62,6 +62,10 @@ export default async function ProjectTasksPage({
     typeof sp.plan_state === "string" && ["active", "obsolete", "all"].includes(sp.plan_state)
       ? sp.plan_state
       : "active";
+  const initialView =
+    typeof sp.view === "string" && ["milestones", "board", "table"].includes(sp.view)
+      ? (sp.view as "milestones" | "board" | "table")
+      : undefined;
 
   const role = project.membership_role ?? "";
   const canEdit = ["owner", "maintainer", "contributor"].includes(role) || me.is_superuser;
@@ -103,6 +107,7 @@ export default async function ProjectTasksPage({
               milestones={milestones}
               initialMilestone={initialMilestone}
               initialPlanState={initialPlanState}
+              initialView={initialView}
             />
           </>
         )}

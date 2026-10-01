@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { apiServerFetch, fetchMe } from "@/shared/server/session";
 
 import { CopyRefButton } from "@/components/CopyRefButton";
+import { MarkdownBody } from "@/components/MarkdownBody";
 import { LinkedCommitsList } from "@/components/LinkedCommitsList";
 import type { MilestoneRow } from "../MilestoneGroups";
 import { parseTaskText } from "@/shared/plan-text";
@@ -51,8 +52,10 @@ type ActivityItem = {
 
 export default async function TaskDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string; taskId: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const me = await fetchMe();
   if (!me) {
@@ -106,6 +109,22 @@ export default async function TaskDetailPage({
   const role = project.membership_role ?? "";
   const canEdit = ["owner", "maintainer", "contributor"].includes(role) || me.is_superuser;
 
+  const sp = (await searchParams) ?? {};
+  const backQuery = new URLSearchParams();
+  for (const key of ["view", "milestone", "plan_state"]) {
+    const value = sp[key];
+    if (typeof value === "string" && value) backQuery.set(key, value);
+  }
+  const backHref = `/projects/${projectId}/tasks${backQuery.toString() ? `?${backQuery}` : ""}`;
+  const backLabel =
+    sp.view === "table"
+      ? "← Tasks (table view)"
+      : sp.view === "board"
+        ? "← Tasks (board view)"
+        : backQuery.get("milestone")
+          ? "← Tasks (milestone view)"
+          : "← Tasks";
+
   const parsed = parseTaskText(task.title, task.description);
   const milestone = task.milestone_id
     ? milestones.find((m) => m.id === task.milestone_id) ?? null
@@ -114,8 +133,8 @@ export default async function TaskDetailPage({
   return (
     <div className="page-inner stack-lg">
       <div>
-        <Link href={`/projects/${projectId}/tasks`} className="muted text-sm">
-          ← Tasks
+        <Link href={backHref} className="muted text-sm">
+          {backLabel}
         </Link>
         <p className="muted text-sm" style={{ margin: "0.15rem 0" }}>
           Project: <strong>{project.name}</strong>
@@ -130,9 +149,9 @@ export default async function TaskDetailPage({
           {parsed.label}
         </h1>
         {parsed.fullTitle !== parsed.label ? (
-          <p className="muted text-sm" style={{ margin: "0 0 0.35rem" }}>
-            {parsed.fullTitle}
-          </p>
+          <div className="muted text-sm" style={{ margin: "0 0 0.35rem" }}>
+            <MarkdownBody text={parsed.fullTitle} />
+          </div>
         ) : null}
         <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", alignItems: "center" }}>
           {milestone ? (

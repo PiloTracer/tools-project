@@ -103,6 +103,30 @@ reported: a huge flat task list, and descriptions too technical to read.
 - Open: prod needs a deploy to show this; the agent/MCP task projection still omits
   `milestone_id`/`plan_ref`/`plan_state` (small API + MCP change, not requested yet).
 
+### Plan-sync P3 follow-up (2026-09-30, owner feedback after using it)
+
+Owner used the new views and reported three things; all three are fixed and were verified in a
+real browser (headless Chrome driven over CDP; scratch client kept in `/tmp`, not the repo).
+
+- **Return to the view you came from:** view + filters now live in the URL
+  (`?view=&milestone=&plan_state=`), every task link carries them, and the task detail back link
+  restores the exact state with a matching label (`← Tasks (table view)`). Board/Table/Milestones all
+  round-trip; the URL is refresh-proof and shareable.
+- **Original technical text:** the task detail gained a top-level *Original (technical) text*
+  disclosure that renders the plan title and description exactly as imported (markdown), alongside the
+  structured *Technical details (plan source)* block and the verbatim `<pre>` view.
+- **Members "Add member" did nothing (bug):** the button was `disabled={!selectedUser}` and
+  `selectedUser` only came from a search suggestion, so an email with no matching account produced a
+  dead end. A typed email is now submittable, the API's 404 (*"No user with this email — they must
+  have an account before they can be added"*) is surfaced as a toast, and the empty-search state
+  points at Admin → Users. Note the rule is deliberate: the account must exist in the deployment
+  before it can be added. Invite-by-email (create the account) is a product change, not requested.
+- Also fixed a hydration error introduced by the previous commit (markdown rendered inside `<p>`);
+  only occurrence in `web/src`, checked statically. Re-verified: 0 client errors on task detail,
+  milestones, board and members.
+- Gates: eslint clean, `next build` compiled, touch-scope pass, blast-radius warn (web-only, declared
+  scope), live browser checks green. Nothing committed in this turn pending the owner's instruction.
+
 ### Prior session (2026-09-29 — plan-sync P1: milestones + plan-import API)
 
 Shipped plan-sync P1 end-to-end (SPEC `.work/features/plan-sync/20260929-SPEC.md`, Approved):

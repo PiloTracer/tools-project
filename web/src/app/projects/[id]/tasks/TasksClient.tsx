@@ -137,12 +137,15 @@ export function TaskTable({
   canEdit,
   members,
   milestoneNames,
+  taskHref,
 }: {
   projectId: string;
   tasks: TaskRow[];
   canEdit: boolean;
   members: { user_id: string; email: string; role: string }[];
   milestoneNames?: Record<string, string>;
+  /** Link builder that preserves the current view + filters. */
+  taskHref?: (taskId: string) => string;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
@@ -491,7 +494,7 @@ export function TaskTable({
               </td>
               <td style={{ padding: "0.4rem 0" }}>
                 <Link
-                  href={`/projects/${projectId}/tasks/${t.id}`}
+                  href={taskHref ? taskHref(t.id) : `/projects/${projectId}/tasks/${t.id}`}
                   style={{ fontWeight: 600 }}
                   title={t.title}
                 >
@@ -628,6 +631,7 @@ export function TasksView({
   milestones = [],
   initialMilestone = "",
   initialPlanState = "active",
+  initialView,
 }: {
   projectId: string;
   tasks: TaskRow[];
@@ -636,11 +640,12 @@ export function TasksView({
   milestones?: MilestoneRow[];
   initialMilestone?: string;
   initialPlanState?: string;
+  initialView?: "milestones" | "board" | "table";
 }) {
   const router = useRouter();
-  const [view, setView] = useState<"milestones" | "board" | "table">(
-    milestones.length > 0 ? "milestones" : "board",
-  );
+  const defaultView: "milestones" | "board" | "table" =
+    milestones.length > 0 ? "milestones" : "board";
+  const [view, setView] = useState<"milestones" | "board" | "table">(initialView ?? defaultView);
   const [milestoneFilter, setMilestoneFilter] = useState(initialMilestone);
   const [planStateFilter, setPlanStateFilter] = useState(initialPlanState);
 
@@ -667,6 +672,35 @@ export function TasksView({
       ).length,
     [tasks, planStateFilter],
   );
+
+  // Keep view + filters in the URL: refresh-proof, shareable, and the task detail page can
+  // send the user straight back to the view they came from.
+  function queryFor(
+    nextView: "milestones" | "board" | "table" = view,
+    nextMilestone: string = milestoneFilter,
+    nextPlanState: string = planStateFilter,
+  ): string {
+    const qs = new URLSearchParams();
+    if (nextView !== defaultView) qs.set("view", nextView);
+    if (nextMilestone) qs.set("milestone", nextMilestone);
+    if (nextPlanState !== "active") qs.set("plan_state", nextPlanState);
+    return qs.toString();
+  }
+
+  function syncUrl(
+    nextView: "milestones" | "board" | "table" = view,
+    nextMilestone: string = milestoneFilter,
+    nextPlanState: string = planStateFilter,
+  ) {
+    const qs = queryFor(nextView, nextMilestone, nextPlanState);
+    router.replace(qs ? `/projects/${projectId}/tasks?${qs}` : `/projects/${projectId}/tasks`, {
+      scroll: false,
+    });
+  }
+
+  const returnQuery = queryFor();
+  const taskHref = (taskId: string) =>
+    `/projects/${projectId}/tasks/${taskId}${returnQuery ? `?${returnQuery}` : ""}`;
 
   const boardItems = useMemo(
     () => visible.map((t) => ({ ...t, title: taskLabel(t.title) })),
@@ -695,7 +729,10 @@ export function TasksView({
       <button
         type="button"
         className={`btn ${view === kind ? "btn-primary" : "btn-ghost"} text-sm`}
-        onClick={() => setView(kind)}
+        onClick={() => {
+          setView(kind);
+          syncUrl(kind, milestoneFilter, planStateFilter);
+        }}
       >
         {label}
       </button>
@@ -718,7 +755,10 @@ export function TasksView({
             className="input text-sm"
             style={{ padding: "0.25rem 0.35rem", minHeight: 0, maxWidth: "22rem" }}
             value={milestoneFilter}
-            onChange={(e) => setMilestoneFilter(e.target.value)}
+            onChange={(e) => {
+              setMilestoneFilter(e.target.value);
+              syncUrl(view, e.target.value, planStateFilter);
+            }}
           >
             <option value="">All milestones ({milestones.length})</option>
             {milestones.map((m) => (
@@ -733,7 +773,10 @@ export function TasksView({
             className="input text-sm"
             style={{ padding: "0.25rem 0.35rem", minHeight: 0 }}
             value={planStateFilter}
-            onChange={(e) => setPlanStateFilter(e.target.value)}
+            onChange={(e) => {
+              setPlanStateFilter(e.target.value);
+              syncUrl(view, milestoneFilter, e.target.value);
+            }}
           >
             <option value="active">active</option>
             <option value="obsolete">obsolete</option>
@@ -746,7 +789,10 @@ export function TasksView({
             <button
               type="button"
               className="btn btn-ghost text-sm"
-              onClick={() => setPlanStateFilter("all")}
+              onClick={() => {
+                setPlanStateFilter("all");
+                syncUrl(view, milestoneFilter, "all");
+              }}
             >
               show {hidden} hidden
             </button>
@@ -759,7 +805,11 @@ export function TasksView({
           projectId={projectId}
           milestones={shownMilestones}
           tasks={visible}
-          onSetMilestoneFilter={setMilestoneFilter}
+          onSetMilestoneFilter={(id) => {
+            setMilestoneFilter(id);
+            syncUrl(view, id, planStateFilter);
+          }}
+          taskHref={taskHref}
         />
       ) : view === "board" ? (
         <KanbanBoard
@@ -768,6 +818,7 @@ export function TasksView({
           canEdit={canEdit}
           onStatusChange={onStatusChange}
           kind="task"
+          linkPath={(t) => taskHref(t.id)}
         />
       ) : (
         <TaskTable
@@ -776,6 +827,7 @@ export function TasksView({
           canEdit={canEdit}
           members={members}
           milestoneNames={milestoneNames}
+          taskHref={taskHref}
         />
       )}
     </div>

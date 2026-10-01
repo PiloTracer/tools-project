@@ -26,6 +26,11 @@ export function InviteMemberForm({
   const [role, setRole] = useState("contributor");
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // A typed email can be submitted even when the search finds no account: the API resolves
+  // the account by email and answers 404 with a clear message when it does not exist yet.
+  const trimmedQuery = searchQuery.trim();
+  const looksLikeEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedQuery);
+
   useEffect(() => {
     if (searchTimer.current) clearTimeout(searchTimer.current);
     if (!searchQuery.trim() || selectedUser) {
@@ -62,11 +67,15 @@ export function InviteMemberForm({
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!selectedUser) return;
+    const email = selectedUser?.email ?? trimmedQuery;
+    if (!email) {
+      toast("Type an email address first", "error");
+      return;
+    }
     const r = await fetch(`/api/projects/${projectId}/members`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: selectedUser.email, role }),
+      body: JSON.stringify({ email, role }),
     });
     const text = await r.text();
     if (!r.ok) {
@@ -109,7 +118,11 @@ export function InviteMemberForm({
           ) : searchPending ? (
             <div style={{ padding: "0.3rem 0", color: "var(--muted)", fontSize: "0.82rem" }}>Searching…</div>
           ) : searchQuery && searchResults.length === 0 ? (
-            <div style={{ padding: "0.3rem 0", color: "var(--muted)", fontSize: "0.82rem" }}>No matching users.</div>
+            <div style={{ padding: "0.3rem 0", color: "var(--muted)", fontSize: "0.82rem" }}>
+              No account with that email in this deployment. Add it with <strong>Add member</strong>{" "}
+              anyway to see the exact error, or create the user first under{" "}
+              <strong>Admin → Users</strong>.
+            </div>
           ) : searchResults.length > 0 ? (
             <div
               style={{
@@ -170,10 +183,14 @@ export function InviteMemberForm({
           </select>
         </label>
 
-        <button type="submit" className="btn btn-primary" disabled={!selectedUser}>
+        <button type="submit" className="btn btn-primary" disabled={!selectedUser && !looksLikeEmail}>
           Add member
         </button>
       </div>
+      <p className="muted text-sm" style={{ margin: 0 }}>
+        Pick a suggestion, or type the full email address and press <strong>Add member</strong> —
+        the account must already exist in this deployment (create it under <strong>Admin → Users</strong>).
+      </p>
     </form>
   );
 }

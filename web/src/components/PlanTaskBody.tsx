@@ -49,9 +49,9 @@ export function PlanTaskBody({
       <div>
         <h3 style={{ margin: "0 0 0.35rem", fontSize: "0.95rem" }}>What this delivers</h3>
         {parsed.remainder ? (
-          <p className="muted text-sm" style={{ marginTop: 0 }}>
+          <div className="muted text-sm" style={{ marginTop: 0 }}>
             <MarkdownBody text={parsed.remainder} />
-          </p>
+          </div>
         ) : null}
         {parsed.acceptance.length > 0 ? (
           <>
@@ -137,6 +137,24 @@ export function PlanTaskBody({
               {description}
             </pre>
           </details>
+        </details>
+      ) : null}
+
+      {description ? (
+        <details>
+          <summary className="muted text-sm" style={{ cursor: "pointer" }}>
+            Original (technical) text
+          </summary>
+          <div className="stack" style={{ gap: "0.5rem", marginTop: "0.5rem" }}>
+            <p className="muted text-sm" style={{ margin: 0 }}>
+              Plan title, exactly as imported:
+            </p>
+            <MarkdownBody text={parsed.fullTitle} />
+            <p className="muted text-sm" style={{ margin: "0.35rem 0 0" }}>
+              Plan description, exactly as imported:
+            </p>
+            <MarkdownBody text={description} />
+          </div>
         </details>
       ) : null}
     </div>
