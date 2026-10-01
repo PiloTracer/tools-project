@@ -6,7 +6,9 @@ import { notFound, redirect } from "next/navigation";
 
 import { apiServerFetch, fetchMe } from "@/shared/server/session";
 
+import { ProgressBar } from "@/components/PlanTaskBody";
 import { ProjectSettingsForm } from "./ProjectSettingsForm";
+import type { MilestoneRow } from "./tasks/MilestoneGroups";
 import { ProjectSubNav } from "./ProjectSubNav";
 import { ProjectDashboard } from "./ProjectDashboard";
 
@@ -48,6 +50,14 @@ export default async function ProjectDetailPage({
     );
   }
   const p = (await r.json()) as ProjectRow;
+  const mlr = await apiServerFetch(`/v1/projects/${id}/milestones`);
+  const milestones: MilestoneRow[] = mlr.ok
+    ? ((await mlr.json()) as { items: MilestoneRow[] }).items
+    : [];
+  const orderedMilestones = [...milestones].sort((a, b) => a.sort_order - b.sort_order);
+  const activeMilestone = orderedMilestones.find((m) => m.status === "active") ?? null;
+  const planTaskTotal = orderedMilestones.reduce((sum, m) => sum + m.task_total, 0);
+  const planTaskDone = orderedMilestones.reduce((sum, m) => sum + m.task_done, 0);
   const role = p.membership_role ?? "";
   const canEditSettings =
     ["owner", "maintainer"].includes(role) || me.is_superuser;
@@ -93,6 +103,61 @@ export default async function ProjectDetailPage({
           canEdit={canEditSettings}
         />
       </div>
+      {orderedMilestones.length > 0 ? (
+        <div className="card wide stack">
+          <div style={{ display: "flex", alignItems: "baseline", gap: "0.6rem", flexWrap: "wrap" }}>
+            <h2 style={{ margin: 0 }}>Milestones</h2>
+            <span className="muted text-sm">
+              {orderedMilestones.length} planned
+              {planTaskTotal > 0 ? ` · ${planTaskDone}/${planTaskTotal} tasks done` : ""}
+            </span>
+            {activeMilestone ? (
+              <span className="pill pill-ok" style={{ fontSize: "0.65rem" }}>
+                current: {activeMilestone.key ?? activeMilestone.name}
+              </span>
+            ) : null}
+            <Link className="btn btn-ghost text-sm" href={`/projects/${id}/tasks`} style={{ marginLeft: "auto" }}>
+              Open tasks by milestone
+            </Link>
+          </div>
+          <ul className="stack" style={{ listStyle: "none", paddingLeft: 0, gap: "0.5rem", marginTop: "0.25rem" }}>
+            {orderedMilestones.map((m) => {
+              const pct = m.task_total > 0 ? Math.round((m.task_done / m.task_total) * 100) : 0;
+              return (
+                <li key={m.id} className="stack" style={{ gap: "0.25rem" }}>
+                  <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
+                    {m.key ? (
+                      <span
+                        className="pill"
+                        style={{ fontSize: "0.7rem", fontFamily: "var(--font-mono, monospace)" }}
+                      >
+                        {m.key}
+                      </span>
+                    ) : null}
+                    <Link href={`/projects/${id}/tasks?milestone=${m.id}`} style={{ fontWeight: 600 }}>
+                      {m.name}
+                    </Link>
+                    <span className="pill" style={{ fontSize: "0.65rem" }}>
+                      {m.status}
+                    </span>
+                    {m.plan_state === "obsolete" ? (
+                      <span className="pill pill-muted" style={{ fontSize: "0.65rem" }}>
+                        obsolete
+                      </span>
+                    ) : null}
+                    <span className="muted text-sm" style={{ marginLeft: "auto" }}>
+                      {m.task_done}/{m.task_total}
+                    </span>
+                  </div>
+                  <div style={{ maxWidth: "26rem" }}>
+                    <ProgressBar percent={pct} />
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ) : null}
       <ProjectDashboard projectId={id} projectSlug={p.slug} />
       <div className="card wide stack">
         <span className="pill">Project hub</span>

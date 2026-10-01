@@ -78,6 +78,31 @@ is required for cross-tenant superuser` for the bootstrapped admin while
   `.reasonix/*` ignores) and `.work/feedback/20260930-uncommitted-changes-feedback.md` (a separate
   session's report) — the owner decides keep or revert.
 
+### Plan-sync P3 (2026-09-30, owner request — readability of the imported plan)
+
+Owner synced the Mendarion master plan into the production project (12 milestones / 159 tasks) and
+reported: a huge flat task list, and descriptions too technical to read.
+
+- **Milestone-centric UI (SPEC R26):** tasks page gained a **Milestones** view (collapsible
+  per-milestone sections, progress, current milestone expanded), `Milestone` + `Plan state` filters,
+  `?milestone=` / `?plan_state=` deep links, a Milestone column in the table and short labels on
+  board/table; project page gained a **Milestones** card with progress bars and per-milestone links;
+  task detail shows milestone pill + `plan_ref` + `plan_state`.
+- **Readable tasks:** new `web/src/shared/plan-text.ts` (tolerant parser: legacy inline
+  provenance, `## Source`, new `## Technical details`; raw-text fallback) + `PlanTaskBody`
+  ("What this delivers" · "Done when:" checklist · collapsed *Technical details* · original
+  markdown). Stored markdown is untouched and still editable.
+- **SPEC R21a** amendment (`20260929-SPEC.md:102`) makes the friendly description format official
+  and records that readers must tolerate all three shapes; `PLAN_SYNC.md` reference updated.
+- **Framework work order:** `.work/feedback/adjustments-for-plan-sync-skill/` asks the Agent OS to
+  compose `## Intent` / `## Acceptance` / `## Technical details` + short titles + milestone
+  `summary`; matching imports refresh those fields, so the 159 existing tasks upgrade on re-sync.
+- Gates: web `npm run check` clean, `next build` compiled, touch-scope pass, blast-radius warn
+  (declared scope), **no API/Python change**; live-verified in the dev stack against a real
+  plan-import (filters measurable per milestone; all three description shapes render correctly).
+- Open: prod needs a deploy to show this; the agent/MCP task projection still omits
+  `milestone_id`/`plan_ref`/`plan_state` (small API + MCP change, not requested yet).
+
 ### Prior session (2026-09-29 — plan-sync P1: milestones + plan-import API)
 
 Shipped plan-sync P1 end-to-end (SPEC `.work/features/plan-sync/20260929-SPEC.md`, Approved):

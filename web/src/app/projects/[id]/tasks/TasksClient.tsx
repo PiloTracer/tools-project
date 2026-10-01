@@ -10,6 +10,9 @@ import { AssigneePicker } from "@/components/AssigneePicker";
 import { Dialog } from "@/components/Dialog";
 import { toast } from "@/components/Toast";
 import { apiRequest } from "@/shared/client/api";
+import { taskLabel } from "@/shared/plan-text";
+
+import { MilestoneGroups, type MilestoneRow } from "./MilestoneGroups";
 
 export type TaskRow = {
   id: string;
@@ -20,6 +23,9 @@ export type TaskRow = {
   assignee_id: string | null;
   due_at: string | null;
   is_todo: boolean;
+  milestone_id?: string | null;
+  plan_ref?: string | null;
+  plan_state?: string;
 };
 
 export function NewTaskForm({
@@ -130,11 +136,13 @@ export function TaskTable({
   tasks,
   canEdit,
   members,
+  milestoneNames,
 }: {
   projectId: string;
   tasks: TaskRow[];
   canEdit: boolean;
   members: { user_id: string; email: string; role: string }[];
+  milestoneNames?: Record<string, string>;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
@@ -446,6 +454,7 @@ export function TaskTable({
             ) : null}
             {thLabel("ref", "Ref")}
             {thLabel("title", "Title")}
+            <th style={{ padding: "0.5rem 0" }}>Milestone</th>
             {thLabel("status", "Status")}
             {thLabel("priority", "Priority")}
             {thLabel("due_at", "Due")}
@@ -481,9 +490,29 @@ export function TaskTable({
                 {t.ref ? <CopyRefButton code={t.ref} /> : null}
               </td>
               <td style={{ padding: "0.4rem 0" }}>
-                <Link href={`/projects/${projectId}/tasks/${t.id}`} style={{ fontWeight: 600 }}>
-                  {t.title}
+                <Link
+                  href={`/projects/${projectId}/tasks/${t.id}`}
+                  style={{ fontWeight: 600 }}
+                  title={t.title}
+                >
+                  {taskLabel(t.title)}
                 </Link>
+                {t.plan_state === "obsolete" ? (
+                  <span className="pill pill-muted" style={{ fontSize: "0.6rem", marginLeft: "0.35rem" }}>
+                    obsolete
+                  </span>
+                ) : null}
+                {t.plan_ref ? (
+                  <span
+                    className="muted text-sm"
+                    style={{ marginLeft: "0.35rem", fontFamily: "var(--font-mono, monospace)", fontSize: "0.7rem" }}
+                  >
+                    {t.plan_ref}
+                  </span>
+                ) : null}
+              </td>
+              <td className="muted text-sm" style={{ padding: "0.4rem 0", fontSize: "0.8rem" }}>
+                {t.milestone_id ? milestoneNames?.[t.milestone_id] ?? "—" : "—"}
               </td>
               <td>
                 {canEdit ? (
@@ -596,14 +625,57 @@ export function TasksView({
   tasks,
   canEdit,
   members,
+  milestones = [],
+  initialMilestone = "",
+  initialPlanState = "active",
 }: {
   projectId: string;
   tasks: TaskRow[];
   canEdit: boolean;
   members: { user_id: string; email: string; role: string }[];
+  milestones?: MilestoneRow[];
+  initialMilestone?: string;
+  initialPlanState?: string;
 }) {
   const router = useRouter();
-  const [view, setView] = useState<"board" | "table">("board");
+  const [view, setView] = useState<"milestones" | "board" | "table">(
+    milestones.length > 0 ? "milestones" : "board",
+  );
+  const [milestoneFilter, setMilestoneFilter] = useState(initialMilestone);
+  const [planStateFilter, setPlanStateFilter] = useState(initialPlanState);
+
+  const milestoneNames = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const m of milestones) map[m.id] = m.key ? `${m.key} · ${m.name}` : m.name;
+    return map;
+  }, [milestones]);
+
+  const visible = useMemo(
+    () =>
+      tasks.filter((t) => {
+        if (milestoneFilter && (t.milestone_id ?? "") !== milestoneFilter) return false;
+        if (planStateFilter !== "all" && (t.plan_state ?? "active") !== planStateFilter) return false;
+        return true;
+      }),
+    [tasks, milestoneFilter, planStateFilter],
+  );
+
+  const hidden = useMemo(
+    () =>
+      tasks.filter(
+        (t) => planStateFilter !== "all" && (t.plan_state ?? "active") !== planStateFilter,
+      ).length,
+    [tasks, planStateFilter],
+  );
+
+  const boardItems = useMemo(
+    () => visible.map((t) => ({ ...t, title: taskLabel(t.title) })),
+    [visible],
+  );
+
+  const shownMilestones = milestoneFilter
+    ? milestones.filter((m) => m.id === milestoneFilter)
+    : milestones;
 
   async function onStatusChange(taskId: string, newStatus: string) {
     const r = await apiRequest(`/api/tasks/${taskId}/transition`, {
@@ -611,39 +683,100 @@ export function TasksView({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: newStatus }),
     });
-    if (!r.ok) { toast(r.error, "error"); return; }
+    if (!r.ok) {
+      toast(r.error, "error");
+      return;
+    }
     router.refresh();
+  }
+
+  function viewButton(kind: "milestones" | "board" | "table", label: string) {
+    return (
+      <button
+        type="button"
+        className={`btn ${view === kind ? "btn-primary" : "btn-ghost"} text-sm`}
+        onClick={() => setView(kind)}
+      >
+        {label}
+      </button>
+    );
   }
 
   return (
     <div className="stack" style={{ gap: "0.75rem" }}>
-      <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+      <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
         <span className="text-sm muted">View:</span>
-        <button
-          type="button"
-          className={`btn ${view === "board" ? "btn-primary" : "btn-ghost"} text-sm`}
-          onClick={() => setView("board")}
-        >
-          Board
-        </button>
-        <button
-          type="button"
-          className={`btn ${view === "table" ? "btn-primary" : "btn-ghost"} text-sm`}
-          onClick={() => setView("table")}
-        >
-          Table
-        </button>
+        {milestones.length > 0 ? viewButton("milestones", "Milestones") : null}
+        {viewButton("board", "Board")}
+        {viewButton("table", "Table")}
       </div>
-      {view === "board" ? (
+
+      {milestones.length > 0 || tasks.some((t) => t.plan_state) ? (
+        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
+          <span className="text-sm muted">Milestone:</span>
+          <select
+            className="input text-sm"
+            style={{ padding: "0.25rem 0.35rem", minHeight: 0, maxWidth: "22rem" }}
+            value={milestoneFilter}
+            onChange={(e) => setMilestoneFilter(e.target.value)}
+          >
+            <option value="">All milestones ({milestones.length})</option>
+            {milestones.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.key ? `${m.key} · ` : ""}
+                {m.name}
+              </option>
+            ))}
+          </select>
+          <span className="text-sm muted">Plan state:</span>
+          <select
+            className="input text-sm"
+            style={{ padding: "0.25rem 0.35rem", minHeight: 0 }}
+            value={planStateFilter}
+            onChange={(e) => setPlanStateFilter(e.target.value)}
+          >
+            <option value="active">active</option>
+            <option value="obsolete">obsolete</option>
+            <option value="all">all</option>
+          </select>
+          <span className="text-sm muted">
+            {visible.length} of {tasks.length} task(s)
+          </span>
+          {hidden > 0 ? (
+            <button
+              type="button"
+              className="btn btn-ghost text-sm"
+              onClick={() => setPlanStateFilter("all")}
+            >
+              show {hidden} hidden
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
+      {view === "milestones" ? (
+        <MilestoneGroups
+          projectId={projectId}
+          milestones={shownMilestones}
+          tasks={visible}
+          onSetMilestoneFilter={setMilestoneFilter}
+        />
+      ) : view === "board" ? (
         <KanbanBoard
           projectId={projectId}
-          items={tasks}
+          items={boardItems}
           canEdit={canEdit}
           onStatusChange={onStatusChange}
           kind="task"
         />
       ) : (
-        <TaskTable projectId={projectId} tasks={tasks} canEdit={canEdit} members={members} />
+        <TaskTable
+          projectId={projectId}
+          tasks={visible}
+          canEdit={canEdit}
+          members={members}
+          milestoneNames={milestoneNames}
+        />
       )}
     </div>
   );

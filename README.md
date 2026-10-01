@@ -69,6 +69,7 @@ repo root or in `$TOOLS_PROJECT_SECRET_DIR` (default: sibling `tools-project-sec
 | [Configuration Reference](.work/docs/reference/CONFIGURATION.md) | All environment variables |
 | [Docker Reference](.work/docs/reference/DOCKER.md) | Docker commands and maintenance |
 | [API Reference](.work/docs/reference/API.md) | All REST API endpoints |
+| [Plan Sync Reference](.work/docs/reference/PLAN_SYNC.md) | Sync a plan file into a project (milestones + tasks) |
 | [Release Notes](CHANGELOG.md) | What's new |
 
 ## Deployment

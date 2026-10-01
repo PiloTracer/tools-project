@@ -5,6 +5,8 @@ import { apiServerFetch, fetchMe } from "@/shared/server/session";
 
 import { CopyRefButton } from "@/components/CopyRefButton";
 import { LinkedCommitsList } from "@/components/LinkedCommitsList";
+import type { MilestoneRow } from "../MilestoneGroups";
+import { parseTaskText } from "@/shared/plan-text";
 import { TaskDetailEditor } from "@/components/TaskDetailEditor";
 import { TaskDiscussion } from "@/components/TaskDiscussion";
 import { ProjectSubNav } from "../../ProjectSubNav";
@@ -28,6 +30,9 @@ type TaskOut = {
   reporter_id: string;
   due_at: string | null;
   parent_task_id: string | null;
+  milestone_id: string | null;
+  plan_ref: string | null;
+  plan_state: string;
   is_todo: boolean;
   closed_at: string | null;
   created_at: string;
@@ -55,11 +60,15 @@ export default async function TaskDetailPage({
   }
   const { id: projectId, taskId } = await params;
 
-  const [pr, tr, mr] = await Promise.all([
+  const [pr, tr, mr, mlr] = await Promise.all([
     apiServerFetch(`/v1/projects/${projectId}`),
     apiServerFetch(`/v1/tasks/${taskId}`),
     apiServerFetch(`/v1/projects/${projectId}/members`),
+    apiServerFetch(`/v1/projects/${projectId}/milestones`),
   ]);
+  const milestones: MilestoneRow[] = mlr.ok
+    ? ((await mlr.json()) as { items: MilestoneRow[] }).items
+    : [];
   const members: { user_id: string; email: string; role: string }[] = mr.ok
     ? ((await mr.json()) as { items: { user_id: string; email: string; role: string }[] }).items
     : [];
@@ -97,6 +106,11 @@ export default async function TaskDetailPage({
   const role = project.membership_role ?? "";
   const canEdit = ["owner", "maintainer", "contributor"].includes(role) || me.is_superuser;
 
+  const parsed = parseTaskText(task.title, task.description);
+  const milestone = task.milestone_id
+    ? milestones.find((m) => m.id === task.milestone_id) ?? null
+    : null;
+
   return (
     <div className="page-inner stack-lg">
       <div>
@@ -113,8 +127,35 @@ export default async function TaskDetailPage({
               <CopyRefButton code={task.ref} /> ·{" "}
             </span>
           ) : null}
-          {task.title}
+          {parsed.label}
         </h1>
+        {parsed.fullTitle !== parsed.label ? (
+          <p className="muted text-sm" style={{ margin: "0 0 0.35rem" }}>
+            {parsed.fullTitle}
+          </p>
+        ) : null}
+        <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", alignItems: "center" }}>
+          {milestone ? (
+            <Link
+              className="pill"
+              href={`/projects/${projectId}/tasks?milestone=${milestone.id}`}
+              style={{ textDecoration: "none" }}
+            >
+              {milestone.key ? `${milestone.key} · ` : ""}
+              {milestone.name}
+            </Link>
+          ) : (
+            <span className="pill pill-muted">no milestone</span>
+          )}
+          {task.plan_ref ? (
+            <span className="muted text-sm" style={{ fontFamily: "var(--font-mono, monospace)" }}>
+              {task.plan_ref}
+            </span>
+          ) : null}
+          {task.plan_state === "obsolete" ? (
+            <span className="pill pill-muted">obsolete</span>
+          ) : null}
+        </div>
         <ProjectSubNav projectId={projectId} current="tasks" />
       </div>
 

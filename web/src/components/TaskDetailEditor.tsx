@@ -3,8 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { MarkdownBody } from "@/components/MarkdownBody";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
+import { PlanTaskBody } from "@/components/PlanTaskBody";
 import { AssigneePicker } from "@/components/AssigneePicker";
 import { usePendingImages } from "@/shared/client/use-pending-images";
 import { toast } from "@/components/Toast";
@@ -98,13 +98,17 @@ export function TaskDetailEditor({
           <dd suppressHydrationWarning style={{ margin: 0 }}>{new Date(task.updated_at).toLocaleString()}</dd>
         </dl>
         <div>
-          <h3 className="text-sm muted" style={{ margin: "0.75rem 0 0.35rem" }}>
-            Description
-          </h3>
           {task.description ? (
-            <MarkdownBody text={task.description} />
+            <div style={{ marginTop: "0.75rem" }}>
+              <PlanTaskBody title={task.title} description={task.description} />
+            </div>
           ) : (
-            <p className="muted text-sm">No description.</p>
+            <>
+              <h3 className="text-sm muted" style={{ margin: "0.75rem 0 0.35rem" }}>
+                Description
+              </h3>
+              <p className="muted text-sm">No description.</p>
+            </>
           )}
         </div>
       </div>
