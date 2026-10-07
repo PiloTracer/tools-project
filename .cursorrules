@@ -9,7 +9,7 @@ You are not a yes-machine. You are a trusted advisor whose sole objective is the
 # AI Agent Rules — tools-project
 
 > **Resolved 2026-06-18:** `REPLACE:` tokens below were resolved during brownfield repair (`@plan-repair brownfield`).
-> **Thin-client (2026-07-06):** Agent OS framework resolves from sibling `/mnt/work/Projects/.ai` — no local `.ai/` in this repo.
+> **Thin-client (2026-07-06):** Agent OS framework resolves from sibling `/mnt/work/Projects/pilo.ai.logicbison` — no local `.ai/` in this repo.
 
 ### Source resolution — thin-client
 
@@ -70,30 +70,30 @@ These principles override all other instructions. They are non-negotiable.
 
 ## Required Context Files
 
-**Lost or unsure what to do? Read `/mnt/work/Projects/.ai/START_HERE.md` first** — operator decision tree and recovery guide.
+**Lost or unsure what to do? Read `/mnt/work/Projects/pilo.ai.logicbison/START_HERE.md` first** — operator decision tree and recovery guide.
 
 Read these at the start of every conversation and when relevant:
 
 | File | Purpose |
 |------|---------|
-| **`/mnt/work/Projects/.ai/START_HERE.md`** | What to invoke right now; forgetfulness checklist |
-| **`/mnt/work/Projects/.ai/PROCESS_ROUTER.md`** | Process Q&A; `@process-router` vs `@session-control status` |
+| **`/mnt/work/Projects/pilo.ai.logicbison/START_HERE.md`** | What to invoke right now; forgetfulness checklist |
+| **`/mnt/work/Projects/pilo.ai.logicbison/PROCESS_ROUTER.md`** | Process Q&A; `@process-router` vs `@session-control status` |
 | **`.work/plans/foundation/20260618-04-architecture.md`** | Technology stack |
 | **`.work/standards/*CONVENTIONS*`** | Code layout, naming, maintainability |
 | **`.work/standards/*FEATURE_STANDARD*`** | Feature SPEC lifecycle |
 | **`.work/standards/*DIRECTORY_MAP*`** | Repository layout and boundaries |
 | **`.work/context/HANDOFF.md`** | Session handoff (session-control read/write) |
-| **`/mnt/work/Projects/.ai/docs/guides/workflows/README.md`** | Workflow index and artifact matrix |
-| **`/mnt/work/Projects/.ai.ui/START_HERE.md`** | UI operator decision tree (via `@ui-director`) |
-| **`/mnt/work/Projects/.ai.biz/START_HERE.md`** | Business operator decision tree (via `@biz-director`) |
+| **`/mnt/work/Projects/pilo.ai.logicbison/docs/guides/workflows/README.md`** | Workflow index and artifact matrix |
+| **`/mnt/work/Projects/pilo.ai.ui.logicbison/START_HERE.md`** | UI operator decision tree (via `@ui-director`) |
+| **`/mnt/work/Projects/pilo.ai.biz.logicbison/START_HERE.md`** | Business operator decision tree (via `@biz-director`) |
 
 **Cross-framework awareness:** This `.cursorrules` orchestrates `.ai` (Agent OS) + `.ai.ui` (UI Design OS) + `.ai.biz` (Business OS). See § Orchestrator Directors for routing rules.
 
 ### Workflow bootstrap (concepts + guides)
 
-Portable process docs: **`/mnt/work/Projects/.ai/docs/guides/workflows/README.md`** (artifact matrix). Curriculum: **`20260518-guide-workflows-index.md`** (when present). Tutorials: **`20260518-tutorial-*`**. Reference guides: **`20260518-guide-*`**.
+Portable process docs: **`/mnt/work/Projects/pilo.ai.logicbison/docs/guides/workflows/README.md`** (artifact matrix). Curriculum: **`20260518-guide-workflows-index.md`** (when present). Tutorials: **`20260518-tutorial-*`**. Reference guides: **`20260518-guide-*`**.
 
-**Concept pack:** `/mnt/work/Projects/.ai/concepts/README.md` (MOD-01–MOD-07). When a change touches **architecture, coupling, latency chains, cost, ops load, or AI-generated code**: list applicable concept ids, run matching `prompt.md` under `/mnt/work/Projects/.ai/concepts/<name>/`, attach outputs to the PR or **`### Concept / NFR registry`** in `.work/plans/NEXT.md`; tag quantitative claims with `measured` | `estimated` | `assumption` | `unknown`.
+**Concept pack:** `/mnt/work/Projects/pilo.ai.logicbison/concepts/README.md` (MOD-01–MOD-07). When a change touches **architecture, coupling, latency chains, cost, ops load, or AI-generated code**: list applicable concept ids, run matching `prompt.md` under `/mnt/work/Projects/pilo.ai.logicbison/concepts/<name>/`, attach outputs to the PR or **`### Concept / NFR registry`** in `.work/plans/NEXT.md`; tag quantitative claims with `measured` | `estimated` | `assumption` | `unknown`.
 
 **Placeholder quick map (customize for this repository):**
 
@@ -107,18 +107,18 @@ Portable process docs: **`/mnt/work/Projects/.ai/docs/guides/workflows/README.md
 | `{ITERATION_CARRIER}` | `.work/plans/NEXT.md` |
 | `{MASTER_PLAN}` | `.work/plans/full/*-full-plan.md` (latest **Approved**) |
 | `{HANDOFF}` | `.work/context/HANDOFF.md` |
-| `{CONCEPTS_ROOT}` | `/mnt/work/Projects/.ai/concepts/` |
-| `{SKILLS_ROOT}` | `/mnt/work/Projects/.ai/skills/` |
+| `{CONCEPTS_ROOT}` | `/mnt/work/Projects/pilo.ai.logicbison/concepts/` |
+| `{SKILLS_ROOT}` | `/mnt/work/Projects/pilo.ai.logicbison/skills/` |
 | `{OBSERVABILITY_SPEC}` | (not yet defined — add when observability spec is created) |
 | `{STANDARDS_ROOT}` | `.work/standards/` |
 | `{INTEGRATION_ROOT}` | `.work/docs/integration/` |
 | `{BOUNDARY_MAP}` | `.work/standards/*-DIRECTORY_MAP.md` (after `@plan-foundation` P3) |
 | `{AGENT_RULES_FILE}` | **`.cursorrules` (this file)** — `AGENTS.md` is NOT used unless the owner explicitly adopts it |
-| `{UI_ROOT}` | `/mnt/work/Projects/.ai.ui/` (sibling directory, not inside repo) |
+| `{UI_ROOT}` | `/mnt/work/Projects/pilo.ai.ui.logicbison/` (sibling directory, not inside repo) |
 | `{UI_WORK_ROOT}` | `.work.ui/` (created by `.ai.ui` bootstrap) |
 | `{HANDOFF_UI}` | `.work.ui/context/HANDOFF_UI.md` |
 | `{UI_ITERATION_CARRIER}` | `.work.ui/plans/NEXT_UI.md` |
-| `{BIZ_ROOT}` | `/mnt/work/Projects/.ai.biz/` (sibling directory, not inside repo) |
+| `{BIZ_ROOT}` | `/mnt/work/Projects/pilo.ai.biz.logicbison/` (sibling directory, not inside repo) |
 | `{BIZ_WORK_ROOT}` | `.work.biz/` (created by `.ai.biz` bootstrap) |
 | `{HANDOFF_BIZ}` | `.work.biz/context/HANDOFF.md` |
 | `REPLACE:APP_ROOT` | `api/` |
@@ -140,38 +140,38 @@ Portable process docs: **`/mnt/work/Projects/.ai/docs/guides/workflows/README.md
 
 ## Skills
 
-Reusable agent skills live under `/mnt/work/Projects/.ai/skills/`. Each skill is a subfolder containing a `skill.md` file. The folder name is the skill identifier.
+Reusable agent skills live under `/mnt/work/Projects/pilo.ai.logicbison/skills/`. Each skill is a subfolder containing a `skill.md` file. The folder name is the skill identifier.
 
 **Available skills:**
 
 | Skill | Folder | Purpose |
 |-------|--------|---------|
-| plan-foundation | `/mnt/work/Projects/.ai/skills/plan-foundation/` | P0–P6 orchestration; certify plan-master-ready |
-| plan-master | `/mnt/work/Projects/.ai/skills/plan-master/` | Master implementation plan; certify implementation-ready |
-| plan-verify | `/mnt/work/Projects/.ai/skills/plan-verify/` | Plan audits: foundation, master, alignment, **coverage** (code→SPEC), **brownfield** |
-| plan-repair | `/mnt/work/Projects/.ai/skills/plan-repair/` | Remediate plan gaps; **brownfield synthesis** from repo evidence; mandatory re-verify |
-| session-control | `/mnt/work/Projects/.ai/skills/session-control/` | Session open/close; HANDOFF, NEXT; optional git |
-| db-migration | `/mnt/work/Projects/.ai/skills/db-migration/` | Idempotent numbered SQL migration scripts |
-| code-implementation | `/mnt/work/Projects/.ai/skills/code-implementation/` | Iteration execution from NEXT.md |
-| code-verify | `/mnt/work/Projects/.ai/skills/code-verify/` | Milestone/uncommitted/last audits; open-language → Request interpretation |
-| code-repair | `/mnt/work/Projects/.ai/skills/code-repair/` | Fix verify/SPEC/migration findings; open-language → R0-free alignment map |
-| dev-stack | `/mnt/work/Projects/.ai/skills/dev-stack/` | Isolated Docker Compose dev stack helper (`bin/start.sh`) |
-| process-router | `/mnt/work/Projects/.ai/skills/process-router/` | Read-only process Q&A router |
-| feature-spec | `/mnt/work/Projects/.ai/skills/feature-spec/` | Author, review, amend feature SPECs |
-| concept-run | `/mnt/work/Projects/.ai/skills/concept-run/` | Run MOD-01…MOD-07 concept prompts |
-| project-bootstrap | `/mnt/work/Projects/.ai/skills/project-bootstrap/` | Copy `.work/` skeleton, `.cursorrules`, stack doc from templates |
-| deploy-files | `/mnt/work/Projects/.ai/skills/deploy-files/` | Fat-client deploy into target (in-place no-overwrite bootstrap + `update` rules-aware merge) |
-| deploy-basic | `/mnt/work/Projects/.ai/skills/deploy-basic/` | Thin-client bootstrap: `.cursorrules` + `.work/` + stack doc only; rest resolves via `AGENT_OS_SOURCE` |
-| deploy-repo | `/mnt/work/Projects/.ai/skills/deploy-repo/` | Full repo deploy: clone (git mirror) or archive (snapshot) |
-| project-query-setup | `/mnt/work/Projects/.ai/skills/project-query-setup/` | Optional tools-project API key + MCP registration + connectivity test |
-| tauri-development | `/mnt/work/Projects/.ai/skills/tauri-development/` | Tauri desktop: IPC security, shell/webview, Rust backend, events |
-| docs | `/mnt/work/Projects/.ai/skills/docs/` | Create/manage project docs under `.work/docs/` |
-| ai-director | `/mnt/work/Projects/.ai/skills/ai-director/` | Free-text orchestrator; routes to `.ai` skill chain; skill-gap detection |
-| x-director | `/mnt/work/Projects/.ai/skills/x-director/` | Cross-framework orchestrator (`.ai` + `.ai.ui` + `.ai.biz` + `.ai.soc`) |
+| plan-foundation | `/mnt/work/Projects/pilo.ai.logicbison/skills/plan-foundation/` | P0–P6 orchestration; certify plan-master-ready |
+| plan-master | `/mnt/work/Projects/pilo.ai.logicbison/skills/plan-master/` | Master implementation plan; certify implementation-ready |
+| plan-verify | `/mnt/work/Projects/pilo.ai.logicbison/skills/plan-verify/` | Plan audits: foundation, master, alignment, **coverage** (code→SPEC), **brownfield** |
+| plan-repair | `/mnt/work/Projects/pilo.ai.logicbison/skills/plan-repair/` | Remediate plan gaps; **brownfield synthesis** from repo evidence; mandatory re-verify |
+| session-control | `/mnt/work/Projects/pilo.ai.logicbison/skills/session-control/` | Session open/close; HANDOFF, NEXT; optional git |
+| db-migration | `/mnt/work/Projects/pilo.ai.logicbison/skills/db-migration/` | Idempotent numbered SQL migration scripts |
+| code-implementation | `/mnt/work/Projects/pilo.ai.logicbison/skills/code-implementation/` | Iteration execution from NEXT.md |
+| code-verify | `/mnt/work/Projects/pilo.ai.logicbison/skills/code-verify/` | Milestone/uncommitted/last audits; open-language → Request interpretation |
+| code-repair | `/mnt/work/Projects/pilo.ai.logicbison/skills/code-repair/` | Fix verify/SPEC/migration findings; open-language → R0-free alignment map |
+| dev-stack | `/mnt/work/Projects/pilo.ai.logicbison/skills/dev-stack/` | Isolated Docker Compose dev stack helper (`bin/start.sh`) |
+| process-router | `/mnt/work/Projects/pilo.ai.logicbison/skills/process-router/` | Read-only process Q&A router |
+| feature-spec | `/mnt/work/Projects/pilo.ai.logicbison/skills/feature-spec/` | Author, review, amend feature SPECs |
+| concept-run | `/mnt/work/Projects/pilo.ai.logicbison/skills/concept-run/` | Run MOD-01…MOD-07 concept prompts |
+| project-bootstrap | `/mnt/work/Projects/pilo.ai.logicbison/skills/project-bootstrap/` | Copy `.work/` skeleton, `.cursorrules`, stack doc from templates |
+| deploy-files | `/mnt/work/Projects/pilo.ai.logicbison/skills/deploy-files/` | Fat-client deploy into target (in-place no-overwrite bootstrap + `update` rules-aware merge) |
+| deploy-basic | `/mnt/work/Projects/pilo.ai.logicbison/skills/deploy-basic/` | Thin-client bootstrap: `.cursorrules` + `.work/` + stack doc only; rest resolves via `AGENT_OS_SOURCE` |
+| deploy-repo | `/mnt/work/Projects/pilo.ai.logicbison/skills/deploy-repo/` | Full repo deploy: clone (git mirror) or archive (snapshot) |
+| project-query-setup | `/mnt/work/Projects/pilo.ai.logicbison/skills/project-query-setup/` | Optional tools-project API key + MCP registration + connectivity test |
+| tauri-development | `/mnt/work/Projects/pilo.ai.logicbison/skills/tauri-development/` | Tauri desktop: IPC security, shell/webview, Rust backend, events |
+| docs | `/mnt/work/Projects/pilo.ai.logicbison/skills/docs/` | Create/manage project docs under `.work/docs/` |
+| ai-director | `/mnt/work/Projects/pilo.ai.logicbison/skills/ai-director/` | Free-text orchestrator; routes to `.ai` skill chain; skill-gap detection |
+| x-director | `/mnt/work/Projects/pilo.ai.logicbison/skills/x-director/` | Cross-framework orchestrator (`.ai` + `.ai.ui` + `.ai.biz` + `.ai.soc`) |
 
 **Usage:** When a task matches a skill's purpose, read `skill.md` and follow the workflow. Skills are tool-agnostic (Cursor, Claude Code, Codex, opencode, etc.).
 
-**Creating new skills:** Add `/mnt/work/Projects/.ai/skills/<skill-name>/skill.md`; register in the table above. **Naming:** `/mnt/work/Projects/.ai/skills/README.md` § Naming protocol (`{domain}-{role}`, kebab-case).
+**Creating new skills:** Add `/mnt/work/Projects/pilo.ai.logicbison/skills/<skill-name>/skill.md`; register in the table above. **Naming:** `/mnt/work/Projects/pilo.ai.logicbison/skills/README.md` § Naming protocol (`{domain}-{role}`, kebab-case).
 
 ---
 
@@ -181,12 +181,12 @@ This `.cursorrules` is **automatically aware** of all three frameworks and their
 
 | Director | Framework | Purpose | Invocation |
 |----------|-----------|---------|------------|
-| `@ai-director` | `/mnt/work/Projects/.ai/` (Agent OS) | Engineering: planning, coding, DB, dev stack, sessions | `@ai-director - <describe what you want>` |
-| `@ui-director` | `/mnt/work/Projects/.ai.ui/` (UI Design OS) | UI: design tokens, screen specs, components, visual/a11y verify | `@ui-director - <describe what you want>` |
-| `@biz-director` | `/mnt/work/Projects/.ai.biz/` (Business OS) | Business: strategy, brand, content, sales, pricing | `@biz-director - <describe what you want>` |
+| `@ai-director` | `/mnt/work/Projects/pilo.ai.logicbison/` (Agent OS) | Engineering: planning, coding, DB, dev stack, sessions | `@ai-director - <describe what you want>` |
+| `@ui-director` | `/mnt/work/Projects/pilo.ai.ui.logicbison/` (UI Design OS) | UI: design tokens, screen specs, components, visual/a11y verify | `@ui-director - <describe what you want>` |
+| `@biz-director` | `/mnt/work/Projects/pilo.ai.biz.logicbison/` (Business OS) | Business: strategy, brand, content, sales, pricing | `@biz-director - <describe what you want>` |
 | `@x-director` | Cross-framework | Coordinates across ≥2 of `.ai` / `.ai.ui` / `.ai.biz` | `@x-director - <describe what you want>` |
 
-**Skill files:** `/mnt/work/Projects/.ai/skills/ai-director/skill.md` · `/mnt/work/Projects/.ai/skills/x-director/skill.md` · `/mnt/work/Projects/.ai.ui/skills/ui-director/skill.md` · `/mnt/work/Projects/.ai.biz/skills/biz-director/skill.md`
+**Skill files:** `/mnt/work/Projects/pilo.ai.logicbison/skills/ai-director/skill.md` · `/mnt/work/Projects/pilo.ai.logicbison/skills/x-director/skill.md` · `/mnt/work/Projects/pilo.ai.ui.logicbison/skills/ui-director/skill.md` · `/mnt/work/Projects/pilo.ai.biz.logicbison/skills/biz-director/skill.md`
 
 ### Routing rules
 
@@ -209,7 +209,7 @@ Free-text request
 
 - `@x-director` classifies intent, determines dependency order (e.g. API before UI), and invokes each framework's director sequentially.
 - Do not bypass directors by invoking framework-specific skills directly.
-- Do not reimplement another framework's skills inside `/mnt/work/Projects/.ai/`.
+- Do not reimplement another framework's skills inside `/mnt/work/Projects/pilo.ai.logicbison/`.
 
 ---
 
@@ -300,7 +300,7 @@ Customize paths and ORM for your project.
 
 ### Migration policy (canonical)
 
-Numbered SQL under **`sql/`** is the default schema path. Procedure: `@db-migration` (`/mnt/work/Projects/.ai/skills/db-migration/skill.md`).
+Numbered SQL under **`sql/`** is the default schema path. Procedure: `@db-migration` (`/mnt/work/Projects/pilo.ai.logicbison/skills/db-migration/skill.md`).
 
 1. **Startup:** `app/schema_sql.py` runs all scripts in alphanumeric order on **every application start**, before the HTTP server accepts traffic. Each script must be idempotent (safe to re-run N times).
 2. **Verify idempotency:** After creating or changing a script, run `@db-migration verify` (or run the full runner twice in a dev DB) before claiming the migration is done.
@@ -399,7 +399,7 @@ A `prepare-commit-msg` hook is installed at `.git/hooks/prepare-commit-msg`. Whe
 
 ### Git
 - NEVER execute `git commit` or `git push` unless the user explicitly requests it in the same message.
-- **`@session-control close commit` / `close commit push` (mandatory):** When the user invokes session-control **close** with **`commit`** (and optional **`push`**), you **MUST** run shell `git add` + `git commit` per `/mnt/work/Projects/.ai/skills/session-control/skill.md` § C4b **before** finishing your reply — stage all **safe** dirty paths (default scope), not HANDOFF/NEXT only. If **`push`** was requested, run `git push` after a successful commit. Show `git log -1 --oneline` and `git status -sb`; do not claim close commit succeeded without a commit SHA when the tree was dirty.
+- **`@session-control close commit` / `close commit push` (mandatory):** When the user invokes session-control **close** with **`commit`** (and optional **`push`**), you **MUST** run shell `git add` + `git commit` per `/mnt/work/Projects/pilo.ai.logicbison/skills/session-control/skill.md` § C4b **before** finishing your reply — stage all **safe** dirty paths (default scope), not HANDOFF/NEXT only. If **`push`** was requested, run `git push` after a successful commit. Show `git log -1 --oneline` and `git status -sb`; do not claim close commit succeeded without a commit SHA when the tree was dirty.
 - **`prepare-commit-msg` hook is installed** at `.git/hooks/prepare-commit-msg`. It auto-prepends the task ref (e.g. `PROJ-456:`) to every commit subject when the branch name contains a ref pattern. Do not bypass it unless the user explicitly requests `--no-verify`.
 - Otherwise provide commit commands for the user when they will commit themselves.
 - Never modify git history (rebase, force-push) without explicit user request.
@@ -442,7 +442,7 @@ If the team uses OpenSpec:
 
 - **Proposals first** for new features or significant changes.
 - Implement exactly as defined in the approved proposal.
-- Document lifecycle commands under `/mnt/work/Projects/.ai/commands/openspec/` when that tree exists.
+- Document lifecycle commands under `/mnt/work/Projects/pilo.ai.logicbison/commands/openspec/` when that tree exists.
 
 If OpenSpec is not used, delete this section or replace with your team's proposal gate.
 
@@ -473,9 +473,9 @@ If OpenSpec is not used, delete this section or replace with your team's proposa
 
 ---
 
-## Documentation layout (`/mnt/work/Projects/.ai/` vs `.work/`)
+## Documentation layout (`/mnt/work/Projects/pilo.ai.logicbison/` vs `.work/`)
 
-**`/mnt/work/Projects/.ai/`** — agnostic: skills, standards, concepts, workflow guides, integration mirror, `START_HERE.md`, `PROCESS_ROUTER.md`, **`templates/`** (including this file's source). Pointer READMEs only under `/mnt/work/Projects/.ai/plans/`, `/mnt/work/Projects/.ai/features/`, etc.
+**`/mnt/work/Projects/pilo.ai.logicbison/`** — agnostic: skills, standards, concepts, workflow guides, integration mirror, `START_HERE.md`, `PROCESS_ROUTER.md`, **`templates/`** (including this file's source). Pointer READMEs only under `/mnt/work/Projects/pilo.ai.logicbison/plans/`, `/mnt/work/Projects/pilo.ai.logicbison/features/`, etc.
 
 **`.work/`** — project-specific: plans, SPECs, ADRs, prompts, `HANDOFF.md`, binding **`.work/standards/`**, and **`.work/docs/`** (including vendor **`.work/docs/integration/`** cache).
 
@@ -490,22 +490,22 @@ Generated filenames under `.work/` use the `YYYYMMDD-` prefix unless documented 
 | `.work/context/HANDOFF.md` | Session handoff |
 | `.work/standards/` | This project's binding engineering standards (generated; `@plan-foundation` P3) |
 | `.work/docs/integration/` | This project's vendor/API integration cache |
-| `/mnt/work/Projects/.ai/standards/` | Framework template standards (vendored; not project binding) |
-| `/mnt/work/Projects/.ai/skills/` | Portable agent skills |
-| `/mnt/work/Projects/.ai/templates/cursorrules.template` | **Copy to repo root as `.cursorrules`** when bootstrapping |
+| `/mnt/work/Projects/pilo.ai.logicbison/standards/` | Framework template standards (vendored; not project binding) |
+| `/mnt/work/Projects/pilo.ai.logicbison/skills/` | Portable agent skills |
+| `/mnt/work/Projects/pilo.ai.logicbison/templates/cursorrules.template` | **Copy to repo root as `.cursorrules`** when bootstrapping |
 
-Canonical map: `/mnt/work/Projects/.ai/README.md` · Working tree: `.work/README.md`.
+Canonical map: `/mnt/work/Projects/pilo.ai.logicbison/README.md` · Working tree: `.work/README.md`.
 
 <!-- UI_DESIGN_OS_BEGIN -->
 <!-- Merged by setup-target.sh into existing .cursorrules after Agent OS. Core Principles §1–7 above apply to all UI work. -->
 
-## UI Design OS (`/mnt/work/Projects/.ai.ui/`)
+## UI Design OS (`/mnt/work/Projects/pilo.ai.ui.logicbison/`)
 
-> **Path note:** `.ai.ui/` is a sibling directory at `/mnt/work/Projects/.ai.ui/` — NOT inside this repo. All paths below use absolute paths for the framework root; `.work.ui/` paths are relative (they live in this repo).
+> **Path note:** `.ai.ui/` is a sibling directory at `/mnt/work/Projects/pilo.ai.ui.logicbison/` — NOT inside this repo. All paths below use absolute paths for the framework root; `.work.ui/` paths are relative (they live in this repo).
 
-**Coexistence:** [`/mnt/work/Projects/.ai.ui/COHABITATION.md`](/mnt/work/Projects/.ai.ui/COHABITATION.md) — UI skills write to `.work.ui/` only; do not overwrite `.work/plans/NEXT.md` except cross-links.
+**Coexistence:** [`/mnt/work/Projects/pilo.ai.ui.logicbison/COHABITATION.md`](/mnt/work/Projects/pilo.ai.ui.logicbison/COHABITATION.md) — UI skills write to `.work.ui/` only; do not overwrite `.work/plans/NEXT.md` except cross-links.
 
-**Lost on UI?** `/mnt/work/Projects/.ai.ui/START_HERE.md` · **Router:** `@ui-process-router - <question>`
+**Lost on UI?** `/mnt/work/Projects/pilo.ai.ui.logicbison/START_HERE.md` · **Router:** `@ui-process-router - <question>`
 
 ### UI completion gate (addition to Core Principle 7)
 
@@ -515,15 +515,15 @@ UI milestone work is not done until: UI lint/type/tests pass; `@ui-visual-verify
 
 | File | Purpose |
 |------|---------|
-| `/mnt/work/Projects/.ai.ui/START_HERE.md` | UI operator decision tree |
-| `/mnt/work/Projects/.ai.ui/COHABITATION.md` | Boundary with Agent OS |
+| `/mnt/work/Projects/pilo.ai.ui.logicbison/START_HERE.md` | UI operator decision tree |
+| `/mnt/work/Projects/pilo.ai.ui.logicbison/COHABITATION.md` | Boundary with Agent OS |
 | `DOCS_UI_STACK.md` | Front-end stack |
-| `/mnt/work/Projects/.ai.ui/standards/20260523-UI-CONVENTIONS.md` | UI conventions |
-| `/mnt/work/Projects/.ai.ui/standards/20260523-SCREEN_SPEC_STANDARD.md` | Screen SPEC |
-| `/mnt/work/Projects/.ai.ui/standards/20260523-COMPONENT_STANDARD.md` | Components |
-| `/mnt/work/Projects/.ai.ui/standards/20260523-DESIGN_TOKENS_STANDARD.md` | Tokens |
-| `/mnt/work/Projects/.ai.ui/standards/20260523-ACCESSIBILITY_STANDARD.md` | WCAG |
-| `/mnt/work/Projects/.ai.ui/standards/20260523-FRONTEND_DIRECTORY_MAP.md` | UI directories |
+| `/mnt/work/Projects/pilo.ai.ui.logicbison/standards/20260523-UI-CONVENTIONS.md` | UI conventions |
+| `/mnt/work/Projects/pilo.ai.ui.logicbison/standards/20260523-SCREEN_SPEC_STANDARD.md` | Screen SPEC |
+| `/mnt/work/Projects/pilo.ai.ui.logicbison/standards/20260523-COMPONENT_STANDARD.md` | Components |
+| `/mnt/work/Projects/pilo.ai.ui.logicbison/standards/20260523-DESIGN_TOKENS_STANDARD.md` | Tokens |
+| `/mnt/work/Projects/pilo.ai.ui.logicbison/standards/20260523-ACCESSIBILITY_STANDARD.md` | WCAG |
+| `/mnt/work/Projects/pilo.ai.ui.logicbison/standards/20260523-FRONTEND_DIRECTORY_MAP.md` | UI directories |
 | `.work.ui/context/HANDOFF_UI.md` | UI handoff |
 | `.work.ui/plans/NEXT_UI.md` | UI iteration |
 
@@ -535,8 +535,8 @@ UI milestone work is not done until: UI lint/type/tests pass; `@ui-visual-verify
 | `{HANDOFF_UI}` | `.work.ui/context/HANDOFF_UI.md` |
 | `{UI_ITERATION_CARRIER}` | `.work.ui/plans/NEXT_UI.md` |
 | `{SCREEN_SPEC_ROOT}` | `.work.ui/screens/` |
-| `{UI_SKILLS_ROOT}` | `/mnt/work/Projects/.ai.ui/skills/` |
-| `{UI_CONCEPTS_ROOT}` | `/mnt/work/Projects/.ai.ui/concepts/` |
+| `{UI_SKILLS_ROOT}` | `/mnt/work/Projects/pilo.ai.ui.logicbison/skills/` |
+| `{UI_CONCEPTS_ROOT}` | `/mnt/work/Projects/pilo.ai.ui.logicbison/concepts/` |
 | `REPLACE:UI_APP_ROOT` | `web/` |
 | `REPLACE:UI_TOKENS_FILE` | `web/src/app/globals.css` |
 | `REPLACE:UI_TEST` | *not configured* |
@@ -561,13 +561,13 @@ UI milestone work is not done until: UI lint/type/tests pass; `@ui-visual-verify
 | ui-concept-run | UIS-01…07 |
 | ui-process-router | UI Q&A (read-only) |
 
-**Sessions:** `@session-control` (`/mnt/work/Projects/.ai/`) · **Backend:** `@code-implementation` (`/mnt/work/Projects/.ai/`) · **UIS-06** + **UIS-07** (tier ≥ refined) before `ui-component-build complete`.
+**Sessions:** `@session-control` (`/mnt/work/Projects/pilo.ai.logicbison/`) · **Backend:** `@code-implementation` (`/mnt/work/Projects/pilo.ai.logicbison/`) · **UIS-06** + **UIS-07** (tier ≥ refined) before `ui-component-build complete`.
 
 ### UI protected files (union with existing list)
 
 - `web/src/app/globals.css` (token file)
 - `web/next.config.ts`, `web/tsconfig.json` (framework config)
-- `/mnt/work/Projects/.ai.ui/inputs/brand/` (reference — do not auto-edit)
+- `/mnt/work/Projects/pilo.ai.ui.logicbison/inputs/brand/` (reference — do not auto-edit)
 
 ### UI Design & implementation discipline
 

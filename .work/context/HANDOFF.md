@@ -1,6 +1,7 @@
 # Session handoff — tools-project
 
 ## Session status
+**Open:** 2026-10-07 — goal: cross-framework work for **Mendarion** (`/mnt/work/Projects/mendarion`) — market-widening feasibility, then implementation of the owner-approved vertical-neutral core (**ADR 025**). All artifacts live in Mendarion; this repo keeps only the pointer below.
 **Closed:** 2026-09-30 — **cross-LLM verification of the plan-sync P1 commit (`11432fe`) — PASS**, plus the TNT iteration (tenant-context fix, multi-tenant selection, stack control plane + 1-to-1 env-file contract) implemented, gated, live-verified and **committed/pushed on owner instruction** (`@session-control close commit push`).
 **Open:** ~~2026-09-29 — goal: cross-LLM verification of the plan-sync P1 commit~~ → discharged 2026-09-30 (see "Cross-LLM verification — plan-sync P1" below).
 **Closed:** 2026-07-07 — verified and repaired multi-tenancy implementation: fixed syntax error in `admin_users.py`, tenant-scoped slug generation, webhook tenant isolation, cross-tenant superuser guards, RFP-award tenant assignment, and test factory/DDL compatibility. All gates green: ruff, pyright, compileall, DDL idempotency, pytest 33/33.
@@ -10,6 +11,15 @@
 **GitHub task registry:** local registry loaded — open: TPR-3, TPR-T-11, TPR-T-12
 
 **Date:** 2026-09-30
+
+### Mendarion — market widening → ADR 025 (cross-framework, 2026-10-07)
+
+- **Request:** assess how complex it is to widen **Mendarion** (a clinical practice-management OS; **plan-stage, no application code**) from medical practice to any professional or business, then implement the approved advice.
+- **Finding:** widening is cheap **only now** — 10 of 14 bounded contexts and ≈72% of 162 tasks were clinical, so post-code it becomes a migration. "Any business" would discard the trust architecture (patient-owned record + explicit grants + PHI-free verified directory), which is the product's only differentiator; adjacent regulated health practitioners were recommended instead.
+- **Owner decision:** *"core system must be neutral, with all features up until now, particular customizations will be supported"* → **ADR 025**: vertical-neutral core identifiers with vertical display terms; **no feature removed** (clinical contexts become vertical-declared features); a **vertical pack** is declared data — taxonomy seed + owner-approved section-registry bump + definitions + terminology map + one L2 verification adapter — never a new table, store, resolver or code path.
+- **Delivered in Mendarion** (11 files, **uncommitted**): ADR 025 + decisions-index row · `customization` SPEC amendment 01 (R36–R38, I13) · `directory-discovery` SPEC amendment 01 (R14) · doc 01 §Identity/tenancy item 7 · doc 04 §3/§4/§11 + header · master plan **v1.10** (task `M1-T24`, decision `D25`, changelog, counts 162→163) · status report `.work/reports/20261007-plan-master-status-v1.10.md`. Plan verified mechanically: `master-plan-verify.sh` (25/25 sections ordered) and `traceability-verify.sh` (31/31 FRs traced).
+- **Pending in Mendarion:** `@plan-foundation status` (foundation re-certify, needed because doc 01/04 changed) → `@plan-master status` (v1.10 re-score) — **`implementation-ready` is invalid until both run**; **R22** independent review of ADR 025 (M8/pilot gate, not M1); no commit (owner instruction).
+- **Repo fix applied (2026-10-07, owner-approved in-message):** `.cursorrules` carried **67 references to `/mnt/work/Projects/.ai`** — a path that **does not exist**; the Agent OS source is `/mnt/work/Projects/pilo.ai.logicbison`. All 67 were swept to the real family-name paths (`pilo.ai.logicbison` ×53, `pilo.ai.ui.logicbison` ×20, `pilo.ai.biz.logicbison` ×4). Verified: **54 of 56** absolute paths in the file now resolve; `cursorrules-verify.sh . --thin` → **PASS**. The 2 exceptions: `commands/openspec` (the sentence is explicitly conditional — *"when that tree exists"*) and one stale skills row, `deploy-repo`, whose skill does not exist in the framework — **table reconciliation pending owner go-ahead** (remove `deploy-repo`; add the two skills the framework ships but this table omits: **`plan-sync`** — directly relevant, it is the skill that syncs plans into this repo's milestones — and `infra-terraform`).
 
 ### Cross-LLM verification — plan-sync P1 (commit `11432fe`) — **PASS**
 
