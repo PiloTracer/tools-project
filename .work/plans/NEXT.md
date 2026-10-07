@@ -6,7 +6,7 @@
 
 **Schema:** declarative **`sql/`** only — no Alembic. On API startup: `schema_changes.sql` → `schema_indexes.sql` → bootstrap → `schema_backfill.sql` → `schema_inserts.sql`.
 
-****Latest (repo):** **2026-09-29** — plan-sync P1 complete: milestones + plan-import API shipped, all gates green (ruff, pyright, 49 tests), migration idempotent across restart×2, live smoke test passed. Prior: **2026-07-07** — Multi-tenancy implementation verified and repaired: all lint/type/test/DDL gates green (33 tests pass). Feature remains gated behind `MULTI_TENANCY_ENABLED=false`; default tenant backfill keeps existing single-tenant behavior working.
+****Latest (repo):** **2026-10-07** — chore session, **no application code changed**: the lead-generation exploration was **discarded** and the repo sanitized (its research docs removed, tree restored to pre-session state, 187 MB of untracked research-subagent downloads deleted), and `.cursorrules` was repaired — **67 paths pointed at `/mnt/work/Projects/.ai`, which does not exist**; all now resolve to the real source/sisters (`pilo.ai.logicbison`, `pilo.ai.ui.logicbison`, `pilo.ai.biz.logicbison`), `cursorrules-verify.sh` PASS. Operator-committed **`c5b11ba`** — **branch ahead 1, not pushed**. Prior: **2026-09-29** — plan-sync P1 complete: milestones + plan-import API shipped, all gates green (ruff, pyright, 49 tests), migration idempotent across restart×2, live smoke test passed. Prior: **2026-07-07** — Multi-tenancy implementation verified and repaired: all lint/type/test/DDL gates green (33 tests pass). Feature remains gated behind `MULTI_TENANCY_ENABLED=false`; default tenant backfill keeps existing single-tenant behavior working.
 
 ### Status at a glance (visual)
 
@@ -26,11 +26,13 @@ Security fixes  ████████████████████  8/
 Pen test rem.   ████████████████████  9/9   Done (all findings addressed)
 Multi-tenancy   ████████████████████  Done  (implementation verified; 33 tests pass)
 
-Open: none (**cross-LLM verification of the plan-sync P1 commit `11432fe` — PASS 2026-09-30**; see HANDOFF § Cross-LLM verification)
+Open: **1 unpushed commit** (`c5b11ba`) · **skills-table reconciliation pending owner go-ahead** in `.cursorrules` (remove the stale `deploy-repo` row; add **`plan-sync`** and **`infra-terraform`**, which the framework ships but this table omits) · Mendarion's own gates live in that repo. None of these are backlog items here. Cross-LLM verification of the plan-sync P1 commit `11432fe` — **PASS 2026-09-30** (see HANDOFF § Cross-LLM verification) — **discharged**
 Active: **TNT iteration complete** (tenant context: single-tenant writes + multi-tenant selection; stack control plane + env-file contract) — **committed 2026-09-30** on owner instruction
 
 ### Recommended next
-1. **NEXT SESSION (user directive 2026-09-29): cross-LLM verification of the plan-sync P1 commit.** Open the session with a *different* LLM than the one that authored the commit. Procedure: (a) `git log -1 --oneline` + `git show --stat HEAD` to locate the plan-sync commit; (b) review the diff against `.work/features/plan-sync/20260929-SPEC.md` rules R1–R27; (c) re-run gates inside the container (`docker exec tpr_api_tools_project_dev bash -c "cd /app && ruff check . && pyright . && python -m pytest -q"`); (d) record pass/fail in HANDOFF. **No new feature work until verification passes.**
+**Recommended next (one):** **item 2** — mark the multi-tenancy SPEC **Approved** and write the HTTP-level cross-tenant leak tests; it is the only gap that both `HANDOFF` §Repository state and this list still name. *(Item 1 is discharged; items 3–7 remain queued below.)*
+
+1. ~~**NEXT SESSION (user directive 2026-09-29): cross-LLM verification of the plan-sync P1 commit.**~~ **DISCHARGED 2026-09-30 — PASS**, run by a different model than the author (`11432fe`; gates re-run green in the container, no SPEC violations — `.work/context/HANDOFF.md` § Cross-LLM verification).
 2. **Multi-tenancy:** mark `.work/features/multi-tenancy/20260706-SPEC.md` as **Approved**, then add HTTP-level cross-tenant leak tests for all tenant-scoped routers (prospects, clients, client_contacts, admin_users, admin_webhooks, projects, agent_query).
 3. Add automated tests for the ecosystem hub modifications (Mod 1–4) if not already covered.
 4. Build satellite apps (CompanyBrain, OpsBoard, SignFlow, LedgerLite) that consume the ecosystem APIs.

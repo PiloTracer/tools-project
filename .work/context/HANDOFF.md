@@ -1,14 +1,15 @@
 # Session handoff — tools-project
 
 ## Session status
-**Open:** 2026-10-07 — goal: cross-framework work for **Mendarion** (`/mnt/work/Projects/mendarion`) — market-widening feasibility, then implementation of the owner-approved vertical-neutral core (**ADR 025**). All artifacts live in Mendarion; this repo keeps only the pointer below.
+**Closed:** 2026-10-07 — **cross-framework Mendarion work delivered, plus a repo sanitization and a `.cursorrules` path repair.** Outcome: the lead-generation exploration was **discarded** (its research artifacts and 187 MB of subagent downloads archived then deleted; the tree restored to its pre-session state); 67 stale framework paths in `.cursorrules` pointing at the nonexistent `/mnt/work/Projects/.ai` were swept to the real source and sister directories (**operator committed as `c5b11ba`**; branch **ahead 1, not pushed**); and the session's substantive work — analysing and then implementing Mendarion's market widening (**ADR 025**, vertical-neutral core) — landed in that repo's planning artifacts (11 files, uncommitted there, two document gates outstanding). See §Mendarion below.
+**Updated:** 2026-10-07
 **Closed:** 2026-09-30 — **cross-LLM verification of the plan-sync P1 commit (`11432fe`) — PASS**, plus the TNT iteration (tenant-context fix, multi-tenant selection, stack control plane + 1-to-1 env-file contract) implemented, gated, live-verified and **committed/pushed on owner instruction** (`@session-control close commit push`).
 **Open:** ~~2026-09-29 — goal: cross-LLM verification of the plan-sync P1 commit~~ → discharged 2026-09-30 (see "Cross-LLM verification — plan-sync P1" below).
 **Closed:** 2026-07-07 — verified and repaired multi-tenancy implementation: fixed syntax error in `admin_users.py`, tenant-scoped slug generation, webhook tenant isolation, cross-tenant superuser guards, RFP-award tenant assignment, and test factory/DDL compatibility. All gates green: ruff, pyright, compileall, DDL idempotency, pytest 33/33.
 **Closed:** 2026-07-08 — multi-tenancy implementation complete: schema, models, auth, 17+ routers scoped, services, tests (8/8 pass). Feature gated behind `MULTI_TENANCY_ENABLED=false` (backward compatible).
 **Closed:** 2026-07-07 — reviewed and tightened multi-tenancy feature SPEC: fixed subdomain/Caddy deployment model, OAuth and client portal tenant resolution, API key tenant scoping, cross-tenant superuser mutation rules, migration ordering, and cookie/CORS considerations.
 **Closed:** 2026-07-06 — ecosystem hub modifications (Mod 1–4) implemented, lint/type/test gates green. Committed `15bb6a2`, pushed to `origin/main`.
-**GitHub task registry:** local registry loaded — open: TPR-3, TPR-T-11, TPR-T-12
+**GitHub task registry:** local registry loaded — open: TPR-3, TPR-T-11, TPR-T-12, TPR-T-13, TPR-T-14 *(refreshed 2026-10-07; none relate to this session's work, which was chore/docs with no ticket — confirmed with the owner's commit `c5b11ba` carrying no ref)*
 
 **Date:** 2026-09-30
 
@@ -21,8 +22,16 @@
 - **Pending in Mendarion:** `@plan-foundation status` (foundation re-certify, needed because doc 01/04 changed) → `@plan-master status` (v1.10 re-score) — **`implementation-ready` is invalid until both run**; **R22** independent review of ADR 025 (M8/pilot gate, not M1); no commit (owner instruction).
 - **Repo fix applied (2026-10-07, owner-approved in-message):** `.cursorrules` carried **67 references to `/mnt/work/Projects/.ai`** — a path that **does not exist**; the Agent OS source is `/mnt/work/Projects/pilo.ai.logicbison`. All 67 were swept to the real family-name paths (`pilo.ai.logicbison` ×53, `pilo.ai.ui.logicbison` ×20, `pilo.ai.biz.logicbison` ×4). Verified: **54 of 56** absolute paths in the file now resolve; `cursorrules-verify.sh . --thin` → **PASS**. The 2 exceptions: `commands/openspec` (the sentence is explicitly conditional — *"when that tree exists"*) and one stale skills row, `deploy-repo`, whose skill does not exist in the framework — **table reconciliation pending owner go-ahead** (remove `deploy-repo`; add the two skills the framework ships but this table omits: **`plan-sync`** — directly relevant, it is the skill that syncs plans into this repo's milestones — and `infra-terraform`).
 
-### Cross-LLM verification — plan-sync P1 (commit `11432fe`) — **PASS**
+## What this cycle produced (2026-10-07)
 
+| Artifact | Description |
+|----------|-------------|
+| `.cursorrules` | **67 stale framework paths repaired** — `/mnt/work/Projects/.ai` (a path that does not exist) → `pilo.ai.logicbison` (×53) · `pilo.ai.ui.logicbison` (×20) · `pilo.ai.biz.logicbison` (×4). Verified: 54/56 absolute paths resolve, `cursorrules-verify.sh . --thin` PASS. Operator-committed as **`c5b11ba`** (branch ahead 1, unpushed) |
+| `.work/context/HANDOFF.md` | This session's record: the Mendarion cross-framework work, the repo fix, the refreshed registry/owner-action lists |
+| *(removed — not committed)* | Lead-generation artifacts: `.work.biz/research/20261007-lead-generation-feasibility.md`, `.work.biz/strategy/validation-log.md`, and the lead-gen edits to `.work.biz/{context/HANDOFF.md,plans/NEXT.md,plans/UNKNOWNS.md,research/research_index.md}` — all restored to HEAD; plus **187 MB** of research-subagent downloads (`.research/`, 66 files, untracked and *not* gitignored) archived to `tmp/`, verified git-clean, then **deleted** on owner instruction |
+| Mendarion (separate repo, 11 files) | ADR 025 (vertical-neutral core + vertical packs) · `customization` SPEC amendment 01 (R36–R38, I13) · `directory-discovery` SPEC amendment 01 (R14) · doc 01 item 7 · doc 04 §3/§4/§11 + header · master plan **v1.10** (task `M1-T24`, decision `D25`, 162→163 tasks) · status report — **uncommitted there by owner instruction**; gates: foundation re-certify → plan re-score → R22 review |
+
+### Cross-LLM verification — plan-sync P1 (commit `11432fe`) — **PASS**
 Procedure from NEXT.md § Recommended next item 1, executed by a different model than the
 authoring session:
 
