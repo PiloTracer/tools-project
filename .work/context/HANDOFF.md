@@ -1,6 +1,10 @@
 # Session handoff — tools-project
 
 ## Session status
+**Open:** 2026-10-18 - goal: GitHub fine-grained token permissions for repository integration
+
+**Updated:** 2026-10-18
+
 **Closed:** 2026-10-07 — **cross-framework Mendarion work delivered, plus a repo sanitization and a `.cursorrules` path repair.** Outcome: the lead-generation exploration was **discarded** (its research artifacts and 187 MB of subagent downloads archived then deleted; the tree restored to its pre-session state); 67 stale framework paths in `.cursorrules` pointing at the nonexistent `/mnt/work/Projects/.ai` were swept to the real source and sister directories (**operator committed as `c5b11ba`**; branch **ahead 1, not pushed**); and the session's substantive work — analysing and then implementing Mendarion's market widening (**ADR 025**, vertical-neutral core) — landed in that repo's planning artifacts (11 files, uncommitted there, two document gates outstanding). See §Mendarion below.
 **Updated:** 2026-10-07
 **Closed:** 2026-09-30 — **cross-LLM verification of the plan-sync P1 commit (`11432fe`) — PASS**, plus the TNT iteration (tenant-context fix, multi-tenant selection, stack control plane + 1-to-1 env-file contract) implemented, gated, live-verified and **committed/pushed on owner instruction** (`@session-control close commit push`).

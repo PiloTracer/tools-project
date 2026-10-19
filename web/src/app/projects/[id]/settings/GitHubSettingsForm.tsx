@@ -192,6 +192,7 @@ export function GitHubSettingsForm({
                         type="number"
                         min={60}
                         max={86400}
+                        autoComplete="off"
                         value={pollValue}
                         onChange={(e) => setPollValue(e.target.value)}
                         style={{ width: "5rem", fontSize: "0.72rem", padding: "0.15rem 0.3rem" }}
@@ -238,6 +239,10 @@ export function GitHubSettingsForm({
                         <input
                           className="input"
                           type="password"
+                          autoComplete="new-password"
+                          name="github_pat_update_nofill"
+                          data-lpignore="true"
+                          data-1p-ignore
                           value={tokenValue}
                           onChange={(e) => setTokenValue(e.target.value)}
                           placeholder="New PAT"
@@ -287,6 +292,7 @@ export function GitHubSettingsForm({
       <form
         onSubmit={handleAdd}
         className="stack"
+        autoComplete="off"
         style={{ gap: "0.65rem", maxWidth: "36rem" }}
       >
         <label className="stack" style={{ gap: "0.25rem" }}>
@@ -294,6 +300,10 @@ export function GitHubSettingsForm({
           <input
             className="input"
             required
+            autoComplete="off"
+            name="github_repo_url_nofill"
+            data-lpignore="true"
+            data-1p-ignore
             value={repoUrl}
             onChange={(e) => setRepoUrl(e.target.value)}
             placeholder="https://github.com/owner/repo"
@@ -307,6 +317,10 @@ export function GitHubSettingsForm({
             className="input"
             type="password"
             required
+            autoComplete="new-password"
+            name="github_pat_nofill"
+            data-lpignore="true"
+            data-1p-ignore
             value={pat}
             onChange={(e) => setPat(e.target.value)}
             placeholder="ghp_…"
