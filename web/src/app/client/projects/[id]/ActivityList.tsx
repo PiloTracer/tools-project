@@ -17,35 +17,39 @@ type ActivityRow = {
 export function ActivityList({ activities, projectId }: { activities: ActivityRow[]; projectId: string }) {
   return (
     <ul className="stack-sm" style={{ listStyle: "none", padding: 0 }}>
-      {activities.map((activity) => (
-        <li key={activity.id} className="card">
-          <p className="muted text-sm" suppressHydrationWarning>
-            {activity.kind === "github_commit" ? (
-              <span className="pill" style={{ fontSize: "0.65rem", background: "var(--accent, #0366d6)", color: "var(--on-accent, #fff)" }}>commit</span>
+      {activities.map((activity) => {
+        const commitMeta = extractCommitMeta(activity.meta_json);
+        const actor = activity.actor_email ?? (activity.kind === "github_commit" ? "GitHub" : "system");
+        return (
+          <li key={activity.id} className="card">
+            <p className="muted text-sm" suppressHydrationWarning>
+              {activity.kind === "github_commit" ? (
+                <span className="pill" style={{ fontSize: "0.65rem", background: "var(--accent, #0366d6)", color: "var(--on-accent, #fff)" }}>commit</span>
+              ) : (
+                <span>{activity.kind}</span>
+              )}
+              <span suppressHydrationWarning> · {new Date(activity.created_at).toLocaleString()}</span>
+              <span> · {actor}</span>
+            </p>
+            {activity.kind === "github_commit" && commitMeta ? (
+              <CommitCard meta={commitMeta} projectId={projectId} readonly />
             ) : (
-              <span>{activity.kind}</span>
+              <>
+                {activity.body !== "(image)" ? (
+                  <div style={{ margin: "0.35rem 0 0" }}>
+                    <MarkdownBody text={activity.body} />
+                  </div>
+                ) : null}
+                {attachmentIds(activity.meta_json).length > 0 ? (
+                  <div style={{ marginTop: "0.35rem" }}>
+                    <AttachmentImages ids={attachmentIds(activity.meta_json)} />
+                  </div>
+                ) : null}
+              </>
             )}
-            <span suppressHydrationWarning> · {new Date(activity.created_at).toLocaleString()}</span>
-            {activity.actor_email ? <span> · {activity.actor_email}</span> : null}
-          </p>
-          {activity.kind === "github_commit" ? (
-            <CommitCard meta={extractCommitMeta(activity.meta_json)!} projectId={projectId} readonly />
-          ) : (
-            <>
-              {activity.body !== "(image)" ? (
-                <div style={{ margin: "0.35rem 0 0" }}>
-                  <MarkdownBody text={activity.body} />
-                </div>
-              ) : null}
-              {attachmentIds(activity.meta_json).length > 0 ? (
-                <div style={{ marginTop: "0.35rem" }}>
-                  <AttachmentImages ids={attachmentIds(activity.meta_json)} />
-                </div>
-              ) : null}
-            </>
-          )}
-        </li>
-      ))}
+          </li>
+        );
+      })}
     </ul>
   );
 }

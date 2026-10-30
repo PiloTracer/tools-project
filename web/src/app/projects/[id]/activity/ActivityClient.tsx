@@ -48,6 +48,44 @@ type ActivityRow = {
   subject_title?: string | null;
 };
 
+/** Attachments must be uploaded against the same subject the comment targets. */
+function attachmentEndpoint(projectId: string, subjectType: string, subjectId: string | null): string {
+  if (subjectType === "task" && subjectId) {
+    return `/api/projects/${projectId}/tasks/${subjectId}/attachments`;
+  }
+  if (subjectType === "ticket" && subjectId) {
+    return `/api/projects/${projectId}/tickets/${subjectId}/attachments`;
+  }
+  return `/api/projects/${projectId}/attachments`;
+}
+
+function actorLabel(a: ActivityRow): string {
+  if (a.actor_email) return a.actor_email;
+  return a.kind === "github_commit" ? "GitHub" : "system";
+}
+
+/** Upload pending files and return their attachment ids. */
+async function uploadFiles(files: { file: File }[], endpoint: string): Promise<string[]> {
+  const ids: string[] = [];
+  for (const item of files) {
+    const fd = new FormData();
+    fd.append("file", item.file);
+    const ur = await fetch(endpoint, { method: "POST", body: fd });
+    const text = await ur.text();
+    if (!ur.ok) {
+      let detail = text;
+      try {
+        detail = (JSON.parse(text) as { detail?: string }).detail ?? text;
+      } catch {
+        /* non-JSON error body */
+      }
+      throw new Error(detail || `Upload failed (${ur.status})`);
+    }
+    ids.push((JSON.parse(text) as { id: string }).id);
+  }
+  return ids;
+}
+
 export function ActivityComposer({
   projectId,
   canPost,
@@ -85,49 +123,30 @@ export function ActivityComposer({
     }
   }
 
-  async function uploadPending(): Promise<string[]> {
-    const ids: string[] = [];
-    for (const p of pending) {
-      const fd = new FormData();
-      fd.append("file", p.file);
-      const ur = await fetch(`/api/projects/${projectId}/attachments`, {
-        method: "POST",
-        body: fd,
-      });
-      const ut = await ur.text();
-      if (!ur.ok) {
-        try {
-          const j = JSON.parse(ut) as { detail?: string };
-          throw new Error(j.detail ?? ut);
-        } catch (e) {
-          if (e instanceof Error && e.message !== ut) throw e;
-          throw new Error(ut || `Upload failed (${ur.status})`);
-        }
-      }
-      const row = JSON.parse(ut) as { id: string };
-      ids.push(row.id);
-    }
-    return ids;
-  }
-
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     const caption = body.trim();
     if (!caption && pending.length === 0) return;
+
+    // Resolve the subject before uploading: attachments must be created against
+    // the same task/ticket the comment will target, otherwise the API rejects
+    // them as "does not belong to this task/ticket".
+    let resolvedSubjectId = projectId;
+    let resolvedSubjectType = "project";
+    if (subjectType !== "project") {
+      if (!subjectId) {
+        toast("Select a task or ticket to link this post to.", "error");
+        return;
+      }
+      resolvedSubjectId = subjectId;
+      resolvedSubjectType = subjectType;
+    }
+
     setBusy(true);
     try {
-      const uploadedIds = pending.length ? await uploadPending() : [];
-      let resolvedSubjectId = projectId;
-      let resolvedSubjectType = "project";
-      if (subjectType !== "project") {
-        if (!subjectId) {
-          toast("Select a task or ticket to link this post to.", "error");
-          setBusy(false);
-          return;
-        }
-        resolvedSubjectId = subjectId;
-        resolvedSubjectType = subjectType;
-      }
+      const uploadedIds = pending.length
+        ? await uploadFiles(pending, attachmentEndpoint(projectId, resolvedSubjectType, resolvedSubjectId))
+        : [];
       const meta_json: Record<string, unknown> = {};
       if (uploadedIds.length) {
         meta_json.attachment_ids = uploadedIds;
@@ -138,7 +157,7 @@ export function ActivityComposer({
       const payload: Record<string, unknown> = {
         subject_type: resolvedSubjectType,
         subject_id: resolvedSubjectId,
-        kind: "note",
+        kind: "comment",
         body: caption || (uploadedIds.length ? "(image)" : ""),
       };
       if (Object.keys(meta_json).length) {
@@ -151,26 +170,30 @@ export function ActivityComposer({
       });
       const text = await r.text();
       if (!r.ok) {
+        let detail = text;
         try {
-          const j = JSON.parse(text) as { detail?: string };
-          toast(j.detail ?? text, "error");
+          detail = (JSON.parse(text) as { detail?: string }).detail ?? text;
         } catch {
-          toast(text || `Error ${r.status}`, "error");
+          /* non-JSON error body */
         }
-        setBusy(false);
+        toast(detail || `Error ${r.status}`, "error");
         return;
       }
       setBody("");
       setSubjectType("project");
       setSubjectId(null);
       setSubjectLabel(null);
+      setShowSubjectPicker(false);
+      setShowCommitPicker(false);
+      setCommitMeta(null);
       clear();
       toast("Note posted");
       router.refresh();
     } catch (err) {
       toast(err instanceof Error ? err.message : "Upload failed", "error");
+    } finally {
+      setBusy(false);
     }
-    setBusy(false);
   }
 
   return (
@@ -309,28 +332,44 @@ export function GithubBackfillSync({ projectId }: { projectId: string }) {
 
   const handleSync = async () => {
     setBusy(true);
-    const r = await fetch(`/api/projects/${projectId}/github/sync-backfill`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ since_days: days }),
-    });
-    if (!r.ok) {
-      const err = await r.json().catch(() => ({ detail: "Sync failed" }));
-      toast(err.detail, "error");
+    try {
+      const r = await fetch(`/api/projects/${projectId}/github/sync-backfill`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ since_days: days }),
+      });
+      const text = await r.text();
+      let data: {
+        detail?: string;
+        results?: { owner: string; repo: string; upserted?: number; error?: string }[];
+      };
+      try {
+        data = JSON.parse(text) as typeof data;
+      } catch {
+        data = { detail: text || `Sync failed (${r.status})` };
+      }
+      if (!r.ok) {
+        toast(data.detail ?? `Sync failed (${r.status})`, "error");
+        return;
+      }
+      const results = data.results ?? [];
+      const ok = results.filter((row) => row.upserted !== undefined);
+      const fail = results.filter((row) => row.error);
+      if (ok.length) {
+        toast(`Synced ${ok.map((row) => `${row.owner}/${row.repo} (${row.upserted} commits)`).join(", ")}`, "success");
+      }
+      if (fail.length) {
+        toast(`Failed: ${fail.map((row) => `${row.owner}/${row.repo}: ${row.error}`).join(", ")}`, "error");
+      }
+      if (!ok.length && !fail.length) {
+        toast("No linked repositories to sync.", "error");
+      }
+      router.refresh();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Sync failed", "error");
+    } finally {
       setBusy(false);
-      return;
     }
-    const data = await r.json() as { results: { owner: string; repo: string; upserted?: number; error?: string }[] };
-    const ok = data.results.filter((r) => r.upserted !== undefined);
-    const fail = data.results.filter((r) => r.error);
-    if (ok.length) {
-      toast(`Synced ${ok.map((r) => `${r.owner}/${r.repo} (${r.upserted} commits)`).join(", ")}`, "success");
-    }
-    if (fail.length) {
-      toast(`Failed: ${fail.map((r) => `${r.owner}/${r.repo}: ${r.error}`).join(", ")}`, "error");
-    }
-    setBusy(false);
-    router.refresh();
   };
 
   return (
@@ -361,41 +400,74 @@ export function GithubBackfillSync({ projectId }: { projectId: string }) {
   );
 }
 
-export function ActivityStreamHint({ projectId }: { projectId: string }) {
-  const [last, setLast] = useState<{ id: string | null; kind?: string; subject_type?: string }>({ id: null });
-  const esRef = useRef<EventSource | null>(null);
+export function ActivityStreamHint({
+  projectId,
+  initialLatestId,
+}: {
+  projectId: string;
+  initialLatestId?: string | null;
+}) {
+  const router = useRouter();
+  const [last, setLast] = useState<{ id: string | null; kind?: string; subject_type?: string }>({
+    id: initialLatestId ?? null,
+  });
+  const [status, setStatus] = useState<"connecting" | "live" | "reconnecting">("connecting");
+  const lastIdRef = useRef<string | null>(initialLatestId ?? null);
 
   useEffect(() => {
     const es = new EventSource(`/api/projects/${projectId}/activities/stream`);
-    esRef.current = es;
+    es.onopen = () => setStatus("live");
     es.onmessage = (ev) => {
       try {
         const j = JSON.parse(ev.data) as { latest_activity_id?: string | null; kind?: string; subject_type?: string };
-        setLast({ id: j.latest_activity_id ?? null, kind: j.kind, subject_type: j.subject_type });
+        const nextId = j.latest_activity_id ?? null;
+        setLast({ id: nextId, kind: j.kind, subject_type: j.subject_type });
+        if (nextId && nextId !== lastIdRef.current) {
+          lastIdRef.current = nextId;
+          // The stream only tells us *that* something changed; refetch the
+          // server-rendered feed so the new post appears without a manual reload.
+          router.refresh();
+        }
       } catch {
-        /* ignore */
+        /* ignore malformed events */
       }
     };
-    es.onerror = () => {
+    // Do not close on transient errors: EventSource reconnects automatically and
+    // the API sends heartbeats so the connection stays alive through proxies.
+    es.onerror = () => setStatus("reconnecting");
+    es.addEventListener("revoked", () => {
       es.close();
-    };
+      setStatus("reconnecting");
+    });
     return () => {
       es.close();
     };
-  }, [projectId]);
+  }, [projectId, router]);
 
+  const shortId = last.id ? last.id.slice(0, 8) : null;
   return (
-    <p className="muted text-sm">
-      Live stream (SSE): latest activity id{" "}
-      <code>{last.id ?? "—"}</code>
-      {last.kind ? <span> · kind <code>{last.kind}</code></span> : null}
-      {" "}— refresh the page to load new posts when it changes.
+    <p className="muted text-sm" aria-live="polite">
+      <span className="pill" style={{ fontSize: "0.65rem", marginRight: "0.35rem" }}>
+        {status === "live" ? "Live" : status === "connecting" ? "Connecting…" : "Reconnecting…"}
+      </span>
+      {shortId ? (
+        <>
+          latest activity <code>{shortId}</code>
+          {last.kind ? <span> · kind <code>{last.kind}</code></span> : null}
+        </>
+      ) : (
+        "Waiting for activity…"
+      )}
     </p>
   );
 }
 
 function buildThreaded(items: ActivityRow[]): ActivityRow[] {
-  return items.filter((a) => !a.parent_activity_id);
+  // Keep replies whose parent fell outside the loaded window visible instead of
+  // silently dropping them; they render as standalone entries until the parent
+  // is loaded by "Load older activity".
+  const loaded = new Set(items.map((a) => a.id));
+  return items.filter((a) => !a.parent_activity_id || !loaded.has(a.parent_activity_id));
 }
 
 function getReplies(parentId: string, items: ActivityRow[]): ActivityRow[] {
@@ -408,10 +480,16 @@ export function ActivityFeed({
   initial,
   projectId,
   canPost,
+  initialHasMore = false,
+  initialTotal = null,
+  initialError = null,
 }: {
   initial: ActivityRow[];
   projectId?: string;
   canPost?: boolean;
+  initialHasMore?: boolean;
+  initialTotal?: number | null;
+  initialError?: string | null;
 }) {
   const router = useRouter();
   const { pending: replyPending, addFiles: addReplyFiles, remove: removeReplyFile, clear: clearReplyPending } = usePendingImages();
@@ -427,34 +505,83 @@ export function ActivityFeed({
     html_url: string;
   } | null>(null);
   const [previewSubject, setPreviewSubject] = useState<{ subjectType: string; subjectId: string } | null>(null);
+  const [items, setItems] = useState<ActivityRow[]>(initial);
+  const [hasMore, setHasMore] = useState(initialHasMore);
+  const [total, setTotal] = useState<number | null>(initialTotal);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(initialError);
+  const [serverSnapshot, setServerSnapshot] = useState({
+    initial,
+    initialHasMore,
+    initialTotal,
+    initialError,
+  });
 
-  const topItems = buildThreaded(initial);
+  // A server refresh (e.g. after posting or the live stream firing
+  // router.refresh()) replaces the page props. Adjust state during render —
+  // the React-recommended alternative to an effect — so the feed shows the
+  // new rows while the composer/reply UI state below survives.
+  if (
+    initial !== serverSnapshot.initial ||
+    initialHasMore !== serverSnapshot.initialHasMore ||
+    initialTotal !== serverSnapshot.initialTotal ||
+    initialError !== serverSnapshot.initialError
+  ) {
+    setServerSnapshot({ initial, initialHasMore, initialTotal, initialError });
+    setItems(initial);
+    setHasMore(initialHasMore);
+    setTotal(initialTotal);
+    setLoadError(initialError);
+  }
+
+  const topItems = buildThreaded(items);
+
+  async function loadMore() {
+    if (!projectId || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const r = await fetch(
+        `/api/projects/${projectId}/activities?limit=50&offset=${items.length}`,
+      );
+      const text = await r.text();
+      let data: { items?: ActivityRow[]; total?: number; has_more?: boolean; detail?: string };
+      try {
+        data = JSON.parse(text) as typeof data;
+      } catch {
+        data = { detail: text || `Could not load older activity (${r.status})` };
+      }
+      if (!r.ok) {
+        setLoadError(data.detail ?? `Could not load older activity (${r.status})`);
+        return;
+      }
+      const next = data.items ?? [];
+      setItems((prev) => {
+        const seen = new Set(prev.map((row) => row.id));
+        return [...prev, ...next.filter((row) => !seen.has(row.id))];
+      });
+      setHasMore(Boolean(data.has_more));
+      setTotal(data.total ?? null);
+      setLoadError(null);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : "Could not load older activity");
+    } finally {
+      setLoadingMore(false);
+    }
+  }
 
   async function submitReply(parentActivity: ActivityRow) {
     if (!projectId) return;
     const caption = replyBody.trim();
     if (!caption && replyPending.length === 0) return;
+    const subjectId = parentActivity.subject_id || projectId;
     setReplyBusy(true);
     try {
-      const uploadedIds: string[] = [];
-      for (const p of replyPending) {
-        const fd = new FormData();
-        fd.append("file", p.file);
-        const ur = await fetch(`/api/projects/${projectId}/attachments`, {
-          method: "POST",
-          body: fd,
-        });
-        const ut = await ur.text();
-        if (!ur.ok) {
-          try { const j = JSON.parse(ut) as { detail?: string }; throw new Error(j.detail ?? ut); }
-          catch (e) {
-            if (e instanceof Error && e.message !== ut) throw e;
-            throw new Error(ut || `Upload failed (${ur.status})`);
-          }
-        }
-        const row = JSON.parse(ut) as { id: string };
-        uploadedIds.push(row.id);
-      }
+      const uploadedIds = replyPending.length
+        ? await uploadFiles(
+            replyPending,
+            attachmentEndpoint(projectId, parentActivity.subject_type, subjectId),
+          )
+        : [];
       const reply_meta: Record<string, unknown> = {};
       if (uploadedIds.length) {
         reply_meta.attachment_ids = uploadedIds;
@@ -464,11 +591,16 @@ export function ActivityFeed({
       }
       const payload: Record<string, unknown> = {
         subject_type: parentActivity.subject_type,
-        subject_id: parentActivity.subject_id || projectId,
+        subject_id: subjectId,
         kind: "comment",
         body: caption || (uploadedIds.length ? "(image)" : ""),
         parent_activity_id: parentActivity.id,
       };
+      // Replying inside an internal thread must not silently downgrade the
+      // reply to customer-visible. Project-wide threads cannot be internal.
+      if (parentActivity.subject_type !== "project" && parentActivity.is_internal) {
+        payload.is_internal = true;
+      }
       if (Object.keys(reply_meta).length) {
         payload.meta_json = reply_meta;
       }
@@ -479,36 +611,40 @@ export function ActivityFeed({
       });
       const text = await r.text();
       if (!r.ok) {
+        let detail = text;
         try {
-          const j = JSON.parse(text) as { detail?: string };
-          toast(j.detail ?? text, "error");
+          detail = (JSON.parse(text) as { detail?: string }).detail ?? text;
         } catch {
-          toast(text || `Error ${r.status}`, "error");
+          /* non-JSON error body */
         }
-        setReplyBusy(false);
+        toast(detail || `Error ${r.status}`, "error");
         return;
       }
       setReplyBody("");
       setReplyToId(null);
+      setReplyCommitPicker(null);
       setReplyCommitMeta(null);
       clearReplyPending();
       toast("Reply posted");
       router.refresh();
     } catch (err) {
       toast(err instanceof Error ? err.message : "Upload failed", "error");
+    } finally {
+      setReplyBusy(false);
     }
-    setReplyBusy(false);
   }
 
   return (
     <div className="stack" style={{ gap: "0.75rem" }}>
+      {loadError ? <p className="err text-sm">{loadError}</p> : null}
       <ul className="stack" style={{ listStyle: "none", padding: 0, gap: "0.75rem" }}>
-        {initial.length === 0 ? (
-          <li className="muted">No activity yet.</li>
+        {items.length === 0 ? (
+          <li className="muted">{loadError ? "Activity could not be loaded." : "No activity yet."}</li>
         ) : (
           topItems.map((a) => {
             const internal = a.is_internal === true;
-            const childReplies = getReplies(a.id, initial);
+            const childReplies = getReplies(a.id, items);
+            const commitMeta = extractCommitMeta(a.meta_json);
             return (
               <li key={a.id}>
                 <div
@@ -520,7 +656,7 @@ export function ActivityFeed({
                   }}
                 >
                   <div className="text-sm muted" style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", alignItems: "center" }}>
-                    <span>{a.actor_email ?? "user"}</span>
+                    <span>{actorLabel(a)}</span>
                     {a.kind === "github_commit" ? (
                       <span className="pill" style={{ fontSize: "0.65rem", background: "var(--accent, #0366d6)", color: "var(--on-accent, #fff)" }}>commit</span>
                     ) : (
@@ -555,8 +691,8 @@ export function ActivityFeed({
                       </span>
                     ) : null}
                   </div>
-                  {a.kind === "github_commit" ? (
-                    <CommitCard meta={extractCommitMeta(a.meta_json)!} projectId={projectId} readonly={!canPost} />
+                  {a.kind === "github_commit" && commitMeta ? (
+                    <CommitCard meta={commitMeta} projectId={projectId} readonly={!canPost} />
                   ) : (
                     <>
                       {a.body !== "(image)" ? (
@@ -571,7 +707,7 @@ export function ActivityFeed({
                       ) : null}
                     </>
                   )}
-                  {canPost && projectId ? (
+                  {canPost && projectId && !a.parent_activity_id ? (
                     <button
                       type="button"
                       className="btn btn-ghost text-sm"
@@ -695,7 +831,7 @@ export function ActivityFeed({
                             }}
                           >
                             <div className="text-sm muted" style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", marginBottom: "0.25rem" }}>
-                              <span>{cr.actor_email ?? "user"}</span>
+                              <span>{actorLabel(cr)}</span>
                               <span className="pill" style={{ fontSize: "0.6rem" }}>{cr.kind}</span>
                               <span suppressHydrationWarning>· {new Date(cr.created_at).toLocaleString()}</span>
                               {cinternal ? (
@@ -721,6 +857,22 @@ export function ActivityFeed({
           })
         )}
       </ul>
+      {hasMore && projectId ? (
+        <div>
+          <button
+            type="button"
+            className="btn btn-secondary text-sm"
+            onClick={loadMore}
+            disabled={loadingMore}
+          >
+            {loadingMore
+              ? "Loading…"
+              : total != null
+                ? `Load older activity (${items.length} of ${total})`
+                : "Load older activity"}
+          </button>
+        </div>
+      ) : null}
       {previewSubject ? (
         <SubjectPreview
           projectId={projectId!}

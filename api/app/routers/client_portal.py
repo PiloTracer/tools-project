@@ -6,7 +6,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -36,7 +36,9 @@ from app.schemas import (
     TicketListResponse,
     TicketOut,
 )
+from app.services.activity_visibility import client_activity_condition
 from app.services.activity_writer import write_activity
+from app.services.project_access import MemberRole, ProjectAccess
 from app.services.ref_alloc import allocate_ref
 
 router = APIRouter(prefix="/v1/me/client", tags=["client-portal"])
@@ -144,15 +146,25 @@ async def list_client_project_activities(
     project_id: uuid.UUID,
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
-    limit: int = 50,
+    limit: int = Query(default=50, ge=1, le=200),
 ):
-    """Public (non-internal) activities for a client-accessible project."""
+    """Public (non-internal) activities for a client-accessible project.
+
+    Task/ticket entries are limited to the subjects the client can see (the same
+    assignee rule used by the client task/ticket lists); project-wide entries
+    remain visible.
+    """
     contact = await _require_client_contact(db, user)
-    await _require_client_project_access(db, contact, project_id)
+    project, acc = await _require_client_project_access(db, contact, project_id)
+    # Reuse the same access shape the internal routers resolve for client
+    # participants (viewer role + client_access flags).
+    effective = ProjectAccess(project=project, role=MemberRole.viewer, client_access=acc)
+
     stmt = (
         select(Activity)
         .where(Activity.project_id == project_id)
         .where(Activity.is_internal.is_(False))
+        .where(await client_activity_condition(db, effective, project_id))
         .order_by(Activity.created_at.desc())
         .limit(limit)
     )

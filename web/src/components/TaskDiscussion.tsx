@@ -57,7 +57,12 @@ export function TaskDiscussion({
   const [busy, setBusy] = useState(false);
   const [replyToId, setReplyToId] = useState<string | null>(null);
 
-  const topItems = initialItems.filter((a) => !a.parent_activity_id);
+  // Replies whose parent is outside the loaded window stay visible instead of
+  // silently disappearing.
+  const loadedIds = new Set(initialItems.map((a) => a.id));
+  const topItems = initialItems.filter(
+    (a) => !a.parent_activity_id || !loadedIds.has(a.parent_activity_id),
+  );
 
   function getReplies(parentId: string): ActivityItem[] {
     return initialItems
@@ -178,12 +183,15 @@ export function TaskDiscussion({
                       <AttachmentImages ids={ids} />
                     </div>
                   ) : null}
-                  {canEdit ? (
+                  {canEdit && !a.parent_activity_id ? (
                     <button
                       type="button"
                       className="btn btn-ghost text-sm"
                       style={{ marginTop: "0.4rem", padding: "0.15rem 0.5rem" }}
-                      onClick={() => setReplyToId(replyToId === a.id ? null : a.id)}
+                      onClick={() => {
+                        setReplyToId(replyToId === a.id ? null : a.id);
+                        if (replyToId !== a.id) setIsInternal(internal);
+                      }}
                     >
                       {replyToId === a.id ? "Cancel reply" : "Reply"}
                     </button>

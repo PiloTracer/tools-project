@@ -12,14 +12,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import get_settings
 from app.db import get_db
 from app.deps import get_current_user
+from app.models.activity import Activity
 from app.models.attachment import Attachment
 from app.models.task import Task
 from app.models.ticket import Ticket
 from app.models.user import User
-from app.schemas import AttachmentOut
+from app.schemas import AttachmentMetaOut, AttachmentOut
 from app.services.attachment_storage import path_for_key
 from app.services.file_sniff import ALLOWED_MIMES, MIME_TO_EXT, sniff_file_mime
-from app.services.project_access import can_mutate_tasks, require_project_access
+from app.services.project_access import (
+    ProjectAccess,
+    can_mutate_tasks,
+    is_client_participant,
+    require_project_access,
+)
 
 MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024
 _MAX_ATTACHMENTS_PER_PROJECT = 500
@@ -62,6 +68,24 @@ def _safe_filename(name: str | None) -> str:
     if not base or base in {".", ".."}:
         base = "image"
     return base[:500]
+
+
+async def _assert_attachment_visible(
+    db: AsyncSession,
+    acc: ProjectAccess,
+    row: Attachment,
+) -> None:
+    """Hide files attached to internal notes from client participants.
+
+    The activity feed already filters internal rows out for clients; without
+    this check a client who learns an attachment UUID could still download the
+    file. Staff access is unchanged.
+    """
+    if not is_client_participant(acc) or row.activity_id is None:
+        return
+    activity = await db.get(Activity, row.activity_id)
+    if activity is not None and activity.is_internal:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Attachment not found")
 
 
 @ticket_router.post("", response_model=AttachmentOut, status_code=status.HTTP_201_CREATED)
@@ -188,6 +212,51 @@ async def upload_attachment(
     )
 
 
+@file_router.get("", response_model=list[AttachmentMetaOut])
+async def list_attachment_meta(
+    ids: str,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Batch attachment metadata for feed rendering (no storage keys)."""
+    raw_ids = [part.strip() for part in ids.split(",") if part.strip()]
+    if not raw_ids or len(raw_ids) > 50:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail="Provide between 1 and 50 comma-separated attachment ids",
+        )
+    try:
+        parsed = [uuid.UUID(value) for value in raw_ids]
+    except (ValueError, TypeError) as exc:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail="Invalid attachment id",
+        ) from exc
+
+    rows = (await db.scalars(select(Attachment).where(Attachment.id.in_(parsed)))).all()
+    by_id = {row.id: row for row in rows}
+    access: dict[uuid.UUID, ProjectAccess | None] = {}
+    items: list[AttachmentMetaOut] = []
+    for attachment_id in parsed:
+        row = by_id.get(attachment_id)
+        if row is None:
+            continue
+        if row.project_id not in access:
+            try:
+                access[row.project_id] = await require_project_access(db, user, row.project_id)
+            except HTTPException:
+                access[row.project_id] = None
+        project_acc = access[row.project_id]
+        if project_acc is None:
+            continue
+        try:
+            await _assert_attachment_visible(db, project_acc, row)
+        except HTTPException:
+            continue
+        items.append(AttachmentMetaOut.model_validate(row))
+    return items
+
+
 @file_router.get("/{attachment_id}")
 async def download_attachment(
     attachment_id: uuid.UUID,
@@ -197,7 +266,8 @@ async def download_attachment(
     row = await db.get(Attachment, attachment_id)
     if row is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Attachment not found")
-    await require_project_access(db, user, row.project_id)
+    acc = await require_project_access(db, user, row.project_id)
+    await _assert_attachment_visible(db, acc, row)
     try:
         path = path_for_key(row.storage_key)
     except ValueError:

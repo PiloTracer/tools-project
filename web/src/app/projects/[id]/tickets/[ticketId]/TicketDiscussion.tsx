@@ -107,14 +107,14 @@ export function TicketDiscussion({
 
   function buildThreaded(): ActivityItem[] {
     const top: ActivityItem[] = [];
-    const replies: Record<string, ActivityItem[]> = {};
+    const loaded = new Set(initialItems.map((a) => a.id));
     for (const a of initialItems) {
-      if (a.parent_activity_id) {
-        if (!replies[a.parent_activity_id]) replies[a.parent_activity_id] = [];
-        replies[a.parent_activity_id].push(a);
-      } else {
-        top.push(a);
+      // Show a reply as standalone when its parent fell outside the loaded
+      // window, rather than dropping it from the thread entirely.
+      if (a.parent_activity_id && loaded.has(a.parent_activity_id)) {
+        continue;
       }
+      top.push(a);
     }
     return top;
   }
@@ -252,12 +252,15 @@ export function TicketDiscussion({
                       <AttachmentImages ids={ids} />
                     </div>
                   ) : null}
-                  {canEdit ? (
+                  {canEdit && !a.parent_activity_id ? (
                     <button
                       type="button"
                       className="btn btn-ghost text-sm"
                       style={{ marginTop: "0.4rem", padding: "0.15rem 0.5rem" }}
-                      onClick={() => setReplyToId(replyToId === a.id ? null : a.id)}
+                      onClick={() => {
+                        setReplyToId(replyToId === a.id ? null : a.id);
+                        if (replyToId !== a.id) setIsInternal(internal);
+                      }}
                     >
                       {replyToId === a.id ? "Cancel reply" : "Reply"}
                     </button>

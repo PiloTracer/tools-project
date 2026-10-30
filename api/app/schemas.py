@@ -23,6 +23,15 @@ PLAN_STATE_VALUES: frozenset[str] = frozenset({"active", "obsolete"})
 ACTIVITY_KINDS: frozenset[str] = frozenset({
     "comment", "status_change", "assignment", "attachment", "github_commit", "mention", "system", "transition",
 })
+# Historical client vocabulary. The project Activity composer shipped posting
+# ``kind="note"`` while the API only stores the canonical ``comment`` kind; keep
+# accepting the old value so already-deployed web bundles keep working.
+ACTIVITY_KIND_ALIASES: dict[str, str] = {"note": "comment"}
+
+
+def normalize_activity_kind(value: str) -> str:
+    kind = value.strip().lower()
+    return ACTIVITY_KIND_ALIASES.get(kind, kind)
 
 
 class LocalLoginRequest(BaseModel):
@@ -499,6 +508,11 @@ class ActivityCreate(BaseModel):
     meta_json: dict | None = None
     is_internal: bool = False
 
+    @field_validator("kind")
+    @classmethod
+    def _normalize_kind(cls, v: str) -> str:
+        return normalize_activity_kind(v)
+
     @field_validator("meta_json")
     @classmethod
     def _meta_json_size(cls, v: dict | None) -> dict | None:
@@ -546,6 +560,18 @@ class AttachmentOut(BaseModel):
     size_bytes: int
     storage_key: str
     created_by: uuid.UUID
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class AttachmentMetaOut(BaseModel):
+    """Safe attachment metadata for feed rendering (no storage key)."""
+
+    id: uuid.UUID
+    filename: str
+    mime: str
+    size_bytes: int
     created_at: datetime
 
     model_config = {"from_attributes": True}

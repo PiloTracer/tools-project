@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import uuid
 from typing import Annotated
 
@@ -22,7 +23,14 @@ from app.models.mention import Mention
 from app.models.task import Task
 from app.models.ticket import Ticket
 from app.models.user import User
-from app.schemas import ACTIVITY_KINDS, ActivityCreate, ActivityListResponse, ActivityOut
+from app.schemas import (
+    ACTIVITY_KINDS,
+    ActivityCreate,
+    ActivityListResponse,
+    ActivityOut,
+    normalize_activity_kind,
+)
+from app.services.activity_visibility import client_activity_condition
 from app.services.mention_parse import mention_emails_from_text
 from app.services.project_access import (
     can_comment_on_project,
@@ -34,6 +42,8 @@ router = APIRouter(
     prefix="/v1/projects/{project_id}/activities",
     tags=["activities"],
 )
+
+log = logging.getLogger(__name__)
 
 
 async def _validate_github_ref(
@@ -149,16 +159,32 @@ async def _validate_and_link_ticket_attachments(
                 status.HTTP_400_BAD_REQUEST,
                 detail="Attachment does not belong to this project",
             )
-        if subject_type == "ticket" and att.ticket_id != subject_id:
-            raise HTTPException(
-                status.HTTP_400_BAD_REQUEST,
-                detail="Attachment does not belong to this ticket",
-            )
-        if subject_type == "task" and att.task_id != subject_id:
-            raise HTTPException(
-                status.HTTP_400_BAD_REQUEST,
-                detail="Attachment does not belong to this task",
-            )
+        # Attachments uploaded through the project-level endpoint are not bound
+        # to a task/ticket yet (ticket_id/task_id are NULL); they become valid
+        # once linked to a comment in the same project. Attachments uploaded for
+        # a *different* subject must still be rejected.
+        if subject_type == "ticket":
+            if att.ticket_id is not None and att.ticket_id != subject_id:
+                raise HTTPException(
+                    status.HTTP_400_BAD_REQUEST,
+                    detail="Attachment does not belong to this ticket",
+                )
+            if att.task_id is not None:
+                raise HTTPException(
+                    status.HTTP_400_BAD_REQUEST,
+                    detail="Attachment does not belong to this ticket",
+                )
+        if subject_type == "task":
+            if att.task_id is not None and att.task_id != subject_id:
+                raise HTTPException(
+                    status.HTTP_400_BAD_REQUEST,
+                    detail="Attachment does not belong to this task",
+                )
+            if att.ticket_id is not None:
+                raise HTTPException(
+                    status.HTTP_400_BAD_REQUEST,
+                    detail="Attachment does not belong to this task",
+                )
         if att.activity_id is not None and att.activity_id != activity_id:
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST,
@@ -244,9 +270,10 @@ async def list_activities(
     if subject_id is not None:
         base = base.where(Activity.subject_id == subject_id)
     if kind is not None:
-        base = base.where(Activity.kind == kind.strip().lower())
+        base = base.where(Activity.kind == normalize_activity_kind(kind))
     if client_participant:
         base = base.where(Activity.is_internal.is_(False))
+        base = base.where(await client_activity_condition(db, acc, project_id))
     elif visibility == "internal":
         base = base.where(Activity.is_internal.is_(True))
     elif visibility == "external":
@@ -293,7 +320,7 @@ async def create_activity(
     await _validate_subject(db, project_id, st, body.subject_id)
     github_ref = (body.meta_json or {}).get("github_ref")
     commit_ref_id = await _validate_github_ref(db, project_id, github_ref)
-    kind_val = body.kind.strip().lower()
+    kind_val = normalize_activity_kind(body.kind)
     if kind_val not in ACTIVITY_KINDS:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
@@ -311,6 +338,20 @@ async def create_activity(
                 status.HTTP_400_BAD_REQUEST,
                 detail="Nested replies beyond one level are not supported",
             )
+        if parent.is_internal:
+            # Internal threads are invisible to client participants; do not let
+            # a guessed parent id reveal them or let a reply downgrade the
+            # thread to customer-visible.
+            if is_client_participant(acc):
+                raise HTTPException(
+                    status.HTTP_404_NOT_FOUND,
+                    detail="parent_activity_id not found",
+                )
+            if not body.is_internal:
+                raise HTTPException(
+                    status.HTTP_400_BAD_REQUEST,
+                    detail="Replies to an internal note must also be internal",
+                )
     ids = _attachment_ids_from_meta(body.meta_json)
     body_text = body.body.strip()
     if not body_text and not ids:
@@ -404,19 +445,37 @@ async def activity_stream(
 ):
     """SSE: emits latest activity when it changes (~4s poll). Includes kind/subject for richer feed."""
     fac = session_factory()
+    # Fail before the response starts so unauthorised callers get a real 401/404
+    # instead of a 200 stream that errors asynchronously.
+    async with fac() as session:
+        await require_project_access(session, user, project_id)
 
     async def gen():
-        await asyncio.sleep(0)
+        yield "retry: 3000\n\n"
         last: str | None = None
         for _ in range(45):
-            async with fac() as session:
-                await require_project_access(session, user, project_id)
-                row = await session.scalar(
-                    select(Activity)
-                    .where(Activity.project_id == project_id)
-                    .order_by(Activity.created_at.desc())
-                    .limit(1)
-                )
+            try:
+                async with fac() as session:
+                    acc = await require_project_access(session, user, project_id)
+                    stmt = select(Activity).where(Activity.project_id == project_id)
+                    if is_client_participant(acc):
+                        # The stream must not reveal internal rows (or wake the
+                        # client's feed for work they cannot see).
+                        stmt = stmt.where(Activity.is_internal.is_(False))
+                        stmt = stmt.where(
+                            await client_activity_condition(session, acc, project_id)
+                        )
+                    row = await session.scalar(
+                        stmt.order_by(Activity.created_at.desc()).limit(1)
+                    )
+            except HTTPException:
+                # Access revoked while the stream is open — end it so the browser
+                # stops reconnecting with an unauthorised session.
+                yield 'event: revoked\ndata: {"detail":"access revoked"}\n\n'
+                return
+            except Exception:
+                log.exception("activity stream poll failed project_id=%s", project_id)
+                return
             if row is not None:
                 cur = str(row.id)
                 if cur != last:
@@ -428,6 +487,15 @@ async def activity_stream(
                         "subject_id": str(row.subject_id),
                     })
                     yield f"data: {payload}\n\n"
+            # Keep intermediary proxies from closing an otherwise idle stream.
+            yield ": keep-alive\n\n"
             await asyncio.sleep(4)
 
-    return StreamingResponse(gen(), media_type="text/event-stream")
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "X-Accel-Buffering": "no",
+        },
+    )

@@ -16,6 +16,9 @@ type ActivityRow = {
   created_at: string;
   parent_activity_id?: string | null;
   is_internal?: boolean;
+  meta_json?: Record<string, unknown> | null;
+  subject_ref?: string | null;
+  subject_title?: string | null;
 };
 
 type ProjectRow = {
@@ -47,9 +50,27 @@ export default async function ProjectActivityPage({
   }
   const project = (await pr.json()) as ProjectRow;
   const ar = await apiServerFetch(`/v1/projects/${id}/activities`);
-  const items = ar.ok ? ((await ar.json()) as { items: ActivityRow[] }).items : [];
+  let items: ActivityRow[] = [];
+  let activityHasMore = false;
+  let activityTotal: number | null = null;
+  let activityError: string | null = null;
+  if (ar.ok) {
+    const data = (await ar.json()) as {
+      items?: ActivityRow[];
+      total?: number;
+      has_more?: boolean;
+    };
+    items = data.items ?? [];
+    activityHasMore = Boolean(data.has_more);
+    activityTotal = data.total ?? null;
+  } else {
+    activityError = `Could not load activity (HTTP ${ar.status}).`;
+  }
   const role = project.membership_role ?? "";
   const canPost = ["owner", "maintainer", "contributor"].includes(role) || me.is_superuser;
+  // GitHub backfill is owner/maintainer-only in the API; do not show the
+  // control to contributors who would only get a 403.
+  const canSyncGithub = ["owner", "maintainer"].includes(role) || me.is_superuser;
 
   return (
     <div className="page-inner stack-lg">
@@ -69,9 +90,16 @@ export default async function ProjectActivityPage({
       </div>
       <div className="card wide stack">
         <h2 style={{ marginTop: 0 }}>Feed</h2>
-        {canPost ? <GithubBackfillSync projectId={id} /> : null}
-        <ActivityStreamHint projectId={id} />
-        <ActivityFeed initial={items} projectId={id} canPost={canPost} />
+        {canSyncGithub ? <GithubBackfillSync projectId={id} /> : null}
+        <ActivityStreamHint projectId={id} initialLatestId={items[0]?.id ?? null} />
+        <ActivityFeed
+          initial={items}
+          projectId={id}
+          canPost={canPost}
+          initialHasMore={activityHasMore}
+          initialTotal={activityTotal}
+          initialError={activityError}
+        />
       </div>
     </div>
   );

@@ -6,7 +6,7 @@
 
 **Schema:** declarative **`sql/`** only — no Alembic. On API startup: `schema_changes.sql` → `schema_indexes.sql` → bootstrap → `schema_backfill.sql` → `schema_inserts.sql`.
 
-****Latest (repo):** **2026-10-07** — chore session, **no application code changed**: the lead-generation exploration was **discarded** and the repo sanitized (its research docs removed, tree restored to pre-session state, 187 MB of untracked research-subagent downloads deleted), and `.cursorrules` was repaired — **67 paths pointed at `/mnt/work/Projects/.ai`, which does not exist**; all now resolve to the real source/sisters (`pilo.ai.logicbison`, `pilo.ai.ui.logicbison`, `pilo.ai.biz.logicbison`), `cursorrules-verify.sh` PASS. Operator-committed **`c5b11ba`** — **branch ahead 1, not pushed**. Prior: **2026-09-29** — plan-sync P1 complete: milestones + plan-import API shipped, all gates green (ruff, pyright, 49 tests), migration idempotent across restart×2, live smoke test passed. Prior: **2026-07-07** — Multi-tenancy implementation verified and repaired: all lint/type/test/DDL gates green (33 tests pass). Feature remains gated behind `MULTI_TENANCY_ENABLED=false`; default tenant backfill keeps existing single-tenant behavior working.
+****Latest (repo):** **2026-10-30** — production Activity tab repaired and verified (kind alias, task/ticket attachment routing, internal reply boundary, pagination, live SSE, non-image attachments, client visibility; 80 API tests, web lint/build, headless-Chrome E2E); **production deploy pending**. Next session: agent-query-api SPEC amendment 01. Prior: **2026-10-07** — chore session, **no application code changed**: the lead-generation exploration was **discarded** and the repo sanitized (its research docs removed, tree restored to pre-session state, 187 MB of untracked research-subagent downloads deleted), and `.cursorrules` was repaired — **67 paths pointed at `/mnt/work/Projects/.ai`, which does not exist**; all now resolve to the real source/sisters (`pilo.ai.logicbison`, `pilo.ai.ui.logicbison`, `pilo.ai.biz.logicbison`), `cursorrules-verify.sh` PASS. Operator-committed **`c5b11ba`** — **branch ahead 1, not pushed**. Prior: **2026-09-29** — plan-sync P1 complete: milestones + plan-import API shipped, all gates green (ruff, pyright, 49 tests), migration idempotent across restart×2, live smoke test passed. Prior: **2026-07-07** — Multi-tenancy implementation verified and repaired: all lint/type/test/DDL gates green (33 tests pass). Feature remains gated behind `MULTI_TENANCY_ENABLED=false`; default tenant backfill keeps existing single-tenant behavior working.
 
 ### Status at a glance (visual)
 
@@ -26,11 +26,18 @@ Security fixes  ████████████████████  8/
 Pen test rem.   ████████████████████  9/9   Done (all findings addressed)
 Multi-tenancy   ████████████████████  Done  (implementation verified; 33 tests pass)
 
-Open: **1 unpushed commit** (`c5b11ba`) · **skills-table reconciliation pending owner go-ahead** in `.cursorrules` (remove the stale `deploy-repo` row; add **`plan-sync`** and **`infra-terraform`**, which the framework ships but this table omits) · Mendarion's own gates live in that repo. None of these are backlog items here. Cross-LLM verification of the plan-sync P1 commit `11432fe` — **PASS 2026-09-30** (see HANDOFF § Cross-LLM verification) — **discharged**
-Active: **TNT iteration complete** (tenant context: single-tenant writes + multi-tenant selection; stack control plane + env-file contract) — **committed 2026-09-30** on owner instruction
+Open: **production deploy pending** for the Activity repair (committed this session) · **skills-table reconciliation pending owner go-ahead** in `.cursorrules` (remove the stale `deploy-repo` row; add **`plan-sync`** and **`infra-terraform`**, which the framework ships but this table omits) · Mendarion's own gates live in that repo. Cross-LLM verification of the plan-sync P1 commit `11432fe` — **PASS 2026-09-30** (see HANDOFF § Cross-LLM verification) — **discharged**
+Active: **Activity tab repair complete** (kind validation, attachments, internal replies, pagination, live SSE, client visibility; 80 tests) — **awaiting production deploy** · **TNT iteration complete** (tenant context: single-tenant writes + multi-tenant selection; stack control plane + env-file contract) — **committed 2026-09-30**
 
 ### Recommended next
-**Recommended next (one):** **item 2** — mark the multi-tenancy SPEC **Approved** and write the HTTP-level cross-tenant leak tests; it is the only gap that both `HANDOFF` §Repository state and this list still name. *(Item 1 is discharged; items 3–7 remain queued below.)*
+**Recommended next (one):** verify/adjust/implement `.work/features/agent-query-api/20261030-SPEC-amendment-01.md` — **Agent Ticket Context & Attachments** (Draft, owner review pending). Run `@feature-spec review - <path>` first, then implement. The Activity repair is complete in code and needs only a production deploy.
+
+### Next session — agent-query-api SPEC amendment 01
+**File:** `.work/features/agent-query-api/20261030-SPEC-amendment-01.md` (Draft)
+**Order:** `@feature-spec review - <path>` → adjust the SPEC → `@code-implementation` (ticket-detail read, activity read, binary attachment read, MCP tools).
+**Why:** agents using the Agent Query API can read a ticket's title/description but not its screenshots, comment thread, attachment metadata, or lifecycle data (SPEC §1.2, Pizote PZT-T-1…PZT-T-4). The activity/attachment APIs and client-visibility rules shipped this session are the foundation.
+
+**Backlog (queued, not this next session):**
 
 1. ~~**NEXT SESSION (user directive 2026-09-29): cross-LLM verification of the plan-sync P1 commit.**~~ **DISCHARGED 2026-09-30 — PASS**, run by a different model than the author (`11432fe`; gates re-run green in the container, no SPEC violations — `.work/context/HANDOFF.md` § Cross-LLM verification).
 2. **Multi-tenancy:** mark `.work/features/multi-tenancy/20260706-SPEC.md` as **Approved**, then add HTTP-level cross-tenant leak tests for all tenant-scoped routers (prospects, clients, client_contacts, admin_users, admin_webhooks, projects, agent_query).
@@ -42,6 +49,7 @@ Active: **TNT iteration complete** (tenant context: single-tenant writes + multi
 
 ### Intake queue
 - 2026-07-06 · local · "assess making this app multi-tenant" → SPEC created at `.work/features/multi-tenancy/20260706-SPEC.md` (Draft)
+- 2026-10-30 · production · Activity tab repair completed (see `HANDOFF.md` § Activity tab repair) → next session: verify/adjust/implement `.work/features/agent-query-api/20261030-SPEC-amendment-01.md` (Agent Ticket Context & Attachments, Draft).
 
 ## Current iteration — TNT: tenant context (single-tenant writes + multi-tenant selection)
 

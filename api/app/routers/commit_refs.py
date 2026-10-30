@@ -10,7 +10,7 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
@@ -28,7 +28,8 @@ from app.schemas import (
     CommitSubjectRefListResponse,
     CommitSubjectRefOut,
 )
-from app.services.project_access import require_project_access
+from app.services.activity_visibility import client_visible_subject_ids
+from app.services.project_access import is_client_participant, require_project_access
 
 
 async def _enrich_subject_fields(
@@ -77,7 +78,7 @@ async def list_commit_refs(
     sha: str | None = Query(None, min_length=40, max_length=40),
 ):
     """List commit-subject references. Optionally filter by commit, subject, or SHA."""
-    await require_project_access(db, user, project_id)
+    acc = await require_project_access(db, user, project_id)
     stmt = (
         select(CommitSubjectRef)
         .options(
@@ -93,6 +94,29 @@ async def list_commit_refs(
         stmt = stmt.where(CommitSubjectRef.subject_id == subject_id)
     if sha:
         stmt = stmt.where(CommitSubjectRef.sha == sha)
+    if is_client_participant(acc):
+        # A client may see a commit card in the project feed; the linked
+        # task/ticket titles must follow the same visibility rule as the rest of
+        # the client portal.
+        task_ids, ticket_ids = await client_visible_subject_ids(db, acc, project_id)
+        visible: list = []
+        if task_ids:
+            visible.append(
+                and_(
+                    CommitSubjectRef.subject_type == "task",
+                    CommitSubjectRef.subject_id.in_(task_ids),
+                )
+            )
+        if ticket_ids:
+            visible.append(
+                and_(
+                    CommitSubjectRef.subject_type == "ticket",
+                    CommitSubjectRef.subject_id.in_(ticket_ids),
+                )
+            )
+        if not visible:
+            return CommitSubjectRefListResponse(items=[])
+        stmt = stmt.where(or_(*visible))
     stmt = stmt.order_by(CommitSubjectRef.created_at.desc())
     rows = (await db.scalars(stmt)).all()
 
