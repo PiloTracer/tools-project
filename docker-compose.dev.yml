@@ -76,6 +76,9 @@ services:
       RFP_WEBHOOK_SECRET: ${RFP_WEBHOOK_SECRET:-}
       MULTI_TENANCY_ENABLED: ${MULTI_TENANCY_ENABLED:-false}
       PUBLIC_HOST: ${PUBLIC_HOST:-localhost}
+      # Links emitted to agents (SPEC amendment 01); reuse the documented public URLs.
+      PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-}
+      PUBLIC_WEB_BASE_URL: ${PUBLIC_ORIGIN:-}
     ports:
       - "${API_HOST_PORT:-8300}:8300"
     volumes:

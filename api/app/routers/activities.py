@@ -8,7 +8,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -30,7 +30,12 @@ from app.schemas import (
     ActivityOut,
     normalize_activity_kind,
 )
-from app.services.activity_visibility import client_activity_condition
+from app.services.activity_query import (
+    activity_count,
+    activity_page,
+    activity_where_clauses,
+    assert_visibility_allowed,
+)
 from app.services.mention_parse import mention_emails_from_text
 from app.services.project_access import (
     can_comment_on_project,
@@ -257,31 +262,22 @@ async def list_activities(
     offset: int = Query(default=0, ge=0),
 ):
     acc = await require_project_access(db, user, project_id)
-    client_participant = is_client_participant(acc)
-    if client_participant and visibility == "internal":
-        raise HTTPException(
-            status.HTTP_403_FORBIDDEN,
-            detail="Client participants cannot view internal activities",
+    assert_visibility_allowed(acc, visibility)
+
+    base = select(Activity).where(
+        *await activity_where_clauses(
+            db,
+            acc,
+            project_id,
+            subject_type=subject_type,
+            subject_id=subject_id,
+            kind=kind,
+            visibility=visibility,
         )
+    )
 
-    base = select(Activity).where(Activity.project_id == project_id)
-    if subject_type:
-        base = base.where(Activity.subject_type == subject_type.strip().lower())
-    if subject_id is not None:
-        base = base.where(Activity.subject_id == subject_id)
-    if kind is not None:
-        base = base.where(Activity.kind == normalize_activity_kind(kind))
-    if client_participant:
-        base = base.where(Activity.is_internal.is_(False))
-        base = base.where(await client_activity_condition(db, acc, project_id))
-    elif visibility == "internal":
-        base = base.where(Activity.is_internal.is_(True))
-    elif visibility == "external":
-        base = base.where(Activity.is_internal.is_(False))
-
-    total = (await db.scalar(base.with_only_columns(func.count()).order_by(None))) or 0
-
-    stmt = base.order_by(Activity.created_at.desc()).offset(offset).limit(limit)
+    total = await activity_count(db, base)
+    stmt = activity_page(base, order="desc", limit=limit, offset=offset)
     rows = list((await db.scalars(stmt)).all())
     lookup = await _enrich_subject_titles(db, rows)
     items = []
@@ -457,14 +453,12 @@ async def activity_stream(
             try:
                 async with fac() as session:
                     acc = await require_project_access(session, user, project_id)
-                    stmt = select(Activity).where(Activity.project_id == project_id)
-                    if is_client_participant(acc):
-                        # The stream must not reveal internal rows (or wake the
-                        # client's feed for work they cannot see).
-                        stmt = stmt.where(Activity.is_internal.is_(False))
-                        stmt = stmt.where(
-                            await client_activity_condition(session, acc, project_id)
-                        )
+                    # Same visibility rules as the feed (single source of truth):
+                    # the stream must not reveal internal rows, or wake a client's
+                    # feed for work they cannot see.
+                    stmt = select(Activity).where(
+                        *await activity_where_clauses(session, acc, project_id)
+                    )
                     row = await session.scalar(
                         stmt.order_by(Activity.created_at.desc()).limit(1)
                     )

@@ -1,4 +1,8 @@
-# Quick tutorial: connect a local repo to tools-project
+# Tutorial: link a repository to tools-project (commits + plan sync)
+
+**Scope:** Case C of the [integration chooser](../guides/quick-reference-to-connect-agent-with-tools-project.md) —
+repository plumbing, not the agent connection. The agent key + MCP server are covered once in
+[`LLM-2-API_SETUP.md`](LLM-2-API_SETUP.md); this page does not repeat them.
 
 Two independent pieces. Do both for full integration.
 
@@ -23,77 +27,42 @@ Open `https://project.cloudsys.win/projects/<project-uuid>/settings`.
 Commits must reach the repo's **default branch** — the sync reads only that branch.
 Poll is 300 s by default; use **Sync now** or **Re-sync last N days**.
 
-## 2. Local — one global key + MCP
+## 2. Local — key + MCP (one line, one link)
 
-The key is per machine, not per repo. Configure once; every repo reuses it.
-
-Create a key at `https://project.cloudsys.win/settings/api-keys` → **+ New key** →
-copy the `tools_project_...` value (shown once). The account must be a superuser.
-
-```bash
-printf 'BASE_URL=https://project.cloudsys.win\ntools_project_<key>\n' > ~/.tools-project-key
-chmod 600 ~/.tools-project-key
-```
-
-Copy the MCP server into the repo (use this copy — the older tools-project copy
-lacks the Cloudflare-safe User-Agent):
+The key is per machine, not per repo. Set it up once with
+[`LLM-2-API_SETUP.md`](LLM-2-API_SETUP.md) Parts A–C, then make sure the repository has a current
+MCP copy:
 
 ```bash
-mkdir -p .opencode/mcp/project-mcp
-cp /mnt/work/Projects/pizote/.opencode/mcp/project-mcp/mcp_server.py \
-   .opencode/mcp/project-mcp/
+grep -c 'User-Agent' .opencode/mcp/project-mcp/mcp_server.py    # must be >= 1
+python3 .opencode/mcp/project-mcp/mcp_server.py --self-check    # 1.1.0: prints version + tools
 ```
 
-Register it.
+Copy from `/mnt/work/Projects/tools-project/.opencode/mcp/project-mcp/mcp_server.py` (canonical:
+Cloudflare-safe `User-Agent` + the 1.1.0 tools). A copy that predates the header fails every call
+with `403 Error 1010` even though the MCP handshake looks healthy — `grep -c 'User-Agent'` first.
 
-opencode (`opencode.json`):
-
-```json
-{
-  "mcp": {
-    "tools-project": {
-      "type": "local",
-      "command": ["python3", ".opencode/mcp/project-mcp/mcp_server.py"],
-      "enabled": true
-    }
-  }
-}
-```
-
-Cursor (`.cursor/mcp.json`):
-
-```json
-{
-  "mcpServers": {
-    "tools-project": {
-      "command": "python3",
-      "args": [".opencode/mcp/project-mcp/mcp_server.py"]
-    }
-  }
-}
-```
-
-No key goes in these files — the server reads `~/.tools-project-key`.
-
-Verify:
+Verify the whole path once:
 
 ```bash
-curl -s -A "tools-project-mcp/1.0" \
+BASE=$(grep '^BASE_URL=' ~/.tools-project-key | cut -d= -f2-); BASE=${BASE:-http://localhost:8300}
+curl -s -A "tools-project-mcp/1.1.0" \
   -H "X-Api-Key: $(tail -n1 ~/.tools-project-key)" \
-  https://project.cloudsys.win/v1/agent/projects
+  "$BASE/v1/agent/projects" | head -c 200
 # {"ok":true,"data":[...]}
 ```
 
-The agent then has `list_projects`, `get_project_context`, `get_task_info`,
-`get_ticket_info`, `search_entities`. Give it the project UUID from the settings
-URL. The MCP server is read-only.
+The agent then has `list_projects`, `get_project_context`, `get_task_info`, `get_ticket_info`,
+`search_entities` (plus ticket detail/activity/attachment tools after 1.1.0). Give it the project
+UUID from the settings URL. The MCP server is read-only.
 
-## 3. Use it
+## 3. Use it — commits that link back
 
 Create the task/ticket first (auto-prefix gives it the ref), then use that ref.
 Commit messages: `PZT-12: ...` or `PZT-T-4: ...`, pushed to the default branch.
 The project polls, links the commit to the task/ticket, and the agent sees it in
-`get_project_context` → `github_refs`.
+`get_project_context` → `github_refs`, and (1.1.0) in `get_ticket_detail` → `linked_commits`
+(`state: "resolved"` once synced, `"pending"` before).
 
 ## 4. Optional — sync a plan (milestones + tasks)
 
@@ -105,11 +74,12 @@ Prerequisites (local repo side):
 - `opencode.json` → `skills.paths` includes `<AGENT_OS_SOURCE>/skills` (so `@plan-sync` resolves).
 - A plan markdown file with milestone/task tables, readable in the repo.
 - The API key + base URL already configured (`~/.tools-project-key`).
-- The key's owner must be **contributor or higher** on the target project.
+- The key's owner must be **superuser** (the agent gate) — a contributor-only account cannot use
+  the agent surface today.
 
 Run (inside the repo that owns the plan):
 
-```bash
+```text
 @plan-sync dry-run - .work/plans/full/<plan>.md --project <UUID-or-slug-or-key>
 # → parses plan → builds manifest → shows diff preview → asks for confirmation
 
@@ -133,10 +103,11 @@ The GitHub PAT is not involved — plan-import authenticates with the personal A
 |---|---|
 | Refs never link | Project key must be UPPERCASE (`pzt` → `PZT`) |
 | Commit not synced | It is not on the default branch |
-| `403 Error 1010` | MCP server must send `User-Agent: tools-project-mcp/1.0` |
-| opencode ignores env | Field is `environment`, not `env` |
+| `403 Error 1010` (HTML) | MCP copy must send `User-Agent: tools-project-mcp/<version>` |
+| Agent talks to the wrong instance | `API_BASE_URL` in the repo config overrides `BASE_URL` in the key file |
 | Registry write fails | PAT needs **Contents: Read and write** |
-| `403 superuser` | API key owner must be a superuser |
+| `403 superuser` | The key owner must be a superuser (see the reference §3) |
+| Detail/attachment calls `404` | Deployment is still `1.0.0` — check `/openapi.json` `info.version` |
 
 ## Pizote
 
@@ -144,4 +115,5 @@ The GitHub PAT is not involved — plan-import authenticates with the personal A
 - Repo: `https://github.com/PiloTracer/pizote`
 - Fix the key to `PZT`, link the repo, then commit `PZT-1: ...` on `main`.
 
-See also: `../agent-query-api.md` (payloads) and `FIRST_PROJECT.md` (creating a project).
+See also: [`../agent-query-api.md`](../agent-query-api.md) (payloads),
+[`LLM-2-API_SETUP.md`](LLM-2-API_SETUP.md) (connect), `FIRST_PROJECT.md` (creating a project).

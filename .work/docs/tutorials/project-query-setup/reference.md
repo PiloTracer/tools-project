@@ -1,5 +1,13 @@
 # Project Query Integration — Reference Card
 
+> **Historical record — not the install source.** This dated copy (2026-07-01) is kept for
+> traceability. The canonical `project-query-setup` skill lives in the Agent OS repository at
+> `/mnt/work/Projects/pilo.ai.logicbison/skills/project-query-setup/` and has moved on since
+> (MCP registry, update path, Cloudflare-safe User-Agent). Use
+> [`../../tutorials/LLM-2-API_SETUP.md`](../../tutorials/LLM-2-API_SETUP.md) and
+> [`../../agent-query-api.md`](../../agent-query-api.md) for current instructions; do not edit
+> this copy expect as a historical correction.
+
 **Audience:** Agent OS directors and skill authors in `.ai`, `.ai.ui`, `.ai.biz`, `.ai.soc`
 
 **Status:** Optional integration. Enable when the operator wants agents to query live project data (tasks, tickets, clients, projects).

@@ -83,6 +83,12 @@ class Settings(BaseSettings):
     #: Public hostname used for subdomain-based tenant resolution (e.g. "localhost" in dev).
     public_host: str = "localhost"
 
+    #: Absolute public API origin for links emitted by the API (e.g. https://project.example).
+    #: Empty → derived from the request (X-Forwarded-Proto/Host, then Host).
+    public_api_base_url: str | None = None
+    #: Absolute public web origin for human-facing ticket links. Empty → web_url is null.
+    public_web_base_url: str | None = None
+
 
     @classmethod
     def _check_defaults(cls, values: dict) -> dict:

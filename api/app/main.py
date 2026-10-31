@@ -18,6 +18,7 @@ from app.routers import (
     admin_tenants,
     admin_users,
     admin_webhooks,
+    agent_attachments,
     agent_query,
     attachments,
     auth,
@@ -154,6 +155,7 @@ app.include_router(commit_refs.router)
 app.include_router(stats.router)
 app.include_router(reports.router)
 app.include_router(agent_query.router)
+app.include_router(agent_attachments.router)
 app.include_router(integrations.router)
 app.include_router(platform.router)
 app.include_router(admin_tenants.router)

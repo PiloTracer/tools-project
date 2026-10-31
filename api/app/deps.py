@@ -322,6 +322,24 @@ async def require_agent_or_user(
     return await get_current_user(request, creds, db)
 
 
+async def require_agent_superuser(
+    user: Annotated[User, Depends(require_agent_or_user)],
+) -> User:
+    """Agent endpoints require superuser-level access (SPEC §R2).
+
+    A personal API key acts as its owner, so a non-superuser owner is rejected
+    here; the shared ``AGENT_API_KEY`` resolves to a synthetic superuser.
+    Project-level checks still run per route so membership-scoped keys can be
+    introduced later without a rewrite.
+    """
+    if not user.is_superuser:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            detail="Agent endpoints require superuser privileges",
+        )
+    return user
+
+
 async def get_current_client_participant(
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],

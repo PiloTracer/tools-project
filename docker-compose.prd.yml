@@ -66,6 +66,9 @@ services:
       RFP_WEBHOOK_SECRET: ${RFP_WEBHOOK_SECRET:-}
       MULTI_TENANCY_ENABLED: ${MULTI_TENANCY_ENABLED:-false}
       PUBLIC_HOST: ${PUBLIC_HOST:-localhost}
+      # Links emitted to agents (SPEC amendment 01); PUBLIC_ORIGIN is the web origin.
+      PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-}
+      PUBLIC_WEB_BASE_URL: ${PUBLIC_ORIGIN:-}
     volumes:
       - ./sql:/sql:ro
       - tpr_attachments:/data/attachments

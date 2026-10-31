@@ -1,246 +1,78 @@
-# Agent Query API
+# Agent Query API — reference and usage
 
-**Date:** 2026-07-01 · **Version:** 1.0.0
+**Date:** 2026-10-30 · **Contract version:** `1.0.0` live · `1.1.0` implemented in code, pending deployment
+**Audience:** operators connecting another repository or agent; authors of agents that consume the API.
 
-Read-only aggregation API + MCP server that lets any coding agent (opencode, Claude Code, Cursor, etc.) query project context — tasks, tickets, clients, prospects, GitHub refs — directly from the tools-project backend.
+This is the **canonical reference** for the agent surface: endpoints, payloads, auth, limits, MCP
+tools, and troubleshooting. Setup walkthroughs link here instead of repeating it.
 
-Designed for **cross-framework integration** by `.ai` (Agent OS), `.ai.ui` (UI Design OS), `.ai.biz` (Business OS), and `.ai.soc` (Social OS) skills, agents, and code-generation loops.
-
----
-
-## Table of contents
-
-1. [Quick start](#1-quick-start)
-2. [Authentication](#2-authentication)
-3. [API endpoints](#3-api-endpoints)
-4. [MCP server](#4-mcp-server)
-5. [Framework integration guide](#5-framework-integration-guide)
-6. [Usage examples](#6-usage-examples)
-7. [Agent workflow patterns](#7-agent-workflow-patterns)
-8. [Reference](#8-reference)
+> **Reliability rule.** §1–§4, §6 (five live tools) and §8 were verified against the deployed API
+> (`0.1.3`, OpenAPI `info.version`) on **2026-10-30**. Sections marked **1.1.0** are implemented in
+> the repository (SPEC amendment 01 P0, gates green) but the hosted deployment still runs `0.1.3`
+> until it is deployed — those routes return `404` there today.
 
 ---
 
-## 1. Quick start
+## 0. Doc map
 
-### Get your personal API key
+| Document | Owns | Use it for |
+|----------|------|------------|
+| **This file** | Endpoint/tool contract, auth, limits, troubleshooting | What the API returns today; what 1.1.0 will return |
+| [`tutorials/LLM-2-API_SETUP.md`](tutorials/LLM-2-API_SETUP.md) | Click-by-click first connection | Creating a key, writing the key file, registering the MCP server |
+| [`guides/quick-reference-to-connect-agent-with-tools-project.md`](guides/quick-reference-to-connect-agent-with-tools-project.md) | Which integration path to choose | Agent query (Case A) vs app-to-app (Case B) |
+| [`tutorials/AGENT_TICKET_CONTEXT.md`](tutorials/AGENT_TICKET_CONTEXT.md) | Task tutorial: ticket + comments + screenshots | A concrete incident-resolution workflow (**requires 1.1.0**) |
+| [`tutorials/REPO_INTEGRATION.md`](tutorials/REPO_INTEGRATION.md) | GitHub linking + plan sync | Commit linking, task registry, `@plan-sync` |
+| `.work/features/agent-query-api/20261030-SPEC-amendment-01.md` | The 1.1.0 contract (Approved 2026-10-30) | R1–R22, tests, rollout |
+| `.work/features/agent-query-api/20261030-amendment-01-verification.md` | Evidence behind the amendment | Live probes, findings, owner decisions |
 
-1. Open the web UI: `http://localhost:18513/settings/api-keys` (local) or `https://project.cloudsys.win/settings/api-keys` (remote)
-2. Click **+ New key**, optionally add a label, and click **Create**
-3. Copy the generated key (it starts with `tools_project_`) — shown only once
+---
 
-### Configure your key
+## 1. What you get
 
-Pick one method:
+| Capability | `1.0.0` (live) | `1.1.0` (implemented, pending deploy) |
+|------------|----------------|-------------------|
+| Projects, tasks, tickets (lists), search | yes | unchanged |
+| Project context (members, tickets, GitHub refs) | yes, **summary counts return 0** (known defect) | counts fixed + totals/truncation flags |
+| Ticket detail by UUID or `ref` | no | `GET /v1/agent/tickets/{ticket}` |
+| Comment/activity thread | no (JWT-only web route) | `GET /v1/agent/tickets/{ticket}/activities` |
+| Attachment metadata (filename, mime, size) | no | in ticket detail |
+| Attachment bytes (screenshots) viewable with an API key | no (`401`) | `GET /v1/agent/attachments/{id}` |
+| Resolved description (working image links) | no | `description_resolved` |
+| Capability/version handshake | no | `GET /v1/agent/capabilities` |
+| MCP tools | 5 | 8 |
 
-**Option A: Permanent file (recommended)**
+The rest of this document labels planned behaviour explicitly.
+
+---
+
+## 2. Connect (summary)
+
+Full walkthrough: [`tutorials/LLM-2-API_SETUP.md`](tutorials/LLM-2-API_SETUP.md).
 
 ```bash
-echo "tools_project_<your-key>" > ~/.tools-project-key
+# 1. Key: web UI → Settings → API Keys → + New key (starts with tools_project_)
+# 2. Key file (one per machine, chmod 600):
+printf 'BASE_URL=https://project.cloudsys.win\ntools_project_<key>\n' > ~/.tools-project-key
 chmod 600 ~/.tools-project-key
+
+# 3. Verify (BASE defaults to the local API when the key file has no BASE_URL line)
+BASE=$(grep '^BASE_URL=' ~/.tools-project-key | cut -d= -f2-); BASE=${BASE:-http://localhost:8300}
+KEY=$(grep -v '^BASE_URL=' ~/.tools-project-key | head -n1)
+curl -s -H "X-Api-Key: $KEY" -H "User-Agent: tools-project-mcp/1.1.0" \
+  "$BASE/v1/agent/projects" | head -c 200
 ```
 
-For remote deployments, add the base URL as the first line:
+Requirements and precedence:
 
-```bash
-echo "BASE_URL=https://project.cloudsys.win" > ~/.tools-project-key
-echo "tools_project_<your-key>" >> ~/.tools-project-key
-chmod 600 ~/.tools-project-key
-```
+| Item | Rule |
+|------|------|
+| Python | **3.10+** for the MCP server (`dict[str, Any] \| None` annotations) |
+| Key sources (first match) | `TOOLS_PROJECT_API_KEY` env → `~/.tools-project-key` → `AGENT_API_KEY` env (legacy) |
+| Base URL (first match) | `API_BASE_URL` env → `BASE_URL=` line in the key file → `http://localhost:8300` |
+| Hosted deployment | send a non-default `User-Agent`; Cloudflare answers urllib's default with **403 Error 1010** |
+| Agent config | the server reads the key file itself — no key in `opencode.json`/`.cursor/mcp.json` |
 
-**Option B: Environment variable**
-
-```bash
-export TOOLS_PROJECT_API_KEY=tools_project_<your-key>
-export API_BASE_URL=https://project.cloudsys.win   # only for remote
-```
-
-The MCP server resolves auth in this order:
-1. `TOOLS_PROJECT_API_KEY` env var
-2. `~/.tools-project-key` file (one key per line, optional `BASE_URL=<url>` as first line)
-3. `AGENT_API_KEY` env var (legacy shared key)
-
-### Verify
-
-```bash
-curl -s -H "X-Api-Key: $TOOLS_PROJECT_API_KEY" \
-  http://localhost:8300/v1/agent/projects | python3 -m json.tool
-# { "ok": true, "data": [ ... ] }
-```
-
-The stack must be running locally (`docker compose --profile dev up --build`) for local verification.
-
----
-
-## 2. Authentication
-
-All `/v1/agent/` endpoints accept **two** auth methods:
-
-### Method A: Personal API key (primary)
-
-Generated from the web UI under **Settings → API Keys**. Passed via the `X-Api-Key` header.
-
-```http
-GET /v1/agent/projects
-X-Api-Key: tools_project_<random>
-```
-
-Each developer has their own key. Keys are hashed with SHA-256 at rest — the plaintext is only shown once on creation. The auth resolves the real user from the stored hash, so permissions are scoped to your project memberships (just like the web UI).
-
-### Method B: Server-wide agent API key (local convenience)
-
-A shared secret configured by the server admin via `AGENT_API_KEY` in `.env`. When matched, the request runs as an agent superuser with full read access.
-
-```http
-GET /v1/agent/projects
-X-Api-Key: <server-shared-secret>
-```
-
-This is useful for local development or single-user deployments. Not recommended for multi-user production.
-
-### Auth resolution order
-
-1. `X-Api-Key` matches `AGENT_API_KEY` in Settings → agent superuser (full read access)
-2. `X-Api-Key` matches a `user_api_keys` row (SHA-256) → authenticated as that user (scoped to project memberships)
-3. Bearer JWT present → normal user session (requires superuser for agent endpoints)
-4. None → `401 Unauthorized`
-
----
-
-## 3. API endpoints
-
-All responses use the envelope `{ "ok": true, "data": <result> }`.
-
-### `GET /v1/agent/projects`
-
-List all projects with summary stats.
-
-**Response shape:**
-
-```json
-{
-  "ok": true,
-  "data": [
-    {
-      "id": "uuid",
-      "name": "Project Name",
-      "slug": "project-name",
-      "description": "...",
-      "status": "active",
-      "project_key": "PRJ",
-      "open_tasks": 12,
-      "open_tickets": 3,
-      "member_count": 5,
-      "github_task_registry_enabled": true,
-      "auto_prefix_enabled": true,
-      "created_at": "2026-06-18T...",
-      "updated_at": "2026-06-30T..."
-    }
-  ]
-}
-```
-
-### `GET /v1/agent/projects/{project_id}/context`
-
-Full project context in a single response.
-
-**Response shape:**
-
-```json
-{
-  "ok": true,
-  "data": {
-    "project": { "id": "...", "name": "...", "slug": "...", "description": "...", "status": "...", "project_key": "...", "github_task_registry_enabled": true, "auto_prefix_enabled": false, "created_at": "...", "updated_at": "..." },
-    "members": [ { "id": "uuid", "email": "user@example.com", "display_name": "Alice", "role": "owner" } ],
-    "tasks": [ { "id": "uuid", "ref": "PRJ-1", "title": "...", "description": "...", "status": "todo", "priority": "normal", "assignee_id": null, "due_at": null, "is_todo": false, "project_id": "uuid", "project_name": "...", "created_at": "..." } ],
-    "tickets": [ { "id": "uuid", "ref": "PRJ-T-1", "title": "...", "description": "...", "status": "open", "priority": "normal", "assignee_id": null, "project_id": "uuid", "project_name": "...", "created_at": "..." } ],
-    "clients": [ { "id": "uuid", "prospect_id": null, "name": "Client Inc", "slug": "client-inc", "industry": null, "notes": null, "created_by": "uuid", "created_at": "...", "updated_at": "..." } ],
-    "github_refs": [ { "id": "uuid", "github_commit_id": "uuid", "sha": "abc123...", "project_id": "uuid", "subject_type": "ticket", "subject_id": "uuid", "subject_ref": "TPR-T-12", "subject_title": "...", "subject_status": "closed", "subject_priority": null, "subject_description": "...", "created_by": "uuid", "created_at": "...", "commit": { "sha": "...", "short_sha": "abc123f", "message_preview": "Fix login bug...", "html_url": "https://github.com/...", "author_name": "Dev", "committed_at": "...", "owner": "org", "repo": "repo" } } ]
-  }
-}
-```
-
-### `GET /v1/agent/tasks`
-
-List tasks with optional filters.
-
-**Query parameters:**
-
-| Param | Type | Description |
-|-------|------|-------------|
-| `ref` | string | Filter by exact task ref (e.g. `TPR-3`) |
-| `status` | string | Filter by status (`todo`, `in_progress`, `done`, etc.) |
-| `limit` | integer | Max results (default 50, max 200) |
-
-**Examples:**
-
-```
-GET /v1/agent/tasks?ref=TPR-3
-GET /v1/agent/tasks?status=todo&limit=100
-```
-
-### `GET /v1/agent/tickets`
-
-List tickets with optional filters.
-
-**Query parameters:**
-
-| Param | Type | Description |
-|-------|------|-------------|
-| `ref` | string | Filter by exact ticket ref (e.g. `TPR-T-12`) |
-| `status` | string | Filter by status (`open`, `closed`, `in_progress`, etc.) |
-| `limit` | integer | Max results (default 50, max 200) |
-
-**Examples:**
-
-```
-GET /v1/agent/tickets?ref=TPR-T-12
-GET /v1/agent/tickets?status=open&limit=10
-```
-
-### `GET /v1/agent/search`
-
-Unified search across projects, tasks, tickets, clients, and prospects.
-
-**Query parameters:**
-
-| Param | Type | Description |
-|-------|------|-------------|
-| `q` | string | **Required.** Search term |
-| `limit` | integer | Max results (default 20, max 50) |
-
-**Response shape:**
-
-```json
-{
-  "ok": true,
-  "data": [
-    { "kind": "task", "id": "uuid", "label": "Fix login bug", "subtitle": "[TPR-3] My Project", "ref": "TPR-3", "status": "todo" },
-    { "kind": "project", "id": "uuid", "label": "My Project", "subtitle": "Project — my-project", "ref": null, "status": "active" },
-    { "kind": "client", "id": "uuid", "label": "Client Inc", "subtitle": "Client — client-inc", "ref": null, "status": null }
-  ]
-}
-```
-
----
-
-## 4. MCP server
-
-An MCP (Model Context Protocol) server at `.opencode/mcp/project-mcp/mcp_server.py` wraps the above endpoints as callable tools. This is the **recommended** way for coding agents to consume the API.
-
-### Registered tools
-
-| Tool | Description | Parameters |
-|------|-------------|------------|
-| `list_projects` | List all projects with summary stats | *(none)* |
-| `get_project_context` | Full project details + tasks + tickets + members + clients + GitHub refs | `project_id` (UUID, required) |
-| `get_task_info` | List tasks, optionally by ref/status | `ref`, `status`, `limit` (all optional) |
-| `get_ticket_info` | List tickets, optionally by ref/status | `ref`, `status`, `limit` (all optional) |
-| `search_entities` | Unified search across all entity types | `q` (required), `limit` (optional) |
-
-### Registration
-
-The MCP server is registered in `opencode.json`:
+Register only the command (opencode example):
 
 ```json
 {
@@ -248,234 +80,281 @@ The MCP server is registered in `opencode.json`:
     "tools-project": {
       "type": "local",
       "command": ["python3", ".opencode/mcp/project-mcp/mcp_server.py"],
-      "enabled": true,
-      "env": {
-        "AGENT_API_KEY": "{env:AGENT_API_KEY}",
-        "API_BASE_URL": "http://localhost:8300"
-      }
+      "enabled": true
     }
   }
 }
 ```
 
-The MCP server reads `AGENT_API_KEY` from its environment. opencode passes it from the host environment via `{env:AGENT_API_KEY}`. Set it before starting opencode:
-
-```bash
-export AGENT_API_KEY="$(grep AGENT_API_KEY .env | cut -d= -f2)"
-```
-
-Or include it in your shell profile.
+Cursor (`.cursor/mcp.json`) and Claude Code (`.claude/mcp.json`) use
+`{"mcpServers": {"tools-project": {"command": "python3", "args": [".opencode/mcp/project-mcp/mcp_server.py"]}}}`.
+Do **not** pin `API_BASE_URL` in a repo config unless the whole team wants that instance — it
+overrides the key file.
 
 ---
 
-## 5. Framework integration guide
+## 3. Authentication and authorization
 
-### For .ai (Agent OS) skills
+All `/v1/agent/*` endpoints accept three credentials (`require_agent_or_user`):
 
-A skill can declare the MCP tools as prerequisites or use `webfetch` to call the API directly via a reference.
+| Credential | Resolves to | Requirement |
+|------------|-------------|-------------|
+| `X-Api-Key: tools_project_…` (personal) | The key's owner | Owner must be a **superuser**; otherwise `403` |
+| `X-Api-Key: <AGENT_API_KEY>` (server-wide) | Synthetic agent superuser | Only when `MULTI_TENANCY_ENABLED=false`; `401` in multi-tenant mode |
+| `Authorization: Bearer <JWT>` | The logged-in user | User must be a superuser; otherwise `403` |
 
-**Option A: Use MCP tools (preferred)**
+**Project scoping — read this carefully.** The agent routes call `_require_agent_superuser`; a
+superuser resolves as `owner` on **every** project. Personal keys are therefore *not* limited to the
+owner's project memberships, contrary to what earlier revisions of this document claimed. The
+project/tenant checks added in 1.1.0 are defence for the planned membership-scoped keys (SPEC Q1),
+not a restriction on today's superuser callers.
 
-In `skill.md` preamble:
+- Keys are stored as SHA-256 hashes; the plaintext is shown once. Revoke from **Settings → API
+  Keys**; `last_used_at` updates on each authenticated call.
+- Multi-tenant mode: a personal key is tenant-scoped; `X-Tenant-Slug` is honoured and a foreign
+  tenant is rejected. The shared `AGENT_API_KEY` is disabled.
+- Every endpoint is read-only. The only write on these paths is `last_used_at`.
 
-```markdown
-**Prerequisites:** tools-project MCP server registered (provides `get_project_context`, `get_task_info`, `get_ticket_info`, `search_entities`, `list_projects` tools)
-```
+---
 
-Then in the skill body, invoke tools directly:
+## 4. Endpoints — `1.0.0` (live, verified 2026-10-30)
 
-> Use `get_project_context` with the project UUID to understand what tasks and tickets are open. Then use `get_ticket_info` with the relevant ref for commit message context.
+All responses use `{ "ok": true, "data": … }`. Errors use FastAPI's `{ "detail": … }`.
 
-**Option B: Use direct API calls via reference**
+### `GET /v1/agent/projects`
 
-Register the API doc as a reference in `opencode.json`:
+All projects with summary counts.
 
 ```json
-{
-  "references": {
-    "agent-api": {
-      "path": ".work/docs/agent-query-api.md",
-      "description": "Read-only API: query project/task/ticket/client context"
-    }
-  }
-}
+{"ok": true, "data": [{"id": "uuid", "name": "Pizote", "slug": "pizote", "status": "active",
+  "project_key": "PZT", "open_tasks": 1, "open_tickets": 4, "member_count": 3,
+  "github_task_registry_enabled": true, "auto_prefix_enabled": true,
+  "created_at": "…", "updated_at": "…"}]}
 ```
 
-Agents can then use `webfetch` with the agent API key:
+### `GET /v1/agent/projects/{project_id}/context`
 
-```markdown
-Fetch `http://localhost:8300/v1/agent/tickets?ref=TPR-T-12` with header `X-Api-Key: {env:AGENT_API_KEY}` to get ticket details.
-```
+Project + up to 100 tasks, 100 tickets, members, linked clients, GitHub refs.
 
-### For .ai.ui (UI Design OS) skills
+> **Known defect (fixed in 1.1.0, SPEC R11).** `project.open_tasks`, `open_tickets` and
+> `member_count` are always `0` in this payload, even though `/v1/agent/projects` reports the real
+> values. Do not rely on them; use the list endpoint until 1.1.0 ships.
 
-Use `get_project_context` or the `/v1/agent/projects/{id}/context` endpoint to determine what UI screens are needed for a project's current task/ticket state.
+### `GET /v1/agent/tasks` · `GET /v1/agent/tickets`
 
-**Example workflow:** "Check what tickets are open for a project → identify the most active work areas → fetch project context to understand client/team structure → build appropriate UI components."
+Filters `ref`, `status`, `limit` (1–200, default 50). Ticket objects carry
+`id, ref, title, description, status, priority, assignee_id, project_id, project_name, created_at,
+updated_at` — no attachments, comments or URLs in 1.0.0.
 
-### For .ai.biz (Business OS) skills
+### `GET /v1/agent/search?q=…&limit=…`
 
-Use `list_projects` and the `/v1/agent/projects` endpoint to understand the full portfolio. Use `search_entities` to find clients or prospects relevant to business strategy.
-
-**Example workflow:** "List all projects → for each, check task completion and ticket burden → identify clients needing attention → generate business review."
-
-### For .ai.soc (Social OS) skills
-
-Use `get_ticket_info` and `get_task_info` with status filters to identify recently completed work that could be shared as social content or community updates.
+Projects, tasks, tickets, clients, prospects. `q` required; `limit` 1–50 (default 20).
 
 ---
 
-## 6. Usage examples
+## 5. Endpoints — `1.1.0` (implemented in the repository; pending deployment)
 
-### Example 1: Build a commit message with ticket URL
+Full contract and test plan: [`20261030-SPEC-amendment-01.md`](../features/agent-query-api/20261030-SPEC-amendment-01.md).
+P0 (detail, activities page inline, binary attachment, the two MCP tools) is implemented and tested;
+`list_ticket_activities`, capabilities and the served MCP file are P1/P2. Until a `1.1.0` build is
+deployed, every route below returns `404` on the hosted instance.
 
-**Goal:** Agent is making a commit that relates to ticket `TPR-T-12`. It wants to include the ticket URL and ref in the commit message.
+### `GET /v1/agent/tickets/{ticket}`
 
-```python
-# Agent calls (via MCP or webfetch):
-# GET /v1/agent/tickets?ref=TPR-T-12
-# Response:
-{
-  "ok": true,
-  "data": [
-    {
-      "id": "...",
-      "ref": "TPR-T-12",
-      "title": "Analyze and implement penetration test report findings",
-      "description": "Penetration test report...",
-      "status": "open",
-      ...
-    }
-  ]
-}
+`{ticket}` = UUID or `ref` (case-insensitive, trimmed). Returns the ticket, reporter/assignee/
+watchers, counts, attachments, the newest-first first activity page, linked commits and `web_url`.
 
-# Agent builds commit message:
-# TPR-T-12: resolve 9 penetration test findings (security hardening)
-#
-# Closes ticket TPR-T-12 — full report at
-# https://github.com/org/repo/issues/...
+Key fields:
+
+| Field | Notes |
+|-------|-------|
+| `description` | Byte-identical stored markdown, including `![…](/api/attachments/<uuid>)` |
+| `description_resolved` | Same text with every `/api/attachments/<uuid>` replaced by the agent `download_url` |
+| `attachments[]` | `id, filename, mime, size_bytes, is_image, scope, activity_id, download_url, markdown_ref` — never `storage_key` |
+| `activities[]` | Newest first; `next_offset` pages backwards. Use `…/activities?order=asc` to read chronologically |
+| `counts` | Visibility-filtered activity total, true attachment total, linked-commit total |
+| `attachments_truncated` | `true` when more than 200 attachments (description-referenced files are never cut) |
+| `web_url` | Null unless `PUBLIC_WEB_BASE_URL` is configured (never guessed) |
+
+Knobs: `include_activities` (default `true`), `activity_limit` (1–200, default 50),
+`include_internal` (default `true`; forced `false` for client participants).
+
+### `GET /v1/agent/tickets/{ticket}/activities`
+
+`limit`, `offset`, `order` (`asc`/`desc`, default `desc`), `kind` (validated against
+`ACTIVITY_KINDS`; legacy `note` → `comment`), `include_internal`, `visibility`
+(`all`/`internal`/`external`; `internal` is `403` for client participants). Items carry
+`actor`, `body`, `is_internal`, `parent_activity_id`, `created_at`, `meta_json` and the activity's
+attachments.
+
+### `GET /v1/agent/attachments/{attachment_id}`
+
+Streams the bytes (`FileResponse`, never base64 in JSON). `Content-Type` from the stored mime,
+re-validated against `ALLOWED_MIMES` (unknown → 404); `?download=1` switches `Content-Disposition`
+from `inline` to `attachment`; `Cache-Control: private, max-age=0, no-store`,
+`X-Content-Type-Options: nosniff`, `Content-Security-Policy: sandbox`, `Referrer-Policy:
+no-referrer`; no `ETag`. Every failure is `404 {"detail": "attachment_not_found"}`.
+
+### `GET /v1/agent/capabilities`
+
+```json
+{"ok": true, "data": {
+  "agent_api_version": "1.1.0",
+  "capabilities": ["ticket_detail", "ticket_activities", "attachments", "attachment_download",
+                   "capabilities", "mcp_server_file"],
+  "limits": {"activities_default": 50, "activities_max": 200, "activity_body_max_bytes": 32768,
+             "description_max_bytes": 32000, "attachments_per_response": 200,
+             "attachment_max_bytes": 26214400},
+  "recommended_mcp_server_version": "1.1.0",
+  "mcp_server_download_url": "https://…/v1/agent/client/mcp_server.py"}}
 ```
 
-### Example 2: Get full project context
+Version policy: additive → minor; breaking → major. Clients compare `major.minor` and hide tools
+they cannot use (`1.0.0` = five tools; `1.1.0` = eight).
 
-**Goal:** Agent needs to understand everything about a project before implementing a new feature.
+### `GET /v1/agent/client/mcp_server.py`
+
+The canonical MCP server file for the deployed API (`text/x-python`), so consuming repositories can
+update instead of copying by hand. Same agent auth. Empty/404 if the owner declines the
+distribution approach (SPEC D1) — the copy-from-repository path then applies.
+
+---
+
+## 6. MCP server
+
+Source of truth: today `.opencode/mcp/project-mcp/mcp_server.py`; from 1.1.0 the canonical file is
+`api/app/client/mcp_server.py` (packaged and served by the endpoint above), and every repository
+copy is refreshed from it.
+
+| Tool | Since | Maps to |
+|------|-------|---------|
+| `list_projects` | 1.0.0 | `GET /v1/agent/projects` |
+| `get_project_context` | 1.0.0 | `GET /v1/agent/projects/{id}/context` |
+| `get_task_info` | 1.0.0 | `GET /v1/agent/tasks` |
+| `get_ticket_info` | 1.0.0 | `GET /v1/agent/tickets` |
+| `search_entities` | 1.0.0 | `GET /v1/agent/search` |
+| `get_ticket_detail` | **1.1.0 (P0, shipped)** | `GET /v1/agent/tickets/{ticket}` |
+| `list_ticket_activities` | **1.1.0 (P1, not yet)** | `GET /v1/agent/tickets/{ticket}/activities` |
+| `get_attachment` | **1.1.0 (P0, shipped)** | `GET /v1/agent/attachments/{id}` — returns an MCP `image` block for images ≤ 5 MiB, a `text` block for text ≤ 1 MiB, otherwise saves the file and returns its path + sha256 |
+
+Behaviour:
+
+- Sends `User-Agent: tools-project-mcp/<version>` (override `MCP_USER_AGENT`). **Required** behind
+  Cloudflare: urllib's default UA returns `403 Error 1010` while the MCP handshake still looks
+  healthy.
+- `initialize` never touches the network; the capability probe is lazy (5 s, cached). If the probe
+  reports an older API, newer tools are hidden instead of failing.
+- Every tool returns `{"ok": false, "error": …}` **as text** on failure — the transport never
+  crashes and the key is never printed.
+- `--version` prints the server version; `--self-check` prints the effective base URL and its
+  source, calls `/v1/agent/capabilities`, and lists enabled tools.
+
+Update a consumer copy:
 
 ```bash
-curl -s -H "X-Api-Key: $AGENT_API_KEY" \
-  http://localhost:8300/v1/agent/projects/<uuid>/context \
-  | python3 -c "import sys,json; d=json.load(sys.stdin)['data']; print(f'Project: {d[\"project\"][\"name\"]}'); print(f'Tasks ({len(d[\"tasks\"])}):'); [print(f'  [{t[\"ref\"]}] {t[\"title\"]} - {t[\"status\"]}') for t in d[\"tasks\"] if t[\"status\"] not in ('done','cancelled')]"
-```
+# 1.1.0+: from the deployed API (contains the Cloudflare-safe User-Agent)
+curl -s -o .opencode/mcp/project-mcp/mcp_server.py \
+  -H "X-Api-Key: $(tail -n1 ~/.tools-project-key)" \
+  -H "User-Agent: tools-project-mcp/1.1.0" \
+  "$(head -n1 ~/.tools-project-key | cut -d= -f2-)/v1/agent/client/mcp_server.py"
+chmod 755 .opencode/mcp/project-mcp/mcp_server.py
+python3 .opencode/mcp/project-mcp/mcp_server.py --self-check
 
-### Example 3: Check pending tasks vs local context
-
-**Goal:** Agent wants to verify that its local HANDOFF/NEXT context matches the live system state.
-
-```bash
-# Get all open tasks
-curl -s -H "X-Api-Key: $AGENT_API_KEY" \
-  "http://localhost:8300/v1/agent/tasks?status=todo&limit=100" \
-  | python3 -c "import sys,json; data=json.load(sys.stdin)['data']; print(f'{len(data)} open tasks:'); [print(f'  [{t[\"ref\"]}] {t[\"title\"]} ({t[\"project_name\"]})') for t in data]"
-```
-
-### Example 4: Search across all entities
-
-```bash
-curl -s -H "X-Api-Key: $AGENT_API_KEY" \
-  "http://localhost:8300/v1/agent/search?q=penetration" \
-  | python3 -m json.tool
+# Until 1.1.0 (or if D1 is declined): keep the copy from a repository that already has the header
+grep -q 'User-Agent' .opencode/mcp/project-mcp/mcp_server.py && echo "header present"
 ```
 
 ---
 
-## 7. Agent workflow patterns
+## 7. Recipes
 
-### Pattern 1: Commit-aware code generation
+### Resolve a ticket from a pasted URL (live)
 
-```
-1. Agent receives task: "fix the rate limiter bug"
-2. Agent queries get_ticket_info(ref="TPR-T-9") → gets ticket details + linked commits
-3. Agent reads html_url from linked commits → understands context
-4. Agent implements fix
-5. Agent builds commit message with TPR-T-9 ref + GitHub issue URL
-```
+A web URL (`https://…/projects/<project>/tickets/<ticket>`) is a browser page — it answers `307 →
+/login` for an API key. Extract the last UUID and use `get_ticket_info` / `GET /v1/agent/tickets`
+until 1.1.0, then `GET /v1/agent/tickets/<ticket-uuid>`. The API returns `web_url` in 1.1.0 so the
+link can be reconstructed.
 
-### Pattern 2: Context-aware project work
+### Read a comment thread (1.1.0)
 
-```
-1. Agent receives task: "add client health dashboard enhancements"
-2. Agent queries get_project_context(project_id="...") → full project state
-3. Agent sees existing client health router, schemas, UI components
-4. Agent sees all open tasks/tickets for the project
-5. Agent implements changes with full awareness of existing code and state
+```bash
+BASE=$(grep '^BASE_URL=' ~/.tools-project-key | cut -d= -f2-); BASE=${BASE:-http://localhost:8300}; KEY=$(tail -n1 ~/.tools-project-key)
+curl -s -H "X-Api-Key: $KEY" -H "User-Agent: tools-project-mcp/1.1.0" \
+  "$BASE/v1/agent/tickets/PZT-T-2/activities?order=asc&limit=200" \
+  | python3 -c 'import json,sys; [print(i["created_at"], i["actor"]["display_name"], "::", i["body"][:120]) for i in json.load(sys.stdin)["data"]["items"]]'
 ```
 
-### Pattern 3: State verification loop
+### View a screenshot (1.1.0)
 
-```
-1. Agent reads local HANDOFF.md → "implement M3-T2"
-2. Agent queries get_task_info(ref="TPR-3") → checks if TPR-3 is done/blocked/pending
-3. Agent reconciles local plan with live system state
-4. Agent adjusts plan accordingly (skip done items, prioritize blocked ones)
+Use `download_url` from `attachments[]` with the same headers; the MCP tool returns an `image`
+block directly:
+
+```bash
+curl -s -o /tmp/pzt-t-1.png -H "X-Api-Key: $KEY" -H "User-Agent: tools-project-mcp/1.1.0" \
+  "$BASE/v1/agent/attachments/54830228-0c70-4c62-8149-bf967f47af86"
+file /tmp/pzt-t-1.png   # PNG image data
 ```
 
-### Pattern 4: Cross-framework coordination
+### Build a commit message with the ticket ref (live)
 
-```
-1. Business OS agent queries list_projects → identifies clients needing attention
-2. Passes project UUID to Engineering OS agent
-3. Engineering agent calls get_project_context → gets full task/ticket landscape
-4. Engineering agent assigns work to UI OS agent
-5. UI agent calls get_ticket_info to understand which tickets need UI work
-```
+`get_ticket_info(ref="PZT-T-2")` → ref, title, status. Use `PZT-T-2: <plain-language subject>`.
+Commit refs sync back and link to the ticket (see `REPO_INTEGRATION.md`).
+
+### Reconcile local HANDOFF/NEXT with the system (live)
+
+`get_task_info(status="todo", limit=200)` and compare with `NEXT.md`.
 
 ---
 
-## 8. Reference
+## 8. Troubleshooting
 
-### File layout
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| `401` | Missing, wrong or revoked key; shared key in multi-tenant mode | Recreate the key; use a personal key |
+| `401` on `/v1/attachments/{id}` or `/api/attachments/{id}` | Those routes are JWT/web-session only in 1.0.0 | Expected until 1.1.0 (`/v1/agent/attachments/…`) |
+| `403 {"detail":"Agent endpoints require superuser privileges"}` | Key owner / JWT user is not a superuser | Ask an admin to grant superuser |
+| `403` with an **HTML** Cloudflare page / `Error 1010` | Default urllib User-Agent | Send `User-Agent: tools-project-mcp/<version>` |
+| `404 {"detail":"Not Found"}` on `/v1/agent/tickets/…` or `/v1/agent/capabilities` | The deployment predates 1.1.0 | Check `/openapi.json` `info.version`; deploy |
+| MCP handshake works but every tool call fails | Stale copy without the UA header, or wrong `API_BASE_URL` | Run `--self-check`; refresh the copy |
+| `python: command not found` | Some configs use `python` | Use `python3` (3.10+) |
+| Tools missing | Agent config not reloaded, or a 1.0.0 API hides 1.1.0 tools | Restart the agent; check `recommended_mcp_server_version` |
+| Key file ignored | `TOOLS_PROJECT_API_KEY`/`API_BASE_URL` env overrides the file | Check the precedence table in §2 |
+
+---
+
+## 9. Operations
+
+- **Logs** (1.1.0): `agent.ticket_detail`, `agent.ticket_activities`, `agent.attachment_read`, with
+  ids and result codes only — no bodies, filenames or emails. No Prometheus exporter exists; use
+  `grep -c 'agent.attachment_read .* result=ok'`.
+- **Retention:** `ATTACHMENT_RETENTION_DAYS=0` (never purge). A purged screenshot silently breaks
+  a report — keep it at 0 for deployments used as evidence systems.
+- **Quota:** `ATTACHMENT_MAX_PER_PROJECT` (default 500), `ATTACHMENT_MAX_BYTES_PER_PROJECT`
+  (default 0 = off).
+- **Storage:** `ATTACHMENTS_DIR` (default `/data/attachments`); `storage_key` never leaves the API.
+
+---
+
+## 10. Reference
 
 | File | Purpose |
 |------|---------|
-| `api/app/routers/agent_query.py` | API router: `/v1/agent/*` endpoints |
-| `api/app/deps.py` | `require_agent_or_user` auth dependency |
-| `api/app/config.py` | `agent_api_key` setting |
-| `.opencode/mcp/project-mcp/mcp_server.py` | MCP server stdio bridge |
-| `opencode.json` | MCP server + reference registration |
-| `.work/features/agent-query-api/20260701-SPEC.md` | Feature SPEC |
-| `.work/docs/agent-query-api.md` | **This file** — usage documentation |
+| `api/app/routers/agent_query.py` | `/v1/agent/*` routes |
+| `api/app/routers/agent_attachments.py` | agent binary download (1.1.0) |
+| `api/app/deps.py` | `require_agent_or_user`, `_require_agent_superuser` |
+| `api/app/services/project_access.py` | project access, client participant helpers |
+| `api/app/services/activity_visibility.py` | client visibility predicate |
+| `api/app/config.py` | `agent_api_key`, `public_*_base_url` (1.1.0) |
+| `api/app/client/mcp_server.py` | canonical MCP server (1.1.0) |
+| `.opencode/mcp/project-mcp/mcp_server.py` | MCP copy used by this repository |
+| `opencode.json` | MCP registration + `agent-api` reference |
 
-### API endpoint summary
-
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| GET | `/v1/agent/projects` | API key or Bearer | List all projects with stats |
-| GET | `/v1/agent/projects/{id}/context` | API key or Bearer | Full project context |
-| GET | `/v1/agent/tasks` | API key or Bearer | List tasks (filterable) |
-| GET | `/v1/agent/tickets` | API key or Bearer | List tickets (filterable) |
-| GET | `/v1/agent/search` | API key or Bearer | Unified search |
-
-### MCP tool summary
-
-| Tool | Maps to endpoint |
-|------|----------------|
-| `list_projects` | `GET /v1/agent/projects` |
-| `get_project_context` | `GET /v1/agent/projects/{id}/context` |
-| `get_task_info` | `GET /v1/agent/tasks` |
-| `get_ticket_info` | `GET /v1/agent/tickets` |
-| `search_entities` | `GET /v1/agent/search` |
-
-### Environment variables
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `AGENT_API_KEY` | *(empty)* | Shared secret for agent API access |
-| `API_BASE_URL` (MCP only) | `http://localhost:8300` | Override the API base URL |
-| `MCP_SERVER_NAME` (MCP only) | `tools-project-agent` | Server name advertised in MCP handshake |
-
-### Security notes
-
-- `AGENT_API_KEY` is a shared secret — treat it like a password
-- The MCP server only connects to `localhost` — it is not externally exposed
-- API key auth provides superuser-level read access; generate strong keys
-- All endpoints are read-only — no mutations possible
-- The API key is never logged by the API or MCP server
+| Env var | Default | Used by |
+|---------|---------|---------|
+| `AGENT_API_KEY` | empty | API — shared agent key (single-tenant only) |
+| `TOOLS_PROJECT_API_KEY` | empty | MCP — personal key (overrides the key file) |
+| `API_BASE_URL` | from key file, else `http://localhost:8300` | MCP |
+| `MCP_USER_AGENT` | `tools-project-mcp/<version>` | MCP |
+| `TOOLS_PROJECT_INLINE_IMAGE_MAX_BYTES` | `5242880` | MCP (1.1.0) |
+| `TOOLS_PROJECT_INLINE_TEXT_MAX_BYTES` | `1048576` | MCP (1.1.0) |
+| `PUBLIC_API_BASE_URL` / `PUBLIC_WEB_BASE_URL` | empty | API (1.1.0) — link generation |

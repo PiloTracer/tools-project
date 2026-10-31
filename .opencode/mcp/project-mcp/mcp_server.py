@@ -4,79 +4,88 @@
 Protocol: Model Context Protocol (JSON-RPC 2.0) over stdio.
 
 Usage:
-  python3 .opencode/mcp/project-mcp/mcp_server.py
+  python3 mcp_server.py                 # serve over stdio
+  python3 mcp_server.py --version       # print the server version
+  python3 mcp_server.py --self-check    # print config + API capabilities, exit non-zero on failure
 
 Auth (resolved in order):
-  1. Env var TOOLS_PROJECT_API_KEY        — personal key, remote-ready
-  2. File ~/.tools-project-key             — one-line key, permanent, no exports
-  3. Env var AGENT_API_KEY                — legacy shared secret (deprecated)
+  1. Env var TOOLS_PROJECT_API_KEY   — personal key, remote-ready
+  2. File ~/.tools-project-key       — optional `BASE_URL=<url>` line plus one key line
+  3. Env var AGENT_API_KEY           — legacy shared secret (deprecated)
 
-API_BASE_URL defaults to http://localhost:8300.
-Override with the env var or put BASE_URL=<url> as line 1 of the key file.
+Base URL (resolved in order):
+  1. Env var API_BASE_URL
+  2. `BASE_URL=<url>` line in ~/.tools-project-key
+  3. http://localhost:8300
 
-Setup — pick one:
+The canonical copy lives at `api/app/client/mcp_server.py` in the tools-project
+repository and is served by the deployed API (agent API 1.1.0+); each consuming
+repository runs its own copy at `.opencode/mcp/project-mcp/mcp_server.py`.
 
-  # Option A: permanent file (recommended)
-  echo "tools_project_<secret>" > ~/.tools-project-key
-  chmod 600 ~/.tools-project-key
-
-  # Option B: env var (one-off, good for CI)
-  export TOOLS_PROJECT_API_KEY=tools_project_<secret>
-
-  # For remote deployments with Option A, add BASE_URL as first line:
-  echo "BASE_URL=https://project.cloudsys.win" > ~/.tools-project-key
-  echo "tools_project_<secret>" >> ~/.tools-project-key
-  chmod 600 ~/.tools-project-key
+The hosted deployment sits behind Cloudflare, which answers urllib's default
+User-Agent with HTTP 403 (Error 1010), so every request identifies itself as
+`tools-project-mcp/<SERVER_VERSION>` (override: MCP_USER_AGENT). Keep this
+header when copying the file into a consuming repository.
 """
 
+import base64
+import contextlib
+import hashlib
 import json
 import os
 import sys
+import tempfile
 import urllib.error
 import urllib.request
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote, unquote
+
+SERVER_NAME = os.environ.get("MCP_SERVER_NAME", "tools-project-agent") or "tools-project-agent"
+SERVER_VERSION = "1.1.0"
+
+
+def _read_key_file() -> list[str]:
+    """Return the non-empty lines of ~/.tools-project-key (empty when absent)."""
+    key_file = Path.home() / ".tools-project-key"
+    if not key_file.is_file():
+        return []
+    try:
+        return [line.strip() for line in key_file.read_text().splitlines() if line.strip()]
+    except OSError:
+        return []
 
 
 def _resolve_api_key() -> str:
-    key = os.environ.get("TOOLS_PROJECT_API_KEY", "")
+    key = os.environ.get("TOOLS_PROJECT_API_KEY", "").strip()
     if key:
         return key
 
-    key_file = Path.home() / ".tools-project-key"
-    if key_file.is_file():
-        try:
-            for line in key_file.read_text().splitlines():
-                stripped = line.strip()
-                if stripped and not stripped.startswith("BASE_URL="):
-                    return stripped
-        except OSError:
-            pass
+    for line in _read_key_file():
+        if not line.startswith("BASE_URL="):
+            return line
 
-    return os.environ.get("AGENT_API_KEY", "")
+    return os.environ.get("AGENT_API_KEY", "").strip()
 
 
-def _resolve_base_url() -> str:
-    url = os.environ.get("API_BASE_URL", "")
+def _resolve_base_url() -> tuple[str, str]:
+    """Return (url, human-readable source) for the API base URL."""
+    url = os.environ.get("API_BASE_URL", "").strip()
     if url:
-        return url
+        return url.rstrip("/"), "env API_BASE_URL"
 
-    key_file = Path.home() / ".tools-project-key"
-    if key_file.is_file():
-        try:
-            for line in key_file.read_text().splitlines():
-                stripped = line.strip()
-                if stripped.startswith("BASE_URL="):
-                    return stripped.removeprefix("BASE_URL=").strip()
-        except OSError:
-            pass
+    for line in _read_key_file():
+        if line.startswith("BASE_URL="):
+            value = line.removeprefix("BASE_URL=").strip().rstrip("/")
+            if value:
+                return value, "key file BASE_URL"
 
-    return "http://localhost:8300"
+    return "http://localhost:8300", "default (no API_BASE_URL / key-file BASE_URL)"
 
 
-API_BASE_URL = _resolve_base_url()
+BASE_URL_VALUE, BASE_URL_SOURCE = _resolve_base_url()
+API_BASE_URL = BASE_URL_VALUE
 API_KEY = _resolve_api_key()
-SERVER_NAME = os.environ.get("MCP_SERVER_NAME", "tools-project-agent")
 
 TOOLS: list[dict[str, Any]] = [
     {
@@ -129,25 +138,52 @@ TOOLS: list[dict[str, Any]] = [
             "required": ["q"],
         },
     },
+    {
+        "name": "get_ticket_detail",
+        "description": "Full ticket detail by UUID or ref (e.g. PZT-T-2): people, counts, attachments with download URLs, resolved description, first activity/comment page, linked commits. Returns JSON (agent API 1.1.0+).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "ticket": {"type": "string", "description": "Ticket UUID or ref (e.g. PZT-T-2)"},
+                "include_activities": {"type": "boolean", "description": "Include the first activity page (default true)"},
+                "include_internal": {"type": "boolean", "description": "Include staff-only internal notes (default true)"},
+                "activity_limit": {"type": "integer", "description": "Activities in the first page (default 50, max 200)"},
+            },
+            "required": ["ticket"],
+        },
+    },
+    {
+        "name": "get_attachment",
+        "description": "Fetch one attachment (screenshot/PDF/text) by id. Returns an image block for images, text for small text files, otherwise saves the file and returns its path + sha256 (agent API 1.1.0+).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "attachment_id": {"type": "string", "description": "Attachment UUID"},
+                "save_dir": {"type": "string", "description": "Directory for files too large to inline (default ~/.cache/tools-project/attachments)"},
+            },
+            "required": ["attachment_id"],
+        },
+    },
 ]
 
-TOOL_ENDPOINTS: dict[str, str] = {
-    "list_projects": "/v1/agent/projects",
-    "get_project_context": "/v1/agent/projects/{project_id}/context",
-    "get_task_info": "/v1/agent/tasks",
-    "get_ticket_info": "/v1/agent/tickets",
-    "search_entities": "/v1/agent/search",
-}
+
+def _user_agent() -> str:
+    """Cloudflare-safe User-Agent (urllib's default is rejected with 403 on the hosted API)."""
+    override = os.environ.get("MCP_USER_AGENT", "").strip()
+    return override or f"tools-project-mcp/{SERVER_VERSION}"
+
+
+def _request_headers() -> dict[str, str]:
+    headers = {"Accept": "application/json", "User-Agent": _user_agent()}
+    if API_KEY:
+        headers["X-Api-Key"] = API_KEY
+    return headers
 
 
 def _api_get(path: str) -> dict[str, Any]:
     url = f"{API_BASE_URL}{path}"
-    headers = {"Accept": "application/json"}
 
-    if API_KEY:
-        headers["X-Api-Key"] = API_KEY
-
-    req = urllib.request.Request(url, headers=headers, method="GET")
+    req = urllib.request.Request(url, headers=_request_headers(), method="GET")
     try:
         with urllib.request.urlopen(req, timeout=30) as resp:
             return json.loads(resp.read().decode())
@@ -165,8 +201,137 @@ def _build_query(params: dict[str, Any], allowed: set[str]) -> str:
     parts: list[str] = []
     for k, v in params.items():
         if k in allowed and v is not None:
-            parts.append(f"{k}={urllib.request.quote(str(v))}")
+            parts.append(f"{k}={quote(str(v))}")
     return ("?" + "&".join(parts)) if parts else ""
+
+
+
+def _inline_image_max_bytes() -> int:
+    try:
+        return int(os.environ.get("TOOLS_PROJECT_INLINE_IMAGE_MAX_BYTES", str(5 * 1024 * 1024)))
+    except ValueError:
+        return 5 * 1024 * 1024
+
+
+def _inline_text_max_bytes() -> int:
+    try:
+        return int(os.environ.get("TOOLS_PROJECT_INLINE_TEXT_MAX_BYTES", str(1024 * 1024)))
+    except ValueError:
+        return 1024 * 1024
+
+
+def _default_save_dir() -> Path:
+    cache = Path.home() / ".cache" / "tools-project" / "attachments"
+    try:
+        cache.mkdir(parents=True, exist_ok=True)
+        os.chmod(cache, 0o700)
+        return cache
+    except OSError:
+        fallback = Path(tempfile.gettempdir()) / "tools-project" / "attachments"
+        fallback.mkdir(parents=True, exist_ok=True)
+        return fallback
+
+
+def _safe_name(name: str, fallback: str) -> str:
+    candidate = Path(name.strip()).name.replace("..", "").strip()
+    return candidate[:200] if candidate else fallback
+
+
+def _filename_from_headers(headers: dict[str, str], fallback: str) -> str:
+    disposition = headers.get("content-disposition", "")
+    if "filename*=utf-8''" in disposition:
+        raw = disposition.split("filename*=utf-8''", 1)[1].split(";")[0].strip().strip('"')
+        return _safe_name(unquote(raw), fallback)
+    if 'filename="' in disposition:
+        raw = disposition.split('filename="', 1)[1].split('"', 1)[0]
+        return _safe_name(raw, fallback)
+    return fallback
+
+
+def _api_get_binary(path: str) -> tuple[bytes | None, dict[str, str], str | None]:
+    """Return (body, response headers, error)."""
+    url = f"{API_BASE_URL}{path}"
+    headers = _request_headers()
+    headers["Accept"] = "*/*"
+    req = urllib.request.Request(url, headers=headers, method="GET")
+    try:
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            body = resp.read()
+            resp_headers = {k.lower(): v for k, v in resp.headers.items()}
+            return body, resp_headers, None
+    except urllib.error.HTTPError as e:
+        detail = e.read().decode(errors="replace")[:300] if e.fp else "{}"
+        return None, {}, f"HTTP {e.code}: {detail}"
+    except urllib.error.URLError as e:
+        return None, {}, f"Connection failed: {e.reason}"
+
+
+def _save_attachment(data: bytes, filename: str, save_dir: str | None) -> Path:
+    directory = Path(save_dir).expanduser().resolve() if save_dir else _default_save_dir()
+    directory.mkdir(parents=True, exist_ok=True)
+    with contextlib.suppress(OSError):
+        os.chmod(directory, 0o700)
+
+    target = directory / filename
+    suffix = target.suffix
+    stem = target.stem
+    counter = 1
+    while target.exists():
+        target = directory / f"{stem}-{counter}{suffix}"
+        counter += 1
+
+    resolved = target.resolve()
+    if not str(resolved).startswith(str(directory.resolve()) + os.sep) and resolved != directory.resolve():
+        raise ValueError("refusing to write outside the save directory")
+
+    target.write_bytes(data)
+    return target
+
+
+def _attachment_result(
+    attachment_id: str,
+    *,
+    save_dir: str | None = None,
+) -> dict[str, Any]:
+    data, headers, error = _api_get_binary(f"/v1/agent/attachments/{quote(attachment_id)}")
+    if error is not None or data is None:
+        return {"content": [{"type": "text", "text": json.dumps({"ok": False, "error": error or "attachment unavailable"}, indent=2)}]}
+
+    mime = headers.get("content-type", "application/octet-stream").split(";")[0].strip()
+    filename = _filename_from_headers(headers, f"attachment-{attachment_id}")
+    digest = hashlib.sha256(data).hexdigest()
+
+    metadata: dict[str, Any] = {
+        "ok": True,
+        "attachment_id": attachment_id,
+        "filename": filename,
+        "mime": mime,
+        "size_bytes": len(data),
+        "sha256": digest,
+    }
+    content: list[dict[str, Any]] = []
+
+    if mime.startswith("image/") and len(data) <= _inline_image_max_bytes():
+        metadata["delivery"] = "inline_image"
+        content.append({"type": "text", "text": json.dumps(metadata, indent=2)})
+        content.append({"type": "image", "data": base64.b64encode(data).decode("ascii"), "mimeType": mime})
+        return {"content": content}
+
+    if mime == "text/plain" and len(data) <= _inline_text_max_bytes():
+        metadata["delivery"] = "inline_text"
+        content.append({"type": "text", "text": json.dumps(metadata, indent=2)})
+        content.append({"type": "text", "text": data.decode("utf-8", errors="replace")})
+        return {"content": content}
+
+    try:
+        path = _save_attachment(data, _safe_name(filename, f"attachment-{attachment_id}"), save_dir)
+    except (OSError, ValueError) as exc:
+        return {"content": [{"type": "text", "text": json.dumps({"ok": False, "error": f"Save failed: {exc}"}, indent=2)}]}
+
+    metadata["delivery"] = "saved_file"
+    metadata["path"] = str(path)
+    content.append({"type": "text", "text": json.dumps(metadata, indent=2)})
+    return {"content": content}
 
 
 def _handle_tool_call(name: str, arguments: dict[str, Any] | None) -> dict[str, Any]:
@@ -179,7 +344,7 @@ def _handle_tool_call(name: str, arguments: dict[str, Any] | None) -> dict[str, 
         pid = args.get("project_id", "")
         if not pid:
             return {"content": [{"type": "text", "text": json.dumps({"ok": False, "error": "project_id is required"}, indent=2)}]}
-        result = _api_get(f"/v1/agent/projects/{urllib.request.quote(pid)}/context")
+        result = _api_get(f"/v1/agent/projects/{quote(str(pid))}/context")
 
     elif name == "get_task_info":
         qs = _build_query(args, {"ref", "status", "limit"})
@@ -194,7 +359,23 @@ def _handle_tool_call(name: str, arguments: dict[str, Any] | None) -> dict[str, 
         if not q:
             return {"content": [{"type": "text", "text": json.dumps({"ok": False, "error": "search term 'q' is required"}, indent=2)}]}
         limit = args.get("limit", 20)
-        result = _api_get(f"/v1/agent/search?q={urllib.request.quote(q)}&limit={limit}")
+        result = _api_get(f"/v1/agent/search?q={quote(str(q))}&limit={limit}")
+
+    elif name == "get_ticket_detail":
+        ticket_ref = args.get("ticket", "")
+        if not ticket_ref:
+            return {"content": [{"type": "text", "text": json.dumps({"ok": False, "error": "ticket is required"}, indent=2)}]}
+        qs = _build_query(
+            args,
+            {"include_activities", "include_internal", "activity_limit"},
+        )
+        result = _api_get(f"/v1/agent/tickets/{quote(str(ticket_ref))}{qs}")
+
+    elif name == "get_attachment":
+        attachment_id = args.get("attachment_id", "")
+        if not attachment_id:
+            return {"content": [{"type": "text", "text": json.dumps({"ok": False, "error": "attachment_id is required"}, indent=2)}]}
+        return _attachment_result(str(attachment_id), save_dir=args.get("save_dir"))
 
     else:
         result = {"ok": False, "error": f"Unknown tool: {name}"}
@@ -214,7 +395,7 @@ def _handle_request(msg: dict[str, Any]) -> dict[str, Any] | None:
             "id": msg_id,
             "result": {
                 "protocolVersion": "2024-11-05",
-                "serverInfo": {"name": SERVER_NAME, "version": "1.0.0"},
+                "serverInfo": {"name": SERVER_NAME, "version": SERVER_VERSION},
                 "capabilities": {"tools": {}},
             },
         }
@@ -246,7 +427,50 @@ def _handle_request(msg: dict[str, Any]) -> dict[str, Any] | None:
     }
 
 
-def main():
+def self_check() -> tuple[list[str], bool]:
+    """Return (report lines, ok). ok is False on auth/connection failure.
+
+    A 404 on /v1/agent/capabilities is not a failure: it means the deployed API
+    predates agent API 1.1.0, and the older tools still work.
+    """
+    lines = [
+        f"server: {SERVER_NAME} {SERVER_VERSION}",
+        f"base_url: {API_BASE_URL} (from {BASE_URL_SOURCE})",
+        f"api_key: {'set' if API_KEY else 'missing'}",
+    ]
+    ok = True
+
+    result = _api_get("/v1/agent/capabilities")
+    if result.get("ok"):
+        data = result.get("data") or {}
+        lines.append(f"agent_api_version: {data.get('agent_api_version', 'unknown')}")
+        capabilities = data.get("capabilities") or []
+        if capabilities:
+            lines.append("capabilities: " + ", ".join(str(item) for item in capabilities))
+    else:
+        error = str(result.get("error", ""))
+        if error.startswith("HTTP 404"):
+            lines.append("capabilities: unavailable (deployed API predates agent API 1.1.0)")
+        else:
+            ok = False
+            lines.append(f"capabilities: error - {error[:200]}")
+
+    lines.append("tools: " + ", ".join(str(tool.get("name", "?")) for tool in TOOLS))
+    return lines, ok
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = list(sys.argv[1:] if argv is None else argv)
+
+    if "--version" in args:
+        print(f"{SERVER_NAME} {SERVER_VERSION}")
+        return 0
+
+    if "--self-check" in args:
+        lines, ok = self_check()
+        print("\n".join(lines))
+        return 0 if ok else 1
+
     for line in sys.stdin:
         line = line.strip()
         if not line:
@@ -261,6 +485,8 @@ def main():
             sys.stdout.write(json.dumps(response) + "\n")
             sys.stdout.flush()
 
+    return 0
+
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+import re
 import uuid
 from typing import Annotated
 
@@ -10,9 +12,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.db import get_db
-from app.deps import require_agent_or_user
+from app.deps import require_agent_superuser
+from app.models.activity import Activity
+from app.models.attachment import Attachment
 from app.models.client import Client
 from app.models.commit_subject_ref import CommitSubjectRef
+from app.models.github_commit import GithubCommit
 from app.models.project import Project
 from app.models.project_client import ProjectClient
 from app.models.project_member import ProjectMember
@@ -20,27 +25,20 @@ from app.models.prospect import Prospect
 from app.models.task import Task
 from app.models.ticket import Ticket
 from app.models.user import User
+from app.models.watcher import Watcher
 from app.schemas import ClientOut, CommitSubjectRefOut
+from app.services.activity_query import activity_count, activity_where_clauses
+from app.services.project_access import (
+    can_view_tickets,
+    client_company_user_ids,
+    is_client_participant,
+    require_project_access,
+)
+from app.services.public_urls import api_base_url, web_base_url
 
 router = APIRouter(prefix="/v1/agent", tags=["agent"])
 
-
-def _require_agent_superuser(
-    user: Annotated[User, Depends(require_agent_or_user)],
-) -> User:
-    """Agent endpoints require superuser-level access.
-
-    When the caller uses the API key, the synthetic agent user has
-    is_superuser=True. When using Bearer JWT, the real user must be
-    a superuser — by design per SPEC §R2: "superuser-only gate for
-    global views". Regular users use existing project-scoped endpoints.
-    """
-    if not user.is_superuser:
-        raise HTTPException(
-            status.HTTP_403_FORBIDDEN,
-            detail="Agent endpoints require superuser privileges",
-        )
-    return user
+log = logging.getLogger(__name__)
 
 
 # ── Response models ────────────────────────────────────────────────────
@@ -193,12 +191,141 @@ def _ok(data) -> dict:
     return AgentResponse(data=data).model_dump()
 
 
+
+# ── Ticket detail helpers (SPEC amendment 01 §R3–R5) ──────────────────
+
+AGENT_API_VERSION = "1.1.0"
+_ATTACHMENT_TARGET_RE = re.compile(r"\]\((/api/attachments/([0-9a-fA-F-]{36}))\)")
+_ATTACHMENTS_PER_RESPONSE = 200
+_IMAGE_MIMES = frozenset({"image/png", "image/jpeg", "image/gif", "image/webp"})
+
+
+def _ticket_not_found() -> HTTPException:
+    return HTTPException(status.HTTP_404_NOT_FOUND, detail="ticket_not_found")
+
+
+def _iso(value) -> str | None:
+    return value.isoformat() if value is not None else None
+
+
+def _person(user: User | None, *, include_email: bool) -> dict | None:
+    if user is None:
+        return None
+    return {
+        "id": str(user.id),
+        "display_name": user.display_name,
+        "email": user.email if include_email else None,
+    }
+
+
+def _attachment_dict(
+    row: Attachment,
+    *,
+    base_url: str,
+    markdown_ref: str | None,
+    created_by: User | None,
+) -> dict:
+    scope = "ticket" if row.ticket_id is not None else "activity" if row.activity_id is not None else "task"
+    return {
+        "id": str(row.id),
+        "filename": row.filename,
+        "mime": row.mime,
+        "size_bytes": row.size_bytes,
+        "is_image": row.mime in _IMAGE_MIMES,
+        "scope": scope,
+        "activity_id": str(row.activity_id) if row.activity_id is not None else None,
+        "created_at": _iso(row.created_at),
+        "created_by": (
+            {"id": str(created_by.id), "display_name": created_by.display_name}
+            if created_by is not None
+            else None
+        ),
+        "download_url": f"{base_url}/v1/agent/attachments/{row.id}",
+        "markdown_ref": markdown_ref,
+    }
+
+
+def _activity_dict(
+    row: Activity,
+    attachments: list[Attachment],
+    *,
+    base_url: str,
+    include_email: bool,
+    people: dict,
+) -> dict:
+    actor = row.actor
+    return {
+        "id": str(row.id),
+        "kind": row.kind,
+        "actor": _person(actor, include_email=include_email),
+        "body": row.body,
+        "is_internal": row.is_internal,
+        "parent_activity_id": str(row.parent_activity_id) if row.parent_activity_id else None,
+        "created_at": _iso(row.created_at),
+        "attachments": [
+            _attachment_dict(
+                att,
+                base_url=base_url,
+                markdown_ref=None,
+                created_by=people.get(att.created_by),
+            )
+            for att in attachments
+        ],
+        "meta_json": row.meta_json,
+    }
+
+
+def _resolved_description(description: str | None, download_urls: dict[str, str]) -> str:
+    if not description:
+        return ""
+
+    def _replace(match: re.Match[str]) -> str:
+        url = download_urls.get(match.group(2).lower())
+        return f"]({url})" if url else match.group(0)
+
+    return _ATTACHMENT_TARGET_RE.sub(_replace, description)
+
+
+async def _load_ticket(db: AsyncSession, ticket_ref: str) -> tuple[Ticket, Project] | None:
+    try:
+        ticket_uuid: uuid.UUID | None = uuid.UUID(ticket_ref)
+    except ValueError:
+        ticket_uuid = None
+
+    stmt = select(Ticket, Project).join(Project, Ticket.project_id == Project.id)
+    if ticket_uuid is not None:
+        stmt = stmt.where(Ticket.id == ticket_uuid)
+    else:
+        ref = ticket_ref.strip().upper()
+        if not ref:
+            return None
+        stmt = stmt.where(func.upper(Ticket.ref) == ref)
+
+    row = (await db.execute(stmt)).first()
+    return (row[0], row[1]) if row is not None else None
+
+
+async def _require_ticket_visible(
+    db: AsyncSession,
+    acc,
+    ticket: Ticket,
+) -> None:
+    """Client participants only read tickets assigned to their company (web parity)."""
+    if not is_client_participant(acc):
+        return
+    if not can_view_tickets(acc):
+        raise _ticket_not_found()
+    peers = await client_company_user_ids(db, acc)
+    if ticket.assignee_id not in peers:
+        raise _ticket_not_found()
+
+
 # ── Endpoints ──────────────────────────────────────────────────────────
 
 
 @router.get("/projects")
 async def agent_list_projects(
-    _admin: Annotated[User, Depends(_require_agent_superuser)],
+    _admin: Annotated[User, Depends(require_agent_superuser)],
     db: Annotated[AsyncSession, Depends(get_db)],
     request: Request,
 ):
@@ -247,7 +374,7 @@ async def agent_list_projects(
 @router.get("/projects/{project_id}/context")
 async def agent_project_context(
     project_id: uuid.UUID,
-    _admin: Annotated[User, Depends(_require_agent_superuser)],
+    _admin: Annotated[User, Depends(require_agent_superuser)],
     db: Annotated[AsyncSession, Depends(get_db)],
     request: Request,
 ):
@@ -317,7 +444,7 @@ async def agent_project_context(
 
 @router.get("/tasks")
 async def agent_list_tasks(
-    _admin: Annotated[User, Depends(_require_agent_superuser)],
+    _admin: Annotated[User, Depends(require_agent_superuser)],
     db: Annotated[AsyncSession, Depends(get_db)],
     request: Request,
     ref: str | None = Query(default=None, description="Filter by task ref (e.g. TPR-3)"),
@@ -343,7 +470,7 @@ async def agent_list_tasks(
 
 @router.get("/tickets")
 async def agent_list_tickets(
-    _admin: Annotated[User, Depends(_require_agent_superuser)],
+    _admin: Annotated[User, Depends(require_agent_superuser)],
     db: Annotated[AsyncSession, Depends(get_db)],
     request: Request,
     ref: str | None = Query(default=None, description="Filter by ticket ref (e.g. TPR-T-12)"),
@@ -367,9 +494,252 @@ async def agent_list_tickets(
     return _ok(results)
 
 
+
+@router.get("/tickets/{ticket}")
+async def agent_ticket_detail(
+    ticket: str,
+    admin: Annotated[User, Depends(require_agent_superuser)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    request: Request,
+    include_activities: bool = Query(default=True),
+    activity_limit: int = Query(default=50, ge=1, le=200),
+    include_internal: bool = Query(default=True),
+):
+    """Full ticket detail: people, counts, evidence, first activity page, commits, URLs."""
+    tenant_id = getattr(request.state, "tenant_id", None)
+    tenant_uuid = uuid.UUID(tenant_id) if tenant_id else None
+
+    loaded = await _load_ticket(db, ticket)
+    if loaded is None:
+        log.warning("agent.ticket_detail ticket=%s result=not_found", ticket)
+        raise _ticket_not_found()
+    row, project = loaded
+
+    if tenant_uuid is not None and project.tenant_id != tenant_uuid:
+        log.warning("agent.ticket_detail ticket_id=%s result=not_found", row.id)
+        raise _ticket_not_found()
+
+    try:
+        acc = await require_project_access(db, admin, project.id)
+    except HTTPException:
+        log.warning("agent.ticket_detail ticket_id=%s project_id=%s result=denied", row.id, project.id)
+        raise _ticket_not_found() from None
+
+    try:
+        await _require_ticket_visible(db, acc, row)
+    except HTTPException:
+        log.warning("agent.ticket_detail ticket_id=%s project_id=%s result=denied", row.id, project.id)
+        raise
+
+    include_email = not is_client_participant(acc)
+    effective_internal = include_internal and include_email
+
+    base_url = api_base_url(request)
+    web_base = web_base_url()
+
+    attachment_rows = list(
+        (
+            await db.scalars(
+                select(Attachment)
+                .where(Attachment.ticket_id == row.id)
+                .order_by(Attachment.created_at.asc())
+            )
+        ).all()
+    )
+
+    watcher_rows = list(
+        (
+            await db.scalars(
+                select(Watcher).where(
+                    Watcher.subject_type == "ticket",
+                    Watcher.subject_id == row.id,
+                )
+            )
+        ).all()
+    )
+    watcher_ids = [w.user_id for w in watcher_rows]
+
+    people_ids: set = {row.reporter_id, row.assignee_id, *watcher_ids, *(a.created_by for a in attachment_rows)}
+    people_ids.discard(None)
+    people: dict = {}
+    if people_ids:
+        for person in (await db.scalars(select(User).where(User.id.in_(people_ids)))).all():
+            people[person.id] = person
+
+    # Description references drive the attachment order + resolved markdown.
+    referenced: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    for match in _ATTACHMENT_TARGET_RE.finditer(row.description or ""):
+        attachment_id = match.group(2).lower()
+        if attachment_id not in seen:
+            seen.add(attachment_id)
+            referenced.append((attachment_id, match.group(1)))
+
+    ordered_ids = [item[0] for item in referenced]
+    ordered_ids += [
+        str(att.id).lower()
+        for att in attachment_rows
+        if str(att.id).lower() not in seen
+    ]
+    by_id = {str(att.id).lower(): att for att in attachment_rows}
+    ordered_attachments = [by_id[aid] for aid in ordered_ids if aid in by_id]
+    truncated = len(ordered_attachments) > _ATTACHMENTS_PER_RESPONSE
+    visible_attachments = ordered_attachments[:_ATTACHMENTS_PER_RESPONSE]
+
+    markdown_refs = {aid: path for aid, path in referenced}
+    download_urls = {str(att.id).lower(): f"{base_url}/v1/agent/attachments/{att.id}" for att in visible_attachments}
+
+    attachments = [
+        _attachment_dict(
+            att,
+            base_url=base_url,
+            markdown_ref=markdown_refs.get(str(att.id).lower()),
+            created_by=people.get(att.created_by),
+        )
+        for att in visible_attachments
+    ]
+
+    activities: list[dict] = []
+    activities_page: dict | None = None
+    activity_total = 0
+    if include_activities:
+        clauses = await activity_where_clauses(
+            db,
+            acc,
+            project.id,
+            subject_type="ticket",
+            subject_id=row.id,
+            visibility=None if effective_internal else "external",
+        )
+        base = select(Activity).where(*clauses)
+        activity_total = await activity_count(db, base)
+        activity_rows = list(
+            (
+                await db.scalars(
+                    base.order_by(Activity.created_at.desc()).limit(activity_limit)
+                )
+            ).all()
+        )
+        activity_attachments: dict = {}
+        activity_ids = [a.id for a in activity_rows]
+        if activity_ids:
+            for att in (
+                await db.scalars(
+                    select(Attachment).where(Attachment.activity_id.in_(activity_ids))
+                )
+            ).all():
+                activity_attachments.setdefault(att.activity_id, []).append(att)
+        activities = [
+            _activity_dict(
+                item,
+                activity_attachments.get(item.id, []),
+                base_url=base_url,
+                include_email=include_email,
+                people=people,
+            )
+            for item in activity_rows
+        ]
+        has_more = len(activities) < activity_total
+        activities_page = {
+            "total": activity_total,
+            "has_more": has_more,
+            "next_offset": len(activities) if has_more else None,
+            "order": "desc",
+        }
+
+    commit_rows = (
+        await db.execute(
+            select(CommitSubjectRef, GithubCommit)
+            .outerjoin(GithubCommit, CommitSubjectRef.github_commit_id == GithubCommit.id)
+            .where(
+                CommitSubjectRef.subject_type == "ticket",
+                CommitSubjectRef.subject_id == row.id,
+            )
+            .order_by(CommitSubjectRef.created_at.desc())
+        )
+    ).all()
+    linked_commits = []
+    for ref, commit in commit_rows:
+        sha = (commit.sha if commit is not None else ref.sha) or ""
+        message = (commit.message if commit is not None else "") or ""
+        linked_commits.append(
+            {
+                "sha": sha,
+                "short_sha": sha[:7],
+                "html_url": commit.html_url if commit is not None else None,
+                "message_preview": message.splitlines()[0][:120] if message else "",
+                "author_name": commit.author_name if commit is not None else None,
+                "committed_at": _iso(commit.committed_at) if commit is not None else None,
+                "state": "resolved" if commit is not None else "pending",
+            }
+        )
+
+    log.info(
+        "agent.ticket_detail ticket_id=%s project_id=%s activities=%s attachments=%s result=ok",
+        row.id,
+        project.id,
+        activity_total,
+        len(attachments),
+    )
+
+    ticket_payload = {
+        "id": str(row.id),
+        "ref": row.ref,
+        "project_id": str(project.id),
+        "title": row.title,
+        "description": row.description,
+        "description_resolved": _resolved_description(row.description, download_urls),
+        "status": row.status,
+        "priority": row.priority,
+        "queue_slug": row.queue_slug,
+        "requester_email": row.requester_email if include_email else None,
+        "reporter": _person(people.get(row.reporter_id), include_email=include_email),
+        "assignee": _person(people.get(row.assignee_id), include_email=include_email) if row.assignee_id else None,
+        "watchers": [
+            person
+            for person in (
+                _person(people.get(wid), include_email=include_email) for wid in watcher_ids
+            )
+            if person is not None
+        ],
+        "created_at": _iso(row.created_at),
+        "updated_at": _iso(row.updated_at),
+        "first_response_at": _iso(row.first_response_at),
+        "resolved_at": _iso(row.resolved_at),
+        "closed_at": _iso(row.closed_at),
+        "web_url": (
+            f"{web_base}/projects/{project.id}/tickets/{row.id}" if web_base else None
+        ),
+        "counts": {
+            "activities": activity_total if include_activities else 0,
+            "attachments": len(ordered_attachments),
+            "linked_commits": len(linked_commits),
+        },
+        "attachments_truncated": truncated,
+        "attachments": attachments,
+        "linked_commits": linked_commits,
+    }
+    if include_activities:
+        ticket_payload["activities"] = activities
+        ticket_payload["activities_page"] = activities_page
+
+    return _ok(
+        {
+            "agent_api_version": AGENT_API_VERSION,
+            "ticket": ticket_payload,
+            "project": {
+                "id": str(project.id),
+                "name": project.name,
+                "slug": project.slug,
+                "project_key": project.project_key,
+            },
+        }
+    )
+
+
 @router.get("/search")
 async def agent_search(
-    _admin: Annotated[User, Depends(_require_agent_superuser)],
+    _admin: Annotated[User, Depends(require_agent_superuser)],
     db: Annotated[AsyncSession, Depends(get_db)],
     request: Request,
     q: str = Query(min_length=1),

@@ -5,25 +5,27 @@ from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
-from fastapi.responses import FileResponse
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.db import get_db
 from app.deps import get_current_user
-from app.models.activity import Activity
 from app.models.attachment import Attachment
 from app.models.task import Task
 from app.models.ticket import Ticket
 from app.models.user import User
 from app.schemas import AttachmentMetaOut, AttachmentOut
+from app.services.attachment_serve import (
+    is_attachment_visible,
+    resolve_attachment,
+    serve_attachment,
+)
 from app.services.attachment_storage import path_for_key
 from app.services.file_sniff import ALLOWED_MIMES, MIME_TO_EXT, sniff_file_mime
 from app.services.project_access import (
     ProjectAccess,
     can_mutate_tasks,
-    is_client_participant,
     require_project_access,
 )
 
@@ -68,24 +70,6 @@ def _safe_filename(name: str | None) -> str:
     if not base or base in {".", ".."}:
         base = "image"
     return base[:500]
-
-
-async def _assert_attachment_visible(
-    db: AsyncSession,
-    acc: ProjectAccess,
-    row: Attachment,
-) -> None:
-    """Hide files attached to internal notes from client participants.
-
-    The activity feed already filters internal rows out for clients; without
-    this check a client who learns an attachment UUID could still download the
-    file. Staff access is unchanged.
-    """
-    if not is_client_participant(acc) or row.activity_id is None:
-        return
-    activity = await db.get(Activity, row.activity_id)
-    if activity is not None and activity.is_internal:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Attachment not found")
 
 
 @ticket_router.post("", response_model=AttachmentOut, status_code=status.HTTP_201_CREATED)
@@ -249,9 +233,7 @@ async def list_attachment_meta(
         project_acc = access[row.project_id]
         if project_acc is None:
             continue
-        try:
-            await _assert_attachment_visible(db, project_acc, row)
-        except HTTPException:
+        if not await is_attachment_visible(db, project_acc, row):
             continue
         items.append(AttachmentMetaOut.model_validate(row))
     return items
@@ -263,20 +245,5 @@ async def download_attachment(
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    row = await db.get(Attachment, attachment_id)
-    if row is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Attachment not found")
-    acc = await require_project_access(db, user, row.project_id)
-    await _assert_attachment_visible(db, acc, row)
-    try:
-        path = path_for_key(row.storage_key)
-    except ValueError:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Attachment not found") from None
-    if not path.is_file():
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Attachment file missing")
-    return FileResponse(
-        path,
-        media_type=row.mime,
-        filename=row.filename,
-        content_disposition_type="inline",
-    )
+    row, _acc = await resolve_attachment(db, user, attachment_id)
+    return serve_attachment(row)

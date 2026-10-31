@@ -1,5 +1,13 @@
 # SKILL: project-query-setup
 
+> **Historical record — not the install source.** This dated copy (2026-07-01) is kept for
+> traceability. The canonical `project-query-setup` skill lives in the Agent OS repository at
+> `/mnt/work/Projects/pilo.ai.logicbison/skills/project-query-setup/` and has moved on since
+> (MCP registry, update path, Cloudflare-safe User-Agent). Use
+> [`../../tutorials/LLM-2-API_SETUP.md`](../../tutorials/LLM-2-API_SETUP.md) and
+> [`../../agent-query-api.md`](../../agent-query-api.md) for current instructions; do not edit
+> this copy expect as a historical correction.
+
 **Purpose:** Guide user through connecting their coding agent to tools-project, and teach it to query tasks, tickets, projects, and clients for context-aware work.
 
 **Deploy to:** Any Agent OS framework (`.ai`, `.ai.ui`, `.ai.biz`, `.ai.soc`) — optional integration.

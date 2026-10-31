@@ -1,7 +1,7 @@
 {
-  "ref": "REPLACE:PROJECT_REF",
-  "updated": "YYYY-MM-DD",
-  "goal": "one-line session or task goal",
-  "allowed_paths": [],
+  "ref": "AQA-P0",
+  "updated": "2026-10-30",
+  "goal": "Agent Query API 1.1.0 P0 (SPEC amendment 01, Approved): ticket detail + attachment reads, MCP hardening; planning docs for the same feature",
+  "allowed_paths": [".work/"],
   "allowed_patterns": []
 }

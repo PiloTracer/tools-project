@@ -6,7 +6,7 @@
 
 **Schema:** declarative **`sql/`** only — no Alembic. On API startup: `schema_changes.sql` → `schema_indexes.sql` → bootstrap → `schema_backfill.sql` → `schema_inserts.sql`.
 
-****Latest (repo):** **2026-10-30** — production Activity tab repaired and verified (kind alias, task/ticket attachment routing, internal reply boundary, pagination, live SSE, non-image attachments, client visibility; 80 API tests, web lint/build, headless-Chrome E2E); **production deploy pending**. Next session: agent-query-api SPEC amendment 01. Prior: **2026-10-07** — chore session, **no application code changed**: the lead-generation exploration was **discarded** and the repo sanitized (its research docs removed, tree restored to pre-session state, 187 MB of untracked research-subagent downloads deleted), and `.cursorrules` was repaired — **67 paths pointed at `/mnt/work/Projects/.ai`, which does not exist**; all now resolve to the real source/sisters (`pilo.ai.logicbison`, `pilo.ai.ui.logicbison`, `pilo.ai.biz.logicbison`), `cursorrules-verify.sh` PASS. Operator-committed **`c5b11ba`** — **branch ahead 1, not pushed**. Prior: **2026-09-29** — plan-sync P1 complete: milestones + plan-import API shipped, all gates green (ruff, pyright, 49 tests), migration idempotent across restart×2, live smoke test passed. Prior: **2026-07-07** — Multi-tenancy implementation verified and repaired: all lint/type/test/DDL gates green (33 tests pass). Feature remains gated behind `MULTI_TENANCY_ENABLED=false`; default tenant backfill keeps existing single-tenant behavior working.
+****Latest (repo):** **2026-10-30 (session 2)** — **agent-query-api SPEC amendment 01 verified and corrected** against code + the deployed `0.1.3` API; four blockers/majors fixed in the draft (MCP Cloudflare `User-Agent`, R10 build-context, client-participant subject visibility, public base URLs) + 16 further corrections; verification report `.work/features/agent-query-api/20261030-amendment-01-verification.md`; agent docs rewritten (reference, decision guide, setup tutorial, repo integration, new ticket-context tutorial). **No code changed; implementation pending D1–D3.** Prior: **2026-10-30** — production Activity tab repaired and verified (kind alias, task/ticket attachment routing, internal reply boundary, pagination, live SSE, non-image attachments, client visibility; 80 API tests, web lint/build, headless-Chrome E2E); production deploy pending. Prior: **2026-10-07** — chore session, **no application code changed**: the lead-generation exploration was **discarded** and the repo sanitized (its research docs removed, tree restored to pre-session state, 187 MB of untracked research-subagent downloads deleted), and `.cursorrules` was repaired — **67 paths pointed at `/mnt/work/Projects/.ai`, which does not exist**; all now resolve to the real source/sisters (`pilo.ai.logicbison`, `pilo.ai.ui.logicbison`, `pilo.ai.biz.logicbison`), `cursorrules-verify.sh` PASS. Operator-committed **`c5b11ba`** — **branch ahead 1, not pushed**. Prior: **2026-09-29** — plan-sync P1 complete: milestones + plan-import API shipped, all gates green (ruff, pyright, 49 tests), migration idempotent across restart×2, live smoke test passed. Prior: **2026-07-07** — Multi-tenancy implementation verified and repaired: all lint/type/test/DDL gates green (33 tests pass). Feature remains gated behind `MULTI_TENANCY_ENABLED=false`; default tenant backfill keeps existing single-tenant behavior working.
 
 ### Status at a glance (visual)
 
@@ -27,15 +27,13 @@ Pen test rem.   ████████████████████  9/
 Multi-tenancy   ████████████████████  Done  (implementation verified; 33 tests pass)
 
 Open: **production deploy pending** for the Activity repair (committed this session) · **skills-table reconciliation pending owner go-ahead** in `.cursorrules` (remove the stale `deploy-repo` row; add **`plan-sync`** and **`infra-terraform`**, which the framework ships but this table omits) · Mendarion's own gates live in that repo. Cross-LLM verification of the plan-sync P1 commit `11432fe` — **PASS 2026-09-30** (see HANDOFF § Cross-LLM verification) — **discharged**
-Active: **Activity tab repair complete** (kind validation, attachments, internal replies, pagination, live SSE, client visibility; 80 tests) — **awaiting production deploy** · **TNT iteration complete** (tenant context: single-tenant writes + multi-tenant selection; stack control plane + env-file contract) — **committed 2026-09-30**
+Active: **Activity tab repair complete** (kind validation, attachments, internal replies, pagination, live SSE, client visibility; 80 tests) — **awaiting production deploy** · **TNT iteration complete** (tenant context: single-tenant writes + multi-tenant selection; stack control plane + env-file contract) — **committed 2026-09-30** · **agent-query-api P0 complete (2026-10-30)** — ticket detail + attachment reads + MCP tools implemented, 128 tests green, live dev-stack verified; **hosted deploy pending (owner)**
 
 ### Recommended next
-**Recommended next (one):** verify/adjust/implement `.work/features/agent-query-api/20261030-SPEC-amendment-01.md` — **Agent Ticket Context & Attachments** (Draft, owner review pending). Run `@feature-spec review - <path>` first, then implement. The Activity repair is complete in code and needs only a production deploy.
+**Recommended next (one):** **verify all of today's changes** (owner directive 2026-10-30) — `@code-verify last` on the close commit (working tree should be clean), including the MCP end-to-end path and the doc set; then a cross-model review of the authorization boundary. After that: deploy a **1.1.0** build and run the R22 acceptance on the hosted instance (detail by ref, comment thread, the three PZT screenshots, capabilities, downloaded MCP file), then plan **AQA P1** (`GET /v1/agent/tickets/{ticket}/activities` + MCP `list_ticket_activities` + client-visibility tests #9–#11) and **P2** (capabilities, context counts fix, `project_id` filter, R20 index, served MCP file, framework `update` verb). The Activity repair is complete in code and needs only a production deploy.
 
-### Next session — agent-query-api SPEC amendment 01
-**File:** `.work/features/agent-query-api/20261030-SPEC-amendment-01.md` (Draft)
-**Order:** `@feature-spec review - <path>` → adjust the SPEC → `@code-implementation` (ticket-detail read, activity read, binary attachment read, MCP tools).
-**Why:** agents using the Agent Query API can read a ticket's title/description but not its screenshots, comment thread, attachment metadata, or lifecycle data (SPEC §1.2, Pizote PZT-T-1…PZT-T-4). The activity/attachment APIs and client-visibility rules shipped this session are the foundation.
+### Next session — verify today's changes (owner directive)
+Run `@code-verify last` on the close commit, re-run the MCP end-to-end checks, review the doc set for coherence, and record the cross-model/human review of the authorization boundary. Then deploy the 1.1.0 build, run R22, and `@code-implementation plan` for AQA P1.
 
 **Backlog (queued, not this next session):**
 
@@ -49,7 +47,115 @@ Active: **Activity tab repair complete** (kind validation, attachments, internal
 
 ### Intake queue
 - 2026-07-06 · local · "assess making this app multi-tenant" → SPEC created at `.work/features/multi-tenancy/20260706-SPEC.md` (Draft)
-- 2026-10-30 · production · Activity tab repair completed (see `HANDOFF.md` § Activity tab repair) → next session: verify/adjust/implement `.work/features/agent-query-api/20261030-SPEC-amendment-01.md` (Agent Ticket Context & Attachments, Draft).
+- 2026-10-30 · production · Activity tab repair completed (see `HANDOFF.md` § Activity tab repair) → verified/corrected and **Approved 2026-10-30**; P0 iteration block ready (`20261030-SPEC-amendment-01.md`).
+
+## Current iteration — AQA P0: ticket detail + attachment reads (agent API 1.1.0)
+
+**Milestone ref:** AQA-P0 · source: `.work/features/agent-query-api/20261030-SPEC-amendment-01.md` (**Approved 2026-10-30**) §12 P0 · base SPEC `20260701-SPEC.md` (Approved, immutable)
+**Status:** complete — 2026-10-30 (all tasks done; deployment + human review are owner actions)
+**Started / Completed:** 2026-10-30 / 2026-10-30
+**Trigger:** agents can read a ticket's title/description but not its screenshot evidence or comment thread (Pizote PZT-T-1…T-4). Verified live 2026-10-30: detail `404`, attachment bytes `401`, activity `401`, context counts `0/0/0`, ticket URL `307 /login`.
+**Plan gate waiver:** AQA P0 executes from the feature SPEC above, outside the full-plan milestones (M1–M4 are shipped). Recorded per `@code-implementation` ST0.
+
+### In scope
+- P0 only (amendment §12): MCP Cloudflare-safe `User-Agent` + `SERVER_VERSION`/`--version`/`--self-check` (R9, I12); shared activity filter/visibility builder (R6 support); attachment serving helper + `GET /v1/agent/attachments/{id}` (R7); `GET /v1/agent/tickets/{ticket}` (R1–R5) with the inline activity page; MCP `get_ticket_detail` + `get_attachment` (R9); tests #1–#8, #12–#17, #23, #24, #26; docs for what ships (R21).
+
+### Out of scope (explicit)
+- P1/P2: `GET /v1/agent/tickets/{ticket}/activities` (P1); capabilities endpoint, served MCP file, context counts fix, `project_id` filter, R20 index, framework skill `update` verb (P2)
+- Any write/comment/upload path, web UI change, new table, or migration framework
+- ~~Compose/`.env` edits for `PUBLIC_*_BASE_URL` until **D2** approval~~ → **D2 approved 2026-10-30** (owner: "all approved"); the edits land in AQA-T4
+
+### Tasks
+| ID | Description | Files | Status | Notes |
+|----|-------------|-------|--------|-------|
+| AQA-T1 | MCP: Cloudflare-safe `User-Agent`, `SERVER_VERSION`, `--version`, `--self-check` (tolerates a 404 capabilities), error text without the key; canonical module moved into the API package so the in-container suite can test it (new files: `api/app/client/__init__.py`, `api/app/client/mcp_server.py`, `api/tests/test_mcp_server.py`; `.opencode/...` is a byte-identical copy) | `api/app/client/__init__.py`, `api/app/client/mcp_server.py`, `.opencode/mcp/project-mcp/mcp_server.py`, `api/tests/test_mcp_server.py` | **done** | R9, I12; tests #24, #26; scope expansion declared — see Progress log |
+| AQA-T2 | Shared activity filter/visibility builder (used by the inline page in T4 and by the P1 route); web list + SSE refactored onto it (new files: `api/app/services/activity_query.py`, `api/tests/test_activity_query.py`) | `api/app/services/activity_query.py`, `api/app/routers/activities.py`, `api/tests/test_activity_query.py` | **done** | R6, C3 — no duplicate filter logic; see Progress log |
+| AQA-T3 | Extract attachment serving (lookup + visibility + headers) and add the agent binary route; agent-superuser gate moved to `deps.require_agent_superuser` so both routers share it | `api/app/services/attachment_serve.py`, `api/app/routers/attachments.py`, `api/app/routers/agent_attachments.py`, `api/app/routers/agent_query.py`, `api/app/deps.py`, `api/app/main.py`, `api/tests/test_agent_ticket_context.py` | **done** | R7, I3, I4, I7, I11; web route now also enforces subject visibility + `attachment_not_found`; see Progress log |
+| AQA-T4 | Ticket detail endpoint (UUID/ref, people, counts, attachments, resolved description, inline activity page, linked commits, `web_url`) + public base URLs in Settings + D2 compose wiring; payloads are dicts (no new Pydantic models needed — matches the existing agent routes) | `api/app/routers/agent_query.py`, `api/app/services/public_urls.py`, `api/app/config.py`, `docker-compose.dev.yml`, `docker-compose.prd.yml`, `api/tests/test_agent_ticket_context.py`, `api/tests/test_public_urls.py` | **done** | R1–R5, I6, I8, I11; D2 approved 2026-10-30; live-verified on the dev stack |
+| AQA-T5 | MCP tools `get_ticket_detail`, `get_attachment` (image/text/save + sha256, size caps, save-dir containment) | `api/app/client/mcp_server.py`, `.opencode/mcp/project-mcp/mcp_server.py`, `api/tests/test_mcp_server.py` | **done** | R9; test #23 |
+| AQA-T6 | Tests `api/tests/test_agent_ticket_context.py`, `api/tests/test_mcp_server.py` (#1–#8, #12–#17, #23, #24, #26) | `api/tests/test_agent_ticket_context.py`, `api/tests/test_mcp_server.py` | **done** | 40 feature tests (21 router + 19 MCP); #11 client-visibility rule exercised via the shared helper because of the superuser gate |
+| AQA-T7 | Refresh gates + docs for what ships; R22 subset on the dev stack (detail, download, MCP self-check); docs marked implemented/pending deployment | `.work/docs/agent-query-api.md`, `.work/docs/tutorials/AGENT_TICKET_CONTEXT.md`, `.work/docs/tutorials/LLM-2-API_SETUP.md`, `.work/docs/tutorials/REPO_INTEGRATION.md`, `.work/docs/guides/quick-reference-to-connect-agent-with-tools-project.md` | **done** | hosted R22 remains an owner deployment action |
+
+### Done this iteration
+
+| Task | Completed | Summary |
+|------|-----------|---------|
+| AQA-T1 | 2026-10-30 | MCP `User-Agent` + `SERVER_VERSION`/`--version`/`--self-check`; canonical module packaged at `api/app/client/mcp_server.py` |
+| AQA-T2 | 2026-10-30 | Shared activity filter/visibility builder used by the web list, SSE and (T4) the detail page |
+| AQA-T3 | 2026-10-30 | Shared attachment resolver + `GET /v1/agent/attachments/{id}`; web route delegates and enforces subject visibility |
+| AQA-T4 | 2026-10-30 | `GET /v1/agent/tickets/{ticket}` + public base URLs + D2 compose wiring; live-verified |
+| AQA-T5 | 2026-10-30 | MCP `get_ticket_detail` + `get_attachment` (image/text/save, caps, containment) |
+| AQA-T6 | 2026-10-30 | 128 tests total; 40 feature tests (#1–#8, #12–#17, #23, #24, #26) |
+| AQA-T7 | 2026-10-30 | Docs updated to "implemented, pending deployment"; dev-stack acceptance subset + host `--self-check` |
+
+### Progress log
+
+- **2026-10-30 — AQA-T1 done.** Gate: `ruff check .` clean · `pyright .` 0 errors · `pytest tests/test_mcp_server.py` **11 passed** · full `pytest tests/` **91 passed** (in the API container, dev stack with `POSTGRES_HOST_PORT=55439` override because host port 55433 is held by another project's `pg-acb`).
+  - **Scope expansion (declared before marking done):** the canonical MCP server moved from `.opencode/...` to `api/app/client/mcp_server.py` so the in-container suite can import it — SPEC §11 places `api/tests/test_mcp_server.py` against `app.client.mcp_server`, and the API image/container never sees `.opencode/`. `.opencode/mcp/project-mcp/mcp_server.py` is now a byte-identical copy (md5 `5e86229…`); the served-file endpoint stays P2.
+  - **Implemented:** `SERVER_VERSION = 1.1.0` as the single version source (`initialize.serverInfo.version`); `User-Agent: tools-project-mcp/<version>` on every request with `MCP_USER_AGENT` override; `--version`; `--self-check` (base URL + source, key presence, lazy capabilities probe — 404 = old API, not a failure); errors never include the key.
+  - **Host verification against the hosted API:** `--self-check` exit 0 (`capabilities: unavailable (deployed API predates agent API 1.1.0)`); `tools/call list_projects` → `"ok": true` (the Cloudflare 403 regression is gone for this repository).
+  - **SC1:** (1) scope drift — the canonical move + two test/support files, declared above; (2) 3-month failure mode — a consumer copy predating the UA header looks healthy and fails every call, mitigated by the header test + `--self-check`; (3) assumed unchanged — `opencode.json` and `api/app/main.py` still point at `.opencode/…` (re-read this session); (4) coverage — UA, env override, no-key, version, self-check paths covered; served-file byte identity is P2 (#22); (5) warnings — 0 lint/type warnings in touched files.
+
+- **2026-10-30 — AQA-T2 done.** Gate: `ruff check .` clean · `pyright .` 0 errors · scoped `pytest tests/test_activity_query.py tests/test_activities.py` **16 passed** · full `pytest tests/` **96 passed**.
+  - Extracted `app/services/activity_query.py`: `activity_where_clauses` (project/subject/kind/visibility + client-participant rule), `activity_count`, `activity_order`, `activity_page`, `normalize_visibility` (accepts `all`), `assert_visibility_allowed` (403 for a client requesting `internal`).
+  - Both existing web paths now use it: the list feed and the SSE stream — the duplicated `is_internal` + `client_activity_condition` block is gone.
+  - Tests: `api/tests/test_activity_query.py` (5 cases: normalization, client 403, staff pass, order direction); endpoint behaviour unchanged (11 activity tests + full suite green).
+  - **SC1:** (1) scope drift — one extra test file, declared here; (2) failure mode — a future route that forgets `assert_visibility_allowed` would return external rows instead of the `403` for a client asking `internal` (data stays safe, contract drifts); (3) assumed unchanged — `client_activity_condition` semantics and `create_activity` visibility rules (re-read this session); (4) coverage — helper units + endpoint behaviours both covered; (5) warnings — 0.
+
+- **2026-10-30 — Batch-end sweep (T1–T2): pass with conditions.** touch-scope **pass** (scope declared in `.work/touch-scope` → `.work/` + iteration Files) · blast-radius **warn** (`files=21 lines~=2234 areas_crossed=3`, all files in declared scope) · MOD-06 output [`.work/reports/20261030-aqa-p0-mod06.md`](reports/20261030-aqa-p0-mod06.md) validates (`mod06-output: pass`) · secrets scan clean · ruff/pyright/pytest green. Condition: second reviewer before `complete` (authorization boundary) and `@code-verify milestone`.
+- **Cross-task self-review:** no refactor leftovers (`client_activity_condition` and `func` imports removed; every helper in `activity_query.py` is used by the list route, the SSE stream, or both); no renames with stale call-sites; the only file touched by more than one task so far is `NEXT.md` (bookkeeping); T1 (client artifact) and T2 (API service) do not interact.
+
+- **2026-10-30 — AQA-T3 done.** Gate: `ruff check .` clean · `pyright .` 0 errors · scoped `pytest tests/test_agent_ticket_context.py` **11 passed** · full `pytest tests/` **107 passed**.
+  - New `app/services/attachment_serve.py`: `resolve_attachment` (single opaque 404 for unknown/foreign/hidden), `is_attachment_visible` (internal-note + client subject visibility for ticket/task/activity/project-scoped files), `serve_attachment` (mime allowlist, traversal-safe path, `inline`/`attachment` disposition, `no-store`/`nosniff`/`CSP: sandbox`/`no-referrer`, ETag removed), `content_disposition_filename` (CR/LF/quote strip, 200 cap).
+  - New `app/routers/agent_attachments.py` → `GET /v1/agent/attachments/{id}` (+`?download=1`) with the `agent.attachment_read` log line; registered in `main.py`.
+  - Shared gate moved to `deps.require_agent_superuser`; `agent_query.py` now imports it (no router-to-router dependency).
+  - **Deliberate web-path changes (flagged):** the JWT download route reuses the shared resolver, so its 404 detail is now `attachment_not_found` (was `Attachment not found`) and client participants are denied ticket/task attachments on subjects not assigned to their company — closes the pre-existing "client with a known UUID" gap (I11). The batch metadata route uses the same predicate.
+  - Tests: `api/tests/test_agent_ticket_context.py` — 11 cases (bytes/headers/ETag, personal key, 401, non-superuser 403, unknown, traversal, disallowed mime, disposition, internal note, subject visibility, `can_view_tickets=false`).
+  - **SC1:** (1) scope drift — `deps.py`/`agent_query.py`/`main.py` + the test file, declared above; (2) failure mode — the shared resolver's broadened client rule could deny a legitimate client who used to fetch by UUID, which is the intended tightening but a behaviour change for the client portal; (3) assumed unchanged — `path_for_key` traversal semantics and the activity attachment linkage (`activity_id` set on comment posts), re-read; (4) coverage — all route outcomes covered; the agent route cannot exercise client visibility until the gate relaxes (tests use the shared resolver + web route); (5) warnings — 0.
+
+- **2026-10-30 — Batch-end sweep (T1–T3): pass with conditions.** touch-scope **pass** · blast-radius **warn** (`files=28 lines~=2344 areas_crossed=3`, all in declared scope) · MOD-06 output [`.work/reports/20261030-aqa-p0-mod06.md`](reports/20261030-aqa-p0-mod06.md) updated for T3 and validates · secrets clean · ruff/pyright/pytest green.
+- **Cross-task self-review (T1–T3):** `_assert_attachment_visible` and `_require_agent_superuser` fully replaced (grep clean); `attachments.py` now delegates to the shared resolver (no duplicate download logic); `agent_query.py` imports the shared gate; no file is owned by more than one task except `NEXT.md`; the only behaviour change on a live path is the web attachment 404 code + client subject rule, flagged in T3 and in MOD-06.
+
+- **2026-10-30 — AQA-T4 done.** Gate: `ruff check .` clean · `pyright .` 0 errors · full `pytest tests/` **125 passed** (detail tests added) · live check on the dev stack.
+  - `GET /v1/agent/tickets/{ticket}`: UUID/ref addressing (case-insensitive, tenant-scoped), project access + client subject visibility, people (emails staff-only), counts, attachments (description-referenced first, cap 200 + `attachments_truncated`), `description_resolved`, inline newest-first activity page using the shared builder, linked commits (resolved + pending), `web_url`.
+  - New `app/services/public_urls.py`; `PUBLIC_API_BASE_URL`/`PUBLIC_WEB_BASE_URL` settings; compose dev/prd pass `NEXT_PUBLIC_API_BASE_URL`/`PUBLIC_ORIGIN` into them (D2 approved) — resolved config shows `http://localhost:8300` / `http://localhost:18513`.
+  - Live dev-stack check: detail by UUID returned counts `{activities: 1, attachments: 1}`, `web_url`, resolved description with the agent download URL, attachment metadata; download streamed `image/png` with `no-store`/`nosniff`/`CSP: sandbox`/`no-referrer`, no ETag, identical bytes, `?download=1` → `attachment`.
+  - Note: the live dev project's `project_key` was only set after creation, so the smoke ticket has no `ref`; ref addressing is covered by test #1 (by-ref equals by-UUID).
+  - **SC1:** (1) scope drift — `public_urls.py` + compose files, declared; payloads built as dicts instead of new Pydantic models (documented); (2) failure mode — `web_url` depends on `PUBLIC_ORIGIN` being correct in the deployment env (it is the documented web origin); (3) assumed unchanged — `Ticket.ref` uniqueness and `resolve_attachment` semantics; (4) coverage — detail tests cover auth, tenant, refs, caps, commits, watchers; (5) warnings — 0.
+- **2026-10-30 — AQA-T5 done.** Gate: ruff/pyright clean · `pytest tests/test_mcp_server.py` **19 passed** · full suite green.
+  - Added `get_ticket_detail` (path + query mapping) and `get_attachment` (image block ≤ 5 MiB, text ≤ 1 MiB, otherwise save + sha256; env-tunable caps; filename sanitisation; save-dir containment; errors as text). Copy synced (md5 equal).
+  - **SC1:** (1) no drift beyond the two files + tests; (2) failure mode — a consumer's stale copy hides the tools until refreshed (`--self-check` reports the version); (3) assumed unchanged — the API's `Content-Type`/`Content-Disposition` headers; (4) coverage — image, text, oversize/save, traversal, error, path building; (5) warnings — 0.
+- **2026-10-30 — AQA-T6 done.** 40 feature tests: 21 in `test_agent_ticket_context.py` (attachments + detail #1–#8/#12–#17/#23) and 19 in `test_mcp_server.py` (client hardening + tools #24/#26/#23).
+
+### Acceptance criteria
+- [x] `GET /v1/agent/tickets/{uuid|ref}` returns the ticket with `counts`, `attachments[]`, `description_resolved`, `activities_page`, `linked_commits` (dev stack + tests; hosted pending deploy)
+- [x] `GET /v1/agent/attachments/{id}` streams `image/png` with the R7 headers; internal-note/invisible-subject/unknown → `404` (tests + dev stack; the three PZT screenshots are the hosted R22 check)
+- [x] MCP `get_attachment` returns an `image` block (dev stack end-to-end); a copy without `User-Agent` fails test #24
+- [x] Unknown/foreign ticket/attachment = `404` with the stable `detail` code; no `storage_key` in any JSON (tests)
+- [x] `ruff`, `pyright`, `pytest` green in the API container — **128 passed**; amendment tests #1–#8, #12–#17, #23, #24, #26 pass
+
+### Validation steps
+- [x] Container gates 2026-10-30: `ruff check .` clean · `pyright .` 0 errors · `pytest tests/ -q` **128 passed** (dev stack; postgres host port overridden to 55439 because 55433 is held by `pg-acb`)
+- [ ] **Not run** — deployed acceptance subset (R22) needs a 1.1.0 build (owner action); the dev-stack equivalent passed (detail by UUID, download headers/bytes, MCP `get_ticket_detail`/`get_attachment`)
+- [x] `python3 .opencode/mcp/project-mcp/mcp_server.py --self-check` (host, remote key) — exit 0, 7 tools, capabilities unavailable on `0.1.3`
+
+### Owner blockers
+- ~~**D2**~~ — approved 2026-10-30; compose wiring landed in T4.
+- **Owner actions remaining:** deploy a 1.1.0 build, refresh consumer MCP copies, run hosted R22, and record the human/cross-model review for the authorization boundary (see `.work/reports/20261030-aqa-p0-milestone-verify.md` § Gaps).
+
+### Concept / NFR registry (this iteration)
+| Concept id | Applies | Status | Evidence / trigger |
+|------------|---------|--------|-------------------|
+| MOD-01 | yes | done | 4 boundaries (services/routers, deps, compose config, MCP client), no cross-context imports — MOD-06 report § boundaries |
+| MOD-02 | no | n-a | No new synchronous hop beyond the existing MCP→API calls |
+| MOD-03 | no | n-a | No billable unit |
+| MOD-04 | no | n-a | No new deployable; one new client file |
+| MOD-05 | yes | done | Emails staff-only (tests), attachment access role-scoped (subject visibility tests), audit lines carry ids only |
+| MOD-06 | **yes** | done | `.work/reports/20261030-aqa-p0-mod06.md` — `mod06-output-check.sh` pass; recommendation `merge_with_conditions` |
+| MOD-07 | no | n-a | No app-side LLM prompt composition |
+| MOD-08 | no | n-a | No IaC change |
+
+---
 
 ## Current iteration — TNT: tenant context (single-tenant writes + multi-tenant selection)
 

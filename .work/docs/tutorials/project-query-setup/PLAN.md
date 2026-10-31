@@ -1,5 +1,13 @@
 # Deploy Project Query to Agent OS — Full Plan
 
+> **Historical record — not the install source.** This dated copy (2026-07-01) is kept for
+> traceability. The canonical `project-query-setup` skill lives in the Agent OS repository at
+> `/mnt/work/Projects/pilo.ai.logicbison/skills/project-query-setup/` and has moved on since
+> (MCP registry, update path, Cloudflare-safe User-Agent). Use
+> [`../../tutorials/LLM-2-API_SETUP.md`](../../tutorials/LLM-2-API_SETUP.md) and
+> [`../../agent-query-api.md`](../../agent-query-api.md) for current instructions; do not edit
+> this copy expect as a historical correction.
+
 **Date:** 2026-07-01
 **Artifacts prepared:** `skill.md`, `reference.md` under `/tmp/opencode/project-query-setup/`
 **Tutorial:** `/mnt/work/Projects/tools-project/.work/docs/tutorials/LLM-2-API_SETUP.md`
