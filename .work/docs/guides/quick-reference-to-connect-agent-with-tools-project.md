@@ -30,7 +30,7 @@ LedgerLite); Case C is repo plumbing, not an agent capability.
 3. **MCP registration** — copy the MCP server into the repo (`.opencode/mcp/project-mcp/`) and
    register `python3 .opencode/mcp/project-mcp/mcp_server.py` in the agent config.
 
-**What the agent can then do** (5 tools today, 8 after `agent_api_version 1.1.0`):
+**What the agent can then do** (5 tools on a `1.0.0` deployment; 8 once `1.1.0` is deployed):
 
 | Today | After 1.1.0 |
 |-------|-------------|
@@ -68,7 +68,7 @@ Four independent capabilities (mix as needed). All verified against the code on 
 | **Identity** — who is calling, and which client companies they belong to | `GET /v1/platform/whoami` | personal API key or Bearer | Returns the user + linked companies; the same `require_agent_or_user` as the agent routes |
 | **Events out** — react to prospect/client/task/ticket changes | subscribe via `POST /v1/admin/webhook-subscriptions` | superuser JWT | Payloads are HMAC-SHA256 signed: `X-Webhook-Signature: sha256=<hex>`. Events: `prospect.won`, `prospect.stage_changed`, `client.created`, `task.done`, `ticket.created`, `ticket.closed`. List/delete: `GET`/`DELETE` the same route |
 | **Cross-app linking** — attach your app's objects to a task/ticket | `POST`/`GET /v1/projects/{id}/external-refs`, `DELETE /v1/projects/{id}/external-refs/{ref_id}` | Bearer | Stored as commit-subject refs with `source_app`/`external_id`/`external_url`; each POST also writes an internal system activity |
-| **Inbound automation** — push an award into tools-project | `POST /v1/integrations/rfp/award` | `X-RFP-Signature` (shared secret) | The reference implementation for a new inbound channel |
+| **Inbound automation** — push an award into tools-project | `POST /v1/integrations/rfp/award` | `X-Webhook-Signature: sha256=<hmac>` (shared secret) | The reference implementation for a new inbound channel; optional `X-Idempotency-Key` |
 
 Rules that matter:
 
@@ -81,6 +81,9 @@ Rules that matter:
   internal activity entry.
 
 Environment: `RFP_WEBHOOK_SECRET` (inbound), per-subscription `hmac_secret` (outbound).
+
+Full contract — auth matrix, event catalogue with payload fields, signature verification, idempotency, known limitations:
+[`../reference/APP_INTEGRATION.md`](../reference/APP_INTEGRATION.md).
 
 ---
 
@@ -105,6 +108,8 @@ Walkthrough and gotchas: [`tutorials/REPO_INTEGRATION.md`](../tutorials/REPO_INT
 | What exactly does each endpoint or MCP tool return? | [`agent-query-api.md`](../agent-query-api.md) |
 | How do I read a ticket with its comments and screenshots? | [`tutorials/AGENT_TICKET_CONTEXT.md`](../tutorials/AGENT_TICKET_CONTEXT.md) (**1.1.0**) |
 | How do I link commits / import a plan? | [`tutorials/REPO_INTEGRATION.md`](../tutorials/REPO_INTEGRATION.md) |
+| How does my application integrate (identity, webhooks, refs, inbound)? | [`reference/APP_INTEGRATION.md`](../reference/APP_INTEGRATION.md) |
+| Where is the full REST map? | [`reference/API.md`](../reference/API.md) |
 | Which integration path do I choose? | This file |
 | What is *planned* vs *live*? | [`agent-query-api.md` §1](../agent-query-api.md#1-what-you-get) |
 

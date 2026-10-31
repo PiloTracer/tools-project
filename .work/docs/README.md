@@ -17,3 +17,5 @@ Human-readable documentation: guides, tutorials, reference material, and feature
 - **`.work/docs/features/<slug>/README.md`** — human-readable feature documentation (for users, operators, brownfield discovery)
 
 **Create:** `@docs create guide - <slug>` · `@docs create tutorial - <slug>` · `@docs create reference - <slug>` · `@feature-spec document - <slug>` (brownfield feat. docs)
+
+**Integrating with tools-project?** Start at [`guides/quick-reference-to-connect-agent-with-tools-project.md`](guides/quick-reference-to-connect-agent-with-tools-project.md) — it routes to the agent (MCP), application, or repository path. The contract lives in [`agent-query-api.md`](agent-query-api.md) and [`reference/APP_INTEGRATION.md`](reference/APP_INTEGRATION.md).

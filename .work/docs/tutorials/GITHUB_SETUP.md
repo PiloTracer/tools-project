@@ -6,7 +6,7 @@ Link your project to a GitHub repo for automatic commit syncing.
 
 - A project in tools-project
 - A GitHub repository you own or have admin access to
-- A GitHub personal access token (PAT) with `Contents: read` permission
+- A GitHub personal access token (PAT) with `Contents: read` — or `Contents: read and write` if you will enable the task-registry push (**Settings → GitHub task registry**)
 
 ## Step 1: Generate a GitHub PAT
 
@@ -15,7 +15,7 @@ Link your project to a GitHub repo for automatic commit syncing.
    - **Token name:** "tools-project"
    - **Repository access:** "Only select repositories"
    - Select the repo you want to link
-   - **Permissions → Contents:** "Read-only"
+   - **Permissions → Contents:** "Read-only" (switch to "Read and write" only if the task-registry push is enabled; see [`../guides/GITHUB.md`](../guides/GITHUB.md))
 3. Click **Generate token** and copy the token value.
 
 ## Step 2: Link the repository

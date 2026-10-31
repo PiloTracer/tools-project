@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import secrets
 import uuid
+from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
@@ -30,6 +31,8 @@ class WebhookSubscriptionOut(BaseModel):
     url: str
     events: list[str]
     hmac_secret: str = ""
+    #: Last successful delivery — lets integrators monitor their endpoint.
+    last_delivered_at: datetime | None = None
 
 
 class WebhookSubscriptionList(BaseModel):
@@ -64,7 +67,8 @@ async def create_webhook_subscription(
     await db.commit()
     await db.refresh(sub)
     return WebhookSubscriptionOut(
-        id=sub.id, label=sub.label, url=sub.url, events=sub.events, hmac_secret=secret,
+        id=sub.id, label=sub.label, url=sub.url, events=sub.events,
+        hmac_secret=secret, last_delivered_at=sub.last_delivered_at,
     )
 
 
@@ -87,6 +91,7 @@ async def list_webhook_subscriptions(
         WebhookSubscriptionOut(
             id=r.id, label=r.label, url=r.url, events=r.events,
             hmac_secret=_mask_secret(r.hmac_secret),
+            last_delivered_at=r.last_delivered_at,
         )
         for r in rows
     ])

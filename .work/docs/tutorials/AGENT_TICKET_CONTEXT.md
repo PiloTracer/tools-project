@@ -1,6 +1,6 @@
 # Tutorial: read a ticket with its comments and screenshots
 
-**Status: requires `agent_api_version 1.1.0` — implemented in the repository (SPEC amendment 01 P0), pending deployment.**
+**Status: requires `agent_api_version 1.1.0` — implemented in the repository (SPEC amendments 01–02), pending deployment.**
 The routes and tools in this tutorial (`/v1/agent/tickets/{ticket}`, `…/activities`,
 `/v1/agent/attachments/{id}`, and the MCP tools `get_ticket_detail`, `list_ticket_activities`,
 `get_attachment`) do **not** exist on a `1.0.0` deployment; they return `404`. They are specified
@@ -42,10 +42,10 @@ UA='User-Agent: tools-project-mcp/1.1.0'
 # from a ref
 curl -s -H "X-Api-Key: $KEY" -H "$UA" "$BASE/v1/agent/tickets/PZT-T-2" | head -c 400
 
-# from a pasted URL: take the last path segment (the ticket UUID)
+# from a pasted URL — the API resolves the UUID itself
 TICKET_URL='https://project.cloudsys.win/projects/<project-uuid>/tickets/<ticket-uuid>'
-TICKET_ID=${TICKET_URL##*/}
-curl -s -H "X-Api-Key: $KEY" -H "$UA" "$BASE/v1/agent/tickets/$TICKET_ID" | head -c 400
+curl -s -G -H "X-Api-Key: $KEY" -H "$UA" "$BASE/v1/agent/tickets/resolve" \
+  --data-urlencode "url=$TICKET_URL" | head -c 400
 ```
 
 A web URL used with an API key answers `307 → /login`; the UUID inside it is what the API accepts.
@@ -77,7 +77,7 @@ What to look at, in order:
 4. `reporter` / `assignee` / lifecycle timestamps — who reported it, who owns it, how long it has
    been open (`first_response_at`, `resolved_at`, `closed_at`).
 
-MCP equivalent: `get_ticket_detail(ticket="PZT-T-2")` returns the same JSON as text.
+MCP equivalent: `get_ticket_detail(ticket="PZT-T-2")` — or `get_ticket_detail(url="https://…/tickets/<uuid>")` for a pasted link — returns the same JSON as text.
 
 ## Step 3 — read the comment thread
 
@@ -110,6 +110,8 @@ Rules that matter when analysing an incident:
 - `has_more` + `next_offset` page a long thread; `kind=` filters (e.g. `kind=status_change` to see
   the lifecycle alone).
 - MCP equivalent: `list_ticket_activities(ticket="PZT-T-2", order="asc", limit=200)`.
+- The inline detail page is capped at the **most recent** `activity_limit` entries (max 200); use
+  `list_ticket_activities` with `offset=next_offset` to read older history.
 
 ## Step 4 — look at the screenshot
 

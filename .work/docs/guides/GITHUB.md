@@ -15,7 +15,9 @@ Link your project to GitHub repositories for automatic commit syncing and task l
 
 Create a [fine-grained personal access token](https://github.com/settings/tokens) with:
 - **Repository access:** Only the repos you want to link
-- **Permissions:** `Contents` (read-only)
+- **Permissions:** `Contents: Read` for commit sync; **`Contents: Read and write`** when the
+  GitHub task-registry push is enabled (**Settings → GitHub task registry**), otherwise the registry
+  write fails in the background.
 
 ### 2. Link the repository
 

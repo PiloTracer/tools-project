@@ -22,7 +22,10 @@ tools, and troubleshooting. Setup walkthroughs link here instead of repeating it
 | [`guides/quick-reference-to-connect-agent-with-tools-project.md`](guides/quick-reference-to-connect-agent-with-tools-project.md) | Which integration path to choose | Agent query (Case A) vs app-to-app (Case B) |
 | [`tutorials/AGENT_TICKET_CONTEXT.md`](tutorials/AGENT_TICKET_CONTEXT.md) | Task tutorial: ticket + comments + screenshots | A concrete incident-resolution workflow (**requires 1.1.0**) |
 | [`tutorials/REPO_INTEGRATION.md`](tutorials/REPO_INTEGRATION.md) | GitHub linking + plan sync | Commit linking, task registry, `@plan-sync` |
+| [`reference/APP_INTEGRATION.md`](reference/APP_INTEGRATION.md) | App-to-app surface (identity, webhooks, external refs, inbound) | When the consumer is an application, not an agent |
+| [`reference/API.md`](reference/API.md) | Curated REST map for the deployed build | Everything else |
 | `.work/features/agent-query-api/20261030-SPEC-amendment-01.md` | The 1.1.0 contract (Approved 2026-10-30) | R1–R22, tests, rollout |
+| `.work/features/agent-query-api/20261030-SPEC-amendment-02.md` | Web-URL addressing + activity pagination (Draft, owner-directed) | R23–R25 — resolve route, MCP `url`/activities |
 | `.work/features/agent-query-api/20261030-amendment-01-verification.md` | Evidence behind the amendment | Live probes, findings, owner decisions |
 
 ---
@@ -33,8 +36,8 @@ tools, and troubleshooting. Setup walkthroughs link here instead of repeating it
 |------------|----------------|-------------------|
 | Projects, tasks, tickets (lists), search | yes | unchanged |
 | Project context (members, tickets, GitHub refs) | yes, **summary counts return 0** (known defect) | counts fixed + totals/truncation flags |
-| Ticket detail by UUID or `ref` | no | `GET /v1/agent/tickets/{ticket}` |
-| Comment/activity thread | no (JWT-only web route) | `GET /v1/agent/tickets/{ticket}/activities` |
+| Ticket detail by UUID, `ref` or web URL | no | `GET /v1/agent/tickets/{ticket}` · `GET /v1/agent/tickets/resolve?url=` |
+| Comment/activity thread | no (JWT-only web route) | `GET /v1/agent/tickets/{ticket}/activities` (paginated) + inline newest-first page |
 | Attachment metadata (filename, mime, size) | no | in ticket detail |
 | Attachment bytes (screenshots) viewable with an API key | no (`401`) | `GET /v1/agent/attachments/{id}` |
 | Resolved description (working image links) | no | `description_resolved` |
@@ -155,9 +158,9 @@ Projects, tasks, tickets, clients, prospects. `q` required; `limit` 1–50 (defa
 ## 5. Endpoints — `1.1.0` (implemented in the repository; pending deployment)
 
 Full contract and test plan: [`20261030-SPEC-amendment-01.md`](../features/agent-query-api/20261030-SPEC-amendment-01.md).
-P0 (detail, activities page inline, binary attachment, the two MCP tools) is implemented and tested;
-`list_ticket_activities`, capabilities and the served MCP file are P1/P2. Until a `1.1.0` build is
-deployed, every route below returns `404` on the hosted instance.
+Detail, paginated activities, binary attachments and the three MCP tools are implemented and tested;
+the capabilities endpoint and the served MCP file remain P2. Until a `1.1.0` build is deployed,
+every route below returns `404` on the hosted instance.
 
 ### `GET /v1/agent/tickets/{ticket}`
 
@@ -177,15 +180,26 @@ Key fields:
 | `web_url` | Null unless `PUBLIC_WEB_BASE_URL` is configured (never guessed) |
 
 Knobs: `include_activities` (default `true`), `activity_limit` (1–200, default 50),
-`include_internal` (default `true`; forced `false` for client participants).
+`include_internal` (default `true`; forced `false` for client participants). The inline page is the
+**most recent** entries, newest first.
+
+### `GET /v1/agent/tickets/resolve?url=<web ticket URL>`
+
+Accepts the link a human pastes — absolute (`https://host/projects/<p>/tickets/<uuid>`) or relative
+(`/projects/<p>/tickets/<uuid>`) — and returns the **same payload** as the detail route. The client
+does not need to know the UUID; the last path segment (UUID or ref) is resolved server-side.
+A URL with no ticket segment → `400 {"detail": "invalid_ticket_url"}`.
 
 ### `GET /v1/agent/tickets/{ticket}/activities`
 
-`limit`, `offset`, `order` (`asc`/`desc`, default `desc`), `kind` (validated against
+Paginated thread — use it when the inline first page is not enough (the detail page returns the
+**most recent** `activity_limit` entries, max 200).
+
+`limit`, `offset`, `order` (`asc`/`desc`, default `desc` = newest first), `kind` (validated against
 `ACTIVITY_KINDS`; legacy `note` → `comment`), `include_internal`, `visibility`
 (`all`/`internal`/`external`; `internal` is `403` for client participants). Items carry
 `actor`, `body`, `is_internal`, `parent_activity_id`, `created_at`, `meta_json` and the activity's
-attachments.
+attachments; the response adds `total`, `has_more`, `next_offset` (the next `offset`) and `order`.
 
 ### `GET /v1/agent/attachments/{attachment_id}`
 
@@ -233,9 +247,9 @@ copy is refreshed from it.
 | `get_task_info` | 1.0.0 | `GET /v1/agent/tasks` |
 | `get_ticket_info` | 1.0.0 | `GET /v1/agent/tickets` |
 | `search_entities` | 1.0.0 | `GET /v1/agent/search` |
-| `get_ticket_detail` | **1.1.0 (P0, shipped)** | `GET /v1/agent/tickets/{ticket}` |
-| `list_ticket_activities` | **1.1.0 (P1, not yet)** | `GET /v1/agent/tickets/{ticket}/activities` |
-| `get_attachment` | **1.1.0 (P0, shipped)** | `GET /v1/agent/attachments/{id}` — returns an MCP `image` block for images ≤ 5 MiB, a `text` block for text ≤ 1 MiB, otherwise saves the file and returns its path + sha256 |
+| `get_ticket_detail` | **1.1.0 (shipped)** | `GET /v1/agent/tickets/{ticket}` or `/resolve?url=` |
+| `list_ticket_activities` | **1.1.0 (shipped)** | `GET /v1/agent/tickets/{ticket}/activities` |
+| `get_attachment` | **1.1.0 (shipped)** | `GET /v1/agent/attachments/{id}` — returns an MCP `image` block for images ≤ 5 MiB, a `text` block for text ≤ 1 MiB, otherwise saves the file and returns its path + sha256 |
 
 Behaviour:
 
@@ -307,6 +321,48 @@ Commit refs sync back and link to the ticket (see `REPO_INTEGRATION.md`).
 ---
 
 ## 8. Troubleshooting
+
+### What an error looks like
+
+| Status | Body | Meaning |
+|--------|------|---------|
+| 401 | `{"detail": "Not authenticated"}` | Missing, wrong or revoked key / token |
+| 403 | `{"detail": "Agent endpoints require superuser privileges"}` | The key owner (or JWT user) is not a superuser |
+| 400 | `{"detail": "invalid_ticket_url"}` | `/resolve` got a URL with no ticket segment |
+| 404 | `{"detail": "ticket_not_found"}` · `{"detail": "attachment_not_found"}` | New 1.1.0 routes use **stable codes**; legacy agent routes still use prose (`"Project not found"`) |
+| 422 | `{"detail": [{"loc": […], "msg": …, "type": …}]}` | Validation — display `msg` per field, do not retry unchanged |
+| 5xx | plain text (`Internal Server Error`) or `{"detail": …}` | Server/edge failure — retry with backoff, quote the request id |
+| 403 + HTML | Cloudflare page (`Error 1010`) | The request had urllib's default `User-Agent`; send `tools-project-mcp/<version>` |
+
+### Request id (use it when reporting)
+
+Every response — including errors — carries **`X-Request-Id`**. Log it with the status and the
+endpoint, and quote it when reporting a problem; the server's access log records the same id.
+
+### MCP errors
+
+Tools never crash the transport. On failure the tool returns a JSON text block:
+
+```json
+{"ok": false, "status": 401, "error": "HTTP 401: Not authenticated",
+ "request_id": "62f7…", "hint": "check TOOLS_PROJECT_API_KEY or ~/.tools-project-key (the key may be revoked)"}
+```
+
+`status` and `request_id` are absent for connection failures; `hint` explains the usual cause
+(superuser gate, Cloudflare, missing route on an old deployment). `get_attachment` returns the same
+shape when the download fails.
+
+### Retry guidance
+
+| Result | Action |
+|--------|--------|
+| 401 / 403 | Do **not** retry — fix the key, the owner's superuser flag, or the User-Agent |
+| 404 | Do **not** retry blindly — verify the ref/UUID and the deployment version (`/openapi.json`) |
+| 422 | Fix the payload; surface `detail[].msg` |
+| 429 / 5xx / network error | Retry with exponential backoff and jitter; stop after a few attempts and report with `X-Request-Id` |
+
+**Never** log the API key; a truncated key prefix (`tools_pr…`) is enough to identify the credential.
+
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|

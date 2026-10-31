@@ -615,3 +615,276 @@ async def test_detail_can_omit_activities(client: AsyncClient, db: AsyncSession)
     assert "activities" not in payload
     assert "activities_page" not in payload
     assert payload["counts"]["activities"] == 0
+
+
+# ── Web-URL resolution + activity pagination (integration completeness) ──
+
+
+async def test_detail_resolves_from_web_url(
+    client: AsyncClient, db: AsyncSession
+) -> None:
+    owner, project = await _owner_and_project(db)
+    ticket = await _ticket(db, project, owner)
+
+    url = f"https://project.cloudsys.win/projects/{project.id}/tickets/{ticket.id}"
+    from_url = await client.get(
+        "/v1/agent/tickets/resolve",
+        params={"url": url},
+        headers=auth_header(owner),
+    )
+
+    by_id = await client.get(f"/v1/agent/tickets/{ticket.id}", headers=auth_header(owner))
+
+    assert from_url.status_code == 200
+    assert from_url.json()["data"]["ticket"]["id"] == by_id.json()["data"]["ticket"]["id"]
+
+
+async def test_detail_resolves_from_relative_url_with_trailing_slash(
+    client: AsyncClient, db: AsyncSession
+) -> None:
+    owner, project = await _owner_and_project(db)
+    ticket = await _ticket(db, project, owner)
+
+    response = await client.get(
+        "/v1/agent/tickets/resolve",
+        params={"url": f"/projects/{project.id}/tickets/{ticket.id}/"},
+        headers=auth_header(owner),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["data"]["ticket"]["ref"] == ticket.ref
+
+
+async def test_resolve_url_without_ticket_segment_is_400(
+    client: AsyncClient, db: AsyncSession
+) -> None:
+    owner, _project = await _owner_and_project(db)
+
+    response = await client.get(
+        "/v1/agent/tickets/resolve",
+        params={"url": "https://project.cloudsys.win/"},
+        headers=auth_header(owner),
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "invalid_ticket_url"
+
+
+async def test_resolve_unknown_ticket_is_404(
+    client: AsyncClient, db: AsyncSession
+) -> None:
+    owner, project = await _owner_and_project(db)
+    missing = uuid.uuid4()
+
+    response = await client.get(
+        "/v1/agent/tickets/resolve",
+        params={"url": f"https://host/projects/{project.id}/tickets/{missing}"},
+        headers=auth_header(owner),
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "ticket_not_found"
+
+
+async def _comment(
+    db: AsyncSession,
+    project: Project,
+    ticket: Ticket,
+    owner: User,
+    *,
+    body: str,
+    created_at: datetime,
+    is_internal: bool = False,
+) -> Activity:
+    row = Activity(
+        project_id=project.id,
+        subject_type="ticket",
+        subject_id=ticket.id,
+        kind="comment",
+        actor_id=owner.id,
+        body=body,
+        is_internal=is_internal,
+        created_at=created_at,
+    )
+    db.add(row)
+    await db.flush()
+    await db.refresh(row)
+    return row
+
+
+async def test_detail_activity_page_is_the_most_recent(
+    client: AsyncClient, db: AsyncSession
+) -> None:
+    owner, project = await _owner_and_project(db)
+    ticket = await _ticket(db, project, owner)
+    for index in range(3):
+        await _comment(
+            db,
+            project,
+            ticket,
+            owner,
+            body=f"comment-{index}",
+            created_at=datetime(2026, 10, 19, 12, index, tzinfo=UTC),
+        )
+
+    response = await client.get(
+        f"/v1/agent/tickets/{ticket.id}?activity_limit=2", headers=auth_header(owner)
+    )
+
+    assert response.status_code == 200
+    payload = response.json()["data"]["ticket"]
+    assert [item["body"] for item in payload["activities"]] == ["comment-2", "comment-1"]
+    assert payload["activities_page"] == {
+        "total": 3,
+        "has_more": True,
+        "next_offset": 2,
+        "order": "desc",
+    }
+
+
+async def test_activities_pagination_and_order(
+    client: AsyncClient, db: AsyncSession
+) -> None:
+    owner, project = await _owner_and_project(db)
+    ticket = await _ticket(db, project, owner)
+    for index in range(3):
+        await _comment(
+            db,
+            project,
+            ticket,
+            owner,
+            body=f"comment-{index}",
+            created_at=datetime(2026, 10, 19, 12, index, tzinfo=UTC),
+        )
+
+    first = await client.get(
+        f"/v1/agent/tickets/{ticket.id}/activities?limit=2&order=desc",
+        headers=auth_header(owner),
+    )
+    older = await client.get(
+        f"/v1/agent/tickets/{ticket.id}/activities?limit=2&offset=2&order=desc",
+        headers=auth_header(owner),
+    )
+    ascending = await client.get(
+        f"/v1/agent/tickets/{ticket.id}/activities?limit=2&order=asc",
+        headers=auth_header(owner),
+    )
+
+    assert first.status_code == 200
+    page = first.json()["data"]
+    assert [item["body"] for item in page["items"]] == ["comment-2", "comment-1"]
+    assert page["total"] == 3
+    assert page["has_more"] is True
+    assert page["next_offset"] == 2
+    assert page["order"] == "desc"
+
+    assert [item["body"] for item in older.json()["data"]["items"]] == ["comment-0"]
+    assert older.json()["data"]["has_more"] is False
+    assert older.json()["data"]["next_offset"] is None
+
+    assert [item["body"] for item in ascending.json()["data"]["items"]] == [
+        "comment-0",
+        "comment-1",
+    ]
+
+
+async def test_activities_internal_filter_and_kind(
+    client: AsyncClient, db: AsyncSession
+) -> None:
+    owner, project = await _owner_and_project(db)
+    ticket = await _ticket(db, project, owner)
+    public = await _comment(
+        db,
+        project,
+        ticket,
+        owner,
+        body="public",
+        created_at=datetime(2026, 10, 19, 12, 0, tzinfo=UTC),
+    )
+    await _comment(
+        db,
+        project,
+        ticket,
+        owner,
+        body="internal",
+        created_at=datetime(2026, 10, 19, 12, 1, tzinfo=UTC),
+        is_internal=True,
+    )
+    transition = Activity(
+        project_id=project.id,
+        subject_type="ticket",
+        subject_id=ticket.id,
+        kind="status_change",
+        actor_id=owner.id,
+        body="open → in_progress",
+        meta_json={"from": "open", "to": "in_progress"},
+        created_at=datetime(2026, 10, 19, 12, 2, tzinfo=UTC),
+    )
+    db.add(transition)
+    await db.flush()
+
+    everything = await client.get(
+        f"/v1/agent/tickets/{ticket.id}/activities", headers=auth_header(owner)
+    )
+    external = await client.get(
+        f"/v1/agent/tickets/{ticket.id}/activities?include_internal=false",
+        headers=auth_header(owner),
+    )
+    internal_only = await client.get(
+        f"/v1/agent/tickets/{ticket.id}/activities?visibility=internal",
+        headers=auth_header(owner),
+    )
+    status_only = await client.get(
+        f"/v1/agent/tickets/{ticket.id}/activities?kind=status_change",
+        headers=auth_header(owner),
+    )
+
+    assert everything.json()["data"]["total"] == 3
+    assert {item["body"] for item in external.json()["data"]["items"]} == {
+        "public",
+        "open → in_progress",
+    }
+    assert [item["body"] for item in internal_only.json()["data"]["items"]] == ["internal"]
+    assert [item["body"] for item in status_only.json()["data"]["items"]] == [
+        "open → in_progress"
+    ]
+    assert public.id is not None
+
+
+async def test_activities_include_comment_attachments(
+    client: AsyncClient, db: AsyncSession
+) -> None:
+    owner, project = await _owner_and_project(db)
+    ticket = await _ticket(db, project, owner)
+    comment = await _comment(
+        db,
+        project,
+        ticket,
+        owner,
+        body="see file",
+        created_at=datetime(2026, 10, 19, 12, 0, tzinfo=UTC),
+    )
+    attachment = await _attachment(
+        db, project=project, created_by=owner, ticket_id=ticket.id, activity_id=comment.id
+    )
+
+    response = await client.get(
+        f"/v1/agent/tickets/{ticket.id}/activities", headers=auth_header(owner)
+    )
+
+    item = response.json()["data"]["items"][0]
+    assert item["attachments"][0]["id"] == str(attachment.id)
+    assert item["attachments"][0]["scope"] == "activity"
+
+
+async def test_activities_unknown_ticket_is_404(
+    client: AsyncClient, db: AsyncSession
+) -> None:
+    owner, _project = await _owner_and_project(db)
+
+    response = await client.get(
+        f"/v1/agent/tickets/{uuid.uuid4()}/activities", headers=auth_header(owner)
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "ticket_not_found"

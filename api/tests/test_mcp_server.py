@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import io
 import json
 import urllib.error
 from pathlib import Path
@@ -138,7 +139,7 @@ PNG_BYTES = b"\x89PNG\r\n\x1a\n" + b"0" * 32
 def test_tools_list_includes_ticket_and_attachment() -> None:
     names = {tool["name"] for tool in mcp_server.TOOLS}
 
-    assert {"get_ticket_detail", "get_attachment"} <= names
+    assert {"get_ticket_detail", "get_attachment", "list_ticket_activities"} <= names
 
 
 def test_get_ticket_detail_builds_path(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -159,6 +160,56 @@ def test_get_ticket_detail_builds_path(monkeypatch: pytest.MonkeyPatch) -> None:
     assert "include_activities=False" in captured["path"]
     assert "activity_limit=10" in captured["path"]
     assert json.loads(result["content"][0]["text"])["ok"] is True
+
+
+def test_get_ticket_detail_accepts_a_web_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, str] = {}
+
+    def _fake(path: str) -> dict[str, object]:
+        captured["path"] = path
+        return {"ok": True, "data": {}}
+
+    monkeypatch.setattr(mcp_server, "_api_get", _fake)
+
+    result = mcp_server._handle_tool_call(
+        "get_ticket_detail",
+        {
+            "url": "https://project.cloudsys.win/projects/p/tickets/8fb47f08-8daf-457f-b798-149e8e4eaf60",
+            "activity_limit": 10,
+        },
+    )
+
+    assert captured["path"].startswith("/v1/agent/tickets/resolve?url=")
+    assert "https%3A%2F%2Fproject.cloudsys.win" in captured["path"]
+    assert "activity_limit=10" in captured["path"]
+    assert json.loads(result["content"][0]["text"])["ok"] is True
+
+
+def test_list_ticket_activities_builds_path(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, str] = {}
+
+    def _fake(path: str) -> dict[str, object]:
+        captured["path"] = path
+        return {"ok": True, "data": {"items": []}}
+
+    monkeypatch.setattr(mcp_server, "_api_get", _fake)
+
+    result = mcp_server._handle_tool_call(
+        "list_ticket_activities",
+        {"ticket": "PZT-T-2", "limit": 5, "offset": 10, "order": "asc"},
+    )
+
+    assert captured["path"].startswith("/v1/agent/tickets/PZT-T-2/activities?")
+    assert "limit=5" in captured["path"]
+    assert "offset=10" in captured["path"]
+    assert "order=asc" in captured["path"]
+    assert json.loads(result["content"][0]["text"])["ok"] is True
+
+
+def test_list_ticket_activities_requires_ticket() -> None:
+    result = mcp_server._handle_tool_call("list_ticket_activities", {})
+
+    assert json.loads(result["content"][0]["text"])["ok"] is False
 
 
 def test_get_ticket_detail_requires_ticket() -> None:
@@ -256,15 +307,77 @@ def test_get_attachment_sanitizes_filename(
     assert ".." not in saved.name
 
 
-def test_get_attachment_error_is_text(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_get_attachment_error_includes_status_and_request_id(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(
         mcp_server,
         "_api_get_binary",
-        lambda _path: (None, {}, "HTTP 404: attachment_not_found"),
+        lambda _path: (
+            None,
+            {"x-request-id": "req-123"},
+            {
+                "ok": False,
+                "status": 404,
+                "error": "HTTP 404: attachment_not_found",
+                "request_id": "req-123",
+                "hint": mcp_server._STATUS_HINTS[404],
+            },
+        ),
     )
 
     result = mcp_server._handle_tool_call("get_attachment", {"attachment_id": "abc"})
 
     payload = json.loads(result["content"][0]["text"])
     assert payload["ok"] is False
+    assert payload["status"] == 404
+    assert payload["request_id"] == "req-123"
     assert "attachment_not_found" in payload["error"]
+    assert payload["hint"]
+
+
+def _http_error(
+    code: int, body: bytes = b"", headers: dict[str, str] | None = None
+) -> urllib.error.HTTPError:
+    return urllib.error.HTTPError(
+        "http://test/v1/agent/tickets/x",
+        code,
+        "error",
+        headers or {},
+        io.BytesIO(body),
+    )
+
+
+def test_api_get_http_error_includes_status_request_id_and_detail(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def _boom(*_args: object, **_kwargs: object) -> None:
+        raise _http_error(
+            404,
+            b'{"detail": "ticket_not_found"}',
+            {"x-request-id": "req-abc"},
+        )
+
+    monkeypatch.setattr(mcp_server.urllib.request, "urlopen", _boom)
+
+    result = mcp_server._api_get("/v1/agent/tickets/x")
+
+    assert result["ok"] is False
+    assert result["status"] == 404
+    assert result["request_id"] == "req-abc"
+    assert result["error"] == "HTTP 404: ticket_not_found"
+    assert "superuser" not in result["error"]
+
+
+def test_api_get_cloudflare_html_403_is_explained(monkeypatch: pytest.MonkeyPatch) -> None:
+    def _boom(*_args: object, **_kwargs: object) -> None:
+        raise _http_error(403, b"<html><title>Error 1010: Access denied</title></html>")
+
+    monkeypatch.setattr(mcp_server.urllib.request, "urlopen", _boom)
+
+    result = mcp_server._api_get("/v1/agent/projects")
+
+    assert result["ok"] is False
+    assert result["status"] == 403
+    assert "edge/CDN" in result["error"]
+    assert "MCP_USER_AGENT" in result["hint"]

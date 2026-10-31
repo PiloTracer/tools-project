@@ -4,6 +4,7 @@ import logging
 import re
 import uuid
 from typing import Annotated
+from urllib.parse import unquote, urlparse
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel
@@ -27,7 +28,12 @@ from app.models.ticket import Ticket
 from app.models.user import User
 from app.models.watcher import Watcher
 from app.schemas import ClientOut, CommitSubjectRefOut
-from app.services.activity_query import activity_count, activity_where_clauses
+from app.services.activity_query import (
+    activity_count,
+    activity_page,
+    activity_where_clauses,
+    assert_visibility_allowed,
+)
 from app.services.project_access import (
     can_view_tickets,
     client_company_user_ids,
@@ -196,6 +202,7 @@ def _ok(data) -> dict:
 
 AGENT_API_VERSION = "1.1.0"
 _ATTACHMENT_TARGET_RE = re.compile(r"\]\((/api/attachments/([0-9a-fA-F-]{36}))\)")
+_TICKET_REF_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9-]{1,39}")
 _ATTACHMENTS_PER_RESPONSE = 200
 _IMAGE_MIMES = frozenset({"image/png", "image/jpeg", "image/gif", "image/webp"})
 
@@ -225,7 +232,9 @@ def _attachment_dict(
     markdown_ref: str | None,
     created_by: User | None,
 ) -> dict:
-    scope = "ticket" if row.ticket_id is not None else "activity" if row.activity_id is not None else "task"
+    # An activity-linked file hangs on the comment even when it was uploaded through
+    # the ticket (both ids set); prefer the more specific scope.
+    scope = "activity" if row.activity_id is not None else "ticket" if row.ticket_id is not None else "task"
     return {
         "id": str(row.id),
         "filename": row.filename,
@@ -495,23 +504,19 @@ async def agent_list_tickets(
 
 
 
-@router.get("/tickets/{ticket}")
-async def agent_ticket_detail(
-    ticket: str,
-    admin: Annotated[User, Depends(require_agent_superuser)],
-    db: Annotated[AsyncSession, Depends(get_db)],
+async def _resolve_ticket_for_agent(
+    db: AsyncSession,
+    admin: User,
     request: Request,
-    include_activities: bool = Query(default=True),
-    activity_limit: int = Query(default=50, ge=1, le=200),
-    include_internal: bool = Query(default=True),
+    ticket_ref: str,
 ):
-    """Full ticket detail: people, counts, evidence, first activity page, commits, URLs."""
+    """Resolve a ticket address (UUID, ref or web URL segment) and enforce access."""
     tenant_id = getattr(request.state, "tenant_id", None)
     tenant_uuid = uuid.UUID(tenant_id) if tenant_id else None
 
-    loaded = await _load_ticket(db, ticket)
+    loaded = await _load_ticket(db, ticket_ref)
     if loaded is None:
-        log.warning("agent.ticket_detail ticket=%s result=not_found", ticket)
+        log.warning("agent.ticket_detail ticket=%s result=not_found", ticket_ref)
         raise _ticket_not_found()
     row, project = loaded
 
@@ -530,6 +535,44 @@ async def agent_ticket_detail(
     except HTTPException:
         log.warning("agent.ticket_detail ticket_id=%s project_id=%s result=denied", row.id, project.id)
         raise
+
+    return row, project, acc
+
+
+def ticket_ref_from_url(value: str) -> str | None:
+    """Extract the ticket UUID or ref from a web ticket URL (absolute or relative)."""
+    raw = (value or "").strip()
+    if not raw:
+        return None
+
+    parsed = urlparse(raw)
+    path = unquote(parsed.path) if (parsed.scheme or parsed.netloc) else unquote(raw)
+    segments = [segment for segment in path.split("/") if segment]
+    if not segments:
+        return None
+
+    candidate = segments[-1]
+    try:
+        return str(uuid.UUID(candidate))
+    except ValueError:
+        pass
+    if _TICKET_REF_RE.fullmatch(candidate):
+        return candidate
+    return None
+
+
+async def _ticket_detail_payload(
+    db: AsyncSession,
+    admin: User,
+    request: Request,
+    ticket_ref: str,
+    *,
+    include_activities: bool,
+    activity_limit: int,
+    include_internal: bool,
+) -> dict:
+    """Build the R3 ticket-detail payload for an already-validated address."""
+    row, project, acc = await _resolve_ticket_for_agent(db, admin, request, ticket_ref)
 
     include_email = not is_client_participant(acc)
     effective_internal = include_internal and include_email
@@ -733,6 +776,137 @@ async def agent_ticket_detail(
                 "slug": project.slug,
                 "project_key": project.project_key,
             },
+        }
+    )
+
+
+@router.get("/tickets/resolve")
+async def agent_ticket_detail_by_url(
+    admin: Annotated[User, Depends(require_agent_superuser)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    request: Request,
+    url: str = Query(min_length=1, max_length=2000, description="Web ticket URL"),
+    include_activities: bool = Query(default=True),
+    activity_limit: int = Query(default=50, ge=1, le=200),
+    include_internal: bool = Query(default=True),
+):
+    """Ticket detail from a copied web link — e.g. https://host/projects/<p>/tickets/<uuid>."""
+    ticket_ref = ticket_ref_from_url(url)
+    if ticket_ref is None:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="invalid_ticket_url")
+    return await _ticket_detail_payload(
+        db,
+        admin,
+        request,
+        ticket_ref,
+        include_activities=include_activities,
+        activity_limit=activity_limit,
+        include_internal=include_internal,
+    )
+
+
+@router.get("/tickets/{ticket}")
+async def agent_ticket_detail(
+    ticket: str,
+    admin: Annotated[User, Depends(require_agent_superuser)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    request: Request,
+    include_activities: bool = Query(default=True),
+    activity_limit: int = Query(default=50, ge=1, le=200),
+    include_internal: bool = Query(default=True),
+):
+    """Full ticket detail: people, counts, evidence, first activity page, commits, URLs."""
+    return await _ticket_detail_payload(
+        db,
+        admin,
+        request,
+        ticket,
+        include_activities=include_activities,
+        activity_limit=activity_limit,
+        include_internal=include_internal,
+    )
+
+
+@router.get("/tickets/{ticket}/activities")
+async def agent_ticket_activities(
+    ticket: str,
+    admin: Annotated[User, Depends(require_agent_superuser)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    request: Request,
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    order: str = Query(default="desc", pattern=r"^(asc|desc)$"),
+    kind: str | None = Query(default=None),
+    include_internal: bool = Query(default=True),
+    visibility: str = Query(default="all", pattern=r"^(all|internal|external)$"),
+):
+    """Paginated ticket activity/comment feed (newest first by default)."""
+    row, project, acc = await _resolve_ticket_for_agent(db, admin, request, ticket)
+    client_caller = is_client_participant(acc)
+
+    requested_visibility = None if visibility == "all" else visibility
+    assert_visibility_allowed(acc, requested_visibility)
+    effective_visibility = requested_visibility
+    if not include_internal or client_caller:
+        effective_visibility = "external"
+
+    clauses = await activity_where_clauses(
+        db,
+        acc,
+        project.id,
+        subject_type="ticket",
+        subject_id=row.id,
+        kind=kind,
+        visibility=effective_visibility,
+    )
+    base = select(Activity).where(*clauses)
+    total = await activity_count(db, base)
+    activity_rows = list(
+        (await db.scalars(activity_page(base, order=order, limit=limit, offset=offset))).all()
+    )
+
+    grouped: dict = {}
+    if activity_rows:
+        activity_ids = [item.id for item in activity_rows]
+        for att in (
+            await db.scalars(
+                select(Attachment).where(Attachment.activity_id.in_(activity_ids))
+            )
+        ).all():
+            grouped.setdefault(att.activity_id, []).append(att)
+
+    people: dict = {}
+    creator_ids = {att.created_by for attachments in grouped.values() for att in attachments}
+    if creator_ids:
+        for person in (await db.scalars(select(User).where(User.id.in_(creator_ids)))).all():
+            people[person.id] = person
+
+    base_url = api_base_url(request)
+    items = [
+        _activity_dict(
+            item,
+            grouped.get(item.id, []),
+            base_url=base_url,
+            include_email=not client_caller,
+            people=people,
+        )
+        for item in activity_rows
+    ]
+    has_more = offset + len(items) < total
+    log.info(
+        "agent.ticket_activities ticket_id=%s page=%s/%s result=ok",
+        row.id,
+        offset,
+        limit,
+    )
+
+    return _ok(
+        {
+            "items": items,
+            "total": total,
+            "has_more": has_more,
+            "next_offset": offset + len(items) if has_more else None,
+            "order": order,
         }
     )
 

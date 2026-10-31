@@ -142,9 +142,10 @@ file.
 
 ### C3. Restart the agent and confirm the tools are listed
 
-The agent should discover five tools: `list_projects`, `get_project_context`, `get_task_info`,
-`get_ticket_info`, `search_entities` (plus `get_ticket_detail`, `list_ticket_activities`,
-`get_attachment` after 1.1.0).
+The agent should discover five tools on a `1.0.0` deployment: `list_projects`,
+`get_project_context`, `get_task_info`, `get_ticket_info`, `search_entities` — plus
+`get_ticket_detail` (accepts a UUID/ref **or a copied web URL**), `list_ticket_activities` and
+`get_attachment` on `1.1.0` (eight total).
 
 Run one real query ("list my projects") before declaring success. Then, when the server supports
 it:
@@ -227,6 +228,7 @@ path.
 | `python: command not found` | Config uses `python` | Use `python3` (3.10+) |
 | Tools missing after an update | Agent not restarted, or a 1.0.0 API hides 1.1.0 tools | Restart; compare `recommended_mcp_server_version` |
 | Key page missing | Old deployment | Part F, or upgrade |
+| Need to report a failure | No request id in the report | Every response has `X-Request-Id`; log it with the status and quote it (never paste the key) |
 
 ---
 
@@ -236,5 +238,6 @@ path.
 - [`../guides/quick-reference-to-connect-agent-with-tools-project.md`](../guides/quick-reference-to-connect-agent-with-tools-project.md) — which integration path
 - [`AGENT_TICKET_CONTEXT.md`](AGENT_TICKET_CONTEXT.md) — ticket + comments + screenshots (**1.1.0**)
 - [`REPO_INTEGRATION.md`](REPO_INTEGRATION.md) — GitHub commit linking and plan sync
+- [`../reference/APP_INTEGRATION.md`](../reference/APP_INTEGRATION.md) — when the consumer is another application, not an agent
 - `.opencode/mcp/project-mcp/mcp_server.py` — the MCP server in this repository
 - `api/app/routers/agent_query.py` — the server side

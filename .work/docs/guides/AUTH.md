@@ -46,9 +46,17 @@ AUTH_OAUTH_ENABLED=true
 
 ## API Auth
 
-All API requests must include an `Authorization: Bearer <token>` header, where the token is either:
+Most API routes accept `Authorization: Bearer <token>`, where the token is either:
 - A **local JWT** obtained from `POST /v1/auth/local/login`
 - An **OAuth access token** from the configured provider
+
+Other surfaces use different credentials (full matrix: [`../reference/APP_INTEGRATION.md`](../reference/APP_INTEGRATION.md)):
+
+- `/v1/agent/**` — personal `X-Api-Key: tools_project_…` (the owner must be a superuser) or the shared
+  `AGENT_API_KEY` (single-tenant only), in addition to a superuser Bearer token.
+- `/v1/platform/whoami` — personal API key or Bearer.
+- `POST /v1/integrations/rfp/award` — `X-Webhook-Signature: sha256=<hmac>` (shared `RFP_WEBHOOK_SECRET`), no Bearer.
+- `POST /v1/admin/webhook-subscriptions` — **superuser** Bearer.
 
 The login flow sets `prj_auth` (session) and `prj_refresh` (refresh) cookies automatically.
 

@@ -140,14 +140,30 @@ TOOLS: list[dict[str, Any]] = [
     },
     {
         "name": "get_ticket_detail",
-        "description": "Full ticket detail by UUID or ref (e.g. PZT-T-2): people, counts, attachments with download URLs, resolved description, first activity/comment page, linked commits. Returns JSON (agent API 1.1.0+).",
+        "description": "Full ticket detail: people, counts, attachments with download URLs, resolved description, the most recent activity/comment page, linked commits. Pass a ticket UUID/ref or a copied web ticket URL (agent API 1.1.0+).",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "ticket": {"type": "string", "description": "Ticket UUID or ref (e.g. PZT-T-2)"},
+                "url": {"type": "string", "description": "Web ticket URL instead of ticket, e.g. https://host/projects/<p>/tickets/<uuid>"},
                 "include_activities": {"type": "boolean", "description": "Include the first activity page (default true)"},
                 "include_internal": {"type": "boolean", "description": "Include staff-only internal notes (default true)"},
-                "activity_limit": {"type": "integer", "description": "Activities in the first page (default 50, max 200)"},
+                "activity_limit": {"type": "integer", "description": "Activities in the first page (default 50, max 200, newest first)"},
+            },
+        },
+    },
+    {
+        "name": "list_ticket_activities",
+        "description": "Paginated ticket activity/comment feed (newest first by default), including per-comment attachments and meta_json. Use the ticket UUID/ref and offset/next_offset for older pages (agent API 1.1.0+).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "ticket": {"type": "string", "description": "Ticket UUID or ref (e.g. PZT-T-2)"},
+                "limit": {"type": "integer", "description": "Page size (default 50, max 200)"},
+                "offset": {"type": "integer", "description": "Number of newest activities to skip (default 0)"},
+                "order": {"type": "string", "enum": ["asc", "desc"], "description": "desc = newest first (default)"},
+                "kind": {"type": "string", "description": "Filter by activity kind (comment, status_change, …)"},
+                "include_internal": {"type": "boolean", "description": "Include staff-only internal notes (default true)"},
             },
             "required": ["ticket"],
         },
@@ -180,6 +196,49 @@ def _request_headers() -> dict[str, str]:
     return headers
 
 
+_STATUS_HINTS = {
+    401: "check TOOLS_PROJECT_API_KEY or ~/.tools-project-key (the key may be revoked)",
+    403: "the key owner must be a superuser; an HTML body means the edge blocked the request — set a non-default User-Agent",
+    404: "not found: the ticket/attachment does not exist, or the deployment predates agent API 1.1.0",
+    409: "conflict: retrying with the same idempotency key and a different payload",
+    429: "rate limited: retry later",
+    500: "server error: retry later and quote the request id",
+}
+
+
+def _error_payload(code: int, body: str, headers: dict[str, str]) -> dict[str, Any]:
+    """Turn an HTTP error into a consumer-friendly payload (status, request id, hint)."""
+    text = (body or "").strip()
+    hint = _STATUS_HINTS.get(code, "")
+
+    if text.startswith("<") or "cloudflare" in text.lower():
+        text = "edge/CDN blocked the request (HTML response)"
+        hint = "set MCP_USER_AGENT to a non-default value; urllib's default is rejected with 403"
+    else:
+        try:
+            parsed = json.loads(text)
+        except json.JSONDecodeError:
+            text = text[:300]
+        else:
+            detail = parsed.get("detail") if isinstance(parsed, dict) else None
+            if isinstance(detail, str):
+                text = detail
+            elif detail is not None:
+                text = json.dumps(detail)
+
+    payload: dict[str, Any] = {
+        "ok": False,
+        "status": code,
+        "error": f"HTTP {code}: {text}"[:500],
+    }
+    request_id = headers.get("x-request-id")
+    if request_id:
+        payload["request_id"] = request_id
+    if hint:
+        payload["hint"] = hint
+    return payload
+
+
 def _api_get(path: str) -> dict[str, Any]:
     url = f"{API_BASE_URL}{path}"
 
@@ -188,13 +247,19 @@ def _api_get(path: str) -> dict[str, Any]:
         with urllib.request.urlopen(req, timeout=30) as resp:
             return json.loads(resp.read().decode())
     except urllib.error.HTTPError as e:
-        body = e.read().decode() if e.fp else "{}"
-        detail = body[:500]
-        return {"ok": False, "error": f"HTTP {e.code}: {detail}"}
+        body = e.read().decode(errors="replace") if e.fp else ""
+        headers = {k.lower(): v for k, v in (getattr(e, "headers", None) or {}).items()}
+        return _error_payload(e.code, body, headers)
     except urllib.error.URLError as e:
-        return {"ok": False, "error": f"Connection failed: {e.reason}"}
+        return {
+            "ok": False,
+            "error": f"Connection failed: {e.reason}",
+            "hint": "check API_BASE_URL and network access to the deployment",
+        }
     except json.JSONDecodeError as e:
-        return {"ok": False, "error": f"Invalid JSON response: {e}"}
+        return {"ok": False, "error": f"Invalid JSON response: {e}", "hint": "the endpoint may be behind a proxy"}
+
+
 
 
 def _build_query(params: dict[str, Any], allowed: set[str]) -> str:
@@ -248,8 +313,8 @@ def _filename_from_headers(headers: dict[str, str], fallback: str) -> str:
     return fallback
 
 
-def _api_get_binary(path: str) -> tuple[bytes | None, dict[str, str], str | None]:
-    """Return (body, response headers, error)."""
+def _api_get_binary(path: str) -> tuple[bytes | None, dict[str, str], dict[str, Any] | None]:
+    """Return (body, response headers, error payload)."""
     url = f"{API_BASE_URL}{path}"
     headers = _request_headers()
     headers["Accept"] = "*/*"
@@ -260,10 +325,15 @@ def _api_get_binary(path: str) -> tuple[bytes | None, dict[str, str], str | None
             resp_headers = {k.lower(): v for k, v in resp.headers.items()}
             return body, resp_headers, None
     except urllib.error.HTTPError as e:
-        detail = e.read().decode(errors="replace")[:300] if e.fp else "{}"
-        return None, {}, f"HTTP {e.code}: {detail}"
+        body = e.read().decode(errors="replace") if e.fp else ""
+        resp_headers = {k.lower(): v for k, v in (getattr(e, "headers", None) or {}).items()}
+        return None, resp_headers, _error_payload(e.code, body, resp_headers)
     except urllib.error.URLError as e:
-        return None, {}, f"Connection failed: {e.reason}"
+        return None, {}, {
+            "ok": False,
+            "error": f"Connection failed: {e.reason}",
+            "hint": "check API_BASE_URL and network access to the deployment",
+        }
 
 
 def _save_attachment(data: bytes, filename: str, save_dir: str | None) -> Path:
@@ -295,7 +365,8 @@ def _attachment_result(
 ) -> dict[str, Any]:
     data, headers, error = _api_get_binary(f"/v1/agent/attachments/{quote(attachment_id)}")
     if error is not None or data is None:
-        return {"content": [{"type": "text", "text": json.dumps({"ok": False, "error": error or "attachment unavailable"}, indent=2)}]}
+        payload = error or {"ok": False, "error": "attachment unavailable"}
+        return {"content": [{"type": "text", "text": json.dumps(payload, indent=2)}]}
 
     mime = headers.get("content-type", "application/octet-stream").split(";")[0].strip()
     filename = _filename_from_headers(headers, f"attachment-{attachment_id}")
@@ -363,13 +434,24 @@ def _handle_tool_call(name: str, arguments: dict[str, Any] | None) -> dict[str, 
 
     elif name == "get_ticket_detail":
         ticket_ref = args.get("ticket", "")
-        if not ticket_ref:
-            return {"content": [{"type": "text", "text": json.dumps({"ok": False, "error": "ticket is required"}, indent=2)}]}
+        ticket_url = args.get("url", "")
+        if not ticket_ref and not ticket_url:
+            return {"content": [{"type": "text", "text": json.dumps({"ok": False, "error": "ticket or url is required"}, indent=2)}]}
         qs = _build_query(
             args,
             {"include_activities", "include_internal", "activity_limit"},
         )
-        result = _api_get(f"/v1/agent/tickets/{quote(str(ticket_ref))}{qs}")
+        if ticket_url:
+            result = _api_get(f"/v1/agent/tickets/resolve?url={quote(str(ticket_url), safe='')}{qs.replace('?', '&', 1)}")
+        else:
+            result = _api_get(f"/v1/agent/tickets/{quote(str(ticket_ref))}{qs}")
+
+    elif name == "list_ticket_activities":
+        ticket_ref = args.get("ticket", "")
+        if not ticket_ref:
+            return {"content": [{"type": "text", "text": json.dumps({"ok": False, "error": "ticket is required"}, indent=2)}]}
+        qs = _build_query(args, {"limit", "offset", "order", "kind", "include_internal"})
+        result = _api_get(f"/v1/agent/tickets/{quote(str(ticket_ref))}/activities{qs}")
 
     elif name == "get_attachment":
         attachment_id = args.get("attachment_id", "")
