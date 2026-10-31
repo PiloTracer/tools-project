@@ -183,6 +183,55 @@ TOOLS: list[dict[str, Any]] = [
 ]
 
 
+
+_BASE_TOOL_NAMES = frozenset(
+    {
+        "list_projects",
+        "get_project_context",
+        "get_task_info",
+        "get_ticket_info",
+        "search_entities",
+    }
+)
+
+_CAPABILITIES_CHECKED = False
+_CAPABILITIES_CACHE: dict[str, Any] | None = None
+_CAPABILITIES_ERROR: str | None = None
+
+
+def _api_version_tuple(value: str) -> tuple[int, int]:
+    parts = str(value).split(".")
+    try:
+        return int(parts[0]), int(parts[1])
+    except (ValueError, IndexError):
+        return (0, 0)
+
+
+def _probe_capabilities() -> dict[str, Any] | None:
+    """Lazy, cached capability probe (never blocks initialize, never raises)."""
+    global _CAPABILITIES_CHECKED, _CAPABILITIES_CACHE, _CAPABILITIES_ERROR
+    if not _CAPABILITIES_CHECKED:
+        _CAPABILITIES_CHECKED = True
+        result = _api_get("/v1/agent/capabilities")
+        if result.get("ok"):
+            data = result.get("data")
+            _CAPABILITIES_CACHE = data if isinstance(data, dict) else {}
+        else:
+            _CAPABILITIES_ERROR = str(result.get("error", ""))
+    return _CAPABILITIES_CACHE
+
+
+def _enabled_tools() -> list[dict[str, Any]]:
+    """Hide tools the deployed API cannot serve; keep all when the probe fails."""
+    capabilities = _probe_capabilities()
+    if not capabilities:
+        return TOOLS
+    api_version = str(capabilities.get("agent_api_version", ""))
+    if _api_version_tuple(api_version) < _api_version_tuple(SERVER_VERSION):
+        return [tool for tool in TOOLS if tool["name"] in _BASE_TOOL_NAMES]
+    return TOOLS
+
+
 def _user_agent() -> str:
     """Cloudflare-safe User-Agent (urllib's default is rejected with 403 on the hosted API)."""
     override = os.environ.get("MCP_USER_AGENT", "").strip()
@@ -489,7 +538,7 @@ def _handle_request(msg: dict[str, Any]) -> dict[str, Any] | None:
         return {
             "jsonrpc": "2.0",
             "id": msg_id,
-            "result": {"tools": TOOLS},
+            "result": {"tools": _enabled_tools()},
         }
 
     if method == "tools/call":
@@ -522,22 +571,28 @@ def self_check() -> tuple[list[str], bool]:
     ]
     ok = True
 
-    result = _api_get("/v1/agent/capabilities")
-    if result.get("ok"):
-        data = result.get("data") or {}
-        lines.append(f"agent_api_version: {data.get('agent_api_version', 'unknown')}")
-        capabilities = data.get("capabilities") or []
-        if capabilities:
-            lines.append("capabilities: " + ", ".join(str(item) for item in capabilities))
+    capabilities = _probe_capabilities()
+    if capabilities is not None:
+        api_version = str(capabilities.get("agent_api_version", "unknown"))
+        lines.append(f"agent_api_version: {api_version}")
+        declared = capabilities.get("capabilities") or []
+        if declared:
+            lines.append("capabilities: " + ", ".join(str(item) for item in declared))
+        if _api_version_tuple(api_version) < _api_version_tuple(SERVER_VERSION):
+            lines.append("note: deployed API is older; newer tools are hidden")
     else:
-        error = str(result.get("error", ""))
+        error = str(_CAPABILITIES_ERROR or "")
         if error.startswith("HTTP 404"):
-            lines.append("capabilities: unavailable (deployed API predates agent API 1.1.0)")
+            lines.append("capabilities: unavailable (endpoint not deployed on this build; all tools enabled)")
         else:
             ok = False
             lines.append(f"capabilities: error - {error[:200]}")
 
-    lines.append("tools: " + ", ".join(str(tool.get("name", "?")) for tool in TOOLS))
+    enabled = _enabled_tools()
+    lines.append("tools: " + ", ".join(str(tool.get("name", "?")) for tool in enabled))
+    hidden = len(TOOLS) - len(enabled)
+    if hidden:
+        lines.append(f"hidden tools: {hidden} (API too old)")
     return lines, ok
 
 

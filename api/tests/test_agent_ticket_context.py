@@ -888,3 +888,142 @@ async def test_activities_unknown_ticket_is_404(
 
     assert response.status_code == 404
     assert response.json()["detail"] == "ticket_not_found"
+
+
+# ── P2: capabilities, served client file, context counts, ticket filter ──
+
+
+async def test_capabilities_handshake(client: AsyncClient, db: AsyncSession) -> None:
+    owner, _project = await _owner_and_project(db)
+    member = await create_user(db, email=f"member-{uuid.uuid4().hex[:8]}@example.com")
+
+    response = await client.get("/v1/agent/capabilities", headers=auth_header(owner))
+    anonymous = await client.get("/v1/agent/capabilities")
+    non_superuser = await client.get(
+        "/v1/agent/capabilities", headers=auth_header(member)
+    )
+
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data["agent_api_version"] == "1.1.0"
+    assert {"ticket_detail", "ticket_activities", "attachment_download"} <= set(
+        data["capabilities"]
+    )
+    assert data["limits"]["activities_max"] == 200
+    assert data["limits"]["attachment_max_bytes"] == 25 * 1024 * 1024
+    assert data["recommended_mcp_server_version"] == "1.1.0"
+    assert data["mcp_server_download_url"].endswith("/v1/agent/client/mcp_server.py")
+    assert anonymous.status_code == 401
+    assert non_superuser.status_code == 403
+
+
+async def test_served_mcp_file_matches_packaged_module(
+    client: AsyncClient, db: AsyncSession
+) -> None:
+    from app.client import mcp_server as packaged
+
+    owner, _project = await _owner_and_project(db)
+
+    response = await client.get(
+        "/v1/agent/client/mcp_server.py", headers=auth_header(owner)
+    )
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/x-python")
+    assert response.headers["content-disposition"].startswith("attachment")
+    assert response.headers["x-mcp-server-version"] == packaged.SERVER_VERSION
+    assert response.content == Path(packaged.__file__).read_bytes()
+
+
+async def test_context_counts_are_real(client: AsyncClient, db: AsyncSession) -> None:
+    owner, project = await _owner_and_project(db)
+    for _ in range(2):
+        member = await create_user(db, email=f"m-{uuid.uuid4().hex[:8]}@example.com")
+        await add_member(db, project.id, member.id, MemberRole.contributor)
+
+    from app.models.task import Task
+
+    for index, status in enumerate(("todo", "in_progress", "done")):
+        db.add(
+            Task(
+                project_id=project.id,
+                title=f"task-{index}",
+                status=status,
+                reporter_id=owner.id,
+            )
+        )
+    for index, status in enumerate(("open", "open", "in_progress", "resolved")):
+        db.add(
+            Ticket(
+                project_id=project.id,
+                title=f"ticket-{index}",
+                description=None,
+                status=status,
+                reporter_id=owner.id,
+            )
+        )
+    await db.flush()
+
+    response = await client.get(
+        f"/v1/agent/projects/{project.id}/context", headers=auth_header(owner)
+    )
+
+    assert response.status_code == 200
+    project_data = response.json()["data"]["project"]
+    assert project_data["member_count"] == 3
+    assert project_data["open_tasks"] == 2
+    assert project_data["tasks_total"] == 3
+    assert project_data["open_tickets"] == 3
+    assert project_data["tickets_total"] == 4
+    assert project_data["tasks_truncated"] is False
+    assert project_data["tickets_truncated"] is False
+
+
+async def test_context_counts_report_truncation(
+    client: AsyncClient, db: AsyncSession
+) -> None:
+    from app.models.task import Task
+
+    owner, project = await _owner_and_project(db)
+    db.add_all(
+        [
+            Task(project_id=project.id, title=f"bulk-{index}", reporter_id=owner.id)
+            for index in range(101)
+        ]
+    )
+    await db.flush()
+
+    response = await client.get(
+        f"/v1/agent/projects/{project.id}/context", headers=auth_header(owner)
+    )
+
+    project_data = response.json()["data"]["project"]
+    assert project_data["tasks_total"] == 101
+    assert project_data["tasks_truncated"] is True
+    assert len(response.json()["data"]["tasks"]) == 100
+
+
+async def test_ticket_list_filters_by_project(
+    client: AsyncClient, db: AsyncSession
+) -> None:
+    owner, project_a = await _owner_and_project(db)
+    project_b = await create_project(
+        db, slug=f"proj-b-{uuid.uuid4().hex[:8]}", owner_id=owner.id
+    )
+    ticket_a = await _ticket(db, project_a, owner)
+    ticket_b = await _ticket(db, project_b, owner)
+
+    filtered = await client.get(
+        f"/v1/agent/tickets?project_id={project_a.id}&limit=200",
+        headers=auth_header(owner),
+    )
+    unknown = await client.get(
+        f"/v1/agent/tickets?project_id={uuid.uuid4()}", headers=auth_header(owner)
+    )
+
+    assert filtered.status_code == 200
+    ids = {item["id"] for item in filtered.json()["data"]}
+    assert str(ticket_a.id) in ids
+    assert str(ticket_b.id) not in ids
+    assert unknown.status_code == 200
+    assert unknown.json()["data"] == []

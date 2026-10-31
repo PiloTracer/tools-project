@@ -27,10 +27,10 @@ Pen test rem.   ████████████████████  9/
 Multi-tenancy   ████████████████████  Done  (implementation verified; 33 tests pass)
 
 Open: **production deploy pending** for the Activity repair (committed this session) · **skills-table reconciliation pending owner go-ahead** in `.cursorrules` (remove the stale `deploy-repo` row; add **`plan-sync`** and **`infra-terraform`**, which the framework ships but this table omits) · Mendarion's own gates live in that repo. Cross-LLM verification of the plan-sync P1 commit `11432fe` — **PASS 2026-09-30** (see HANDOFF § Cross-LLM verification) — **discharged**
-Active: **Activity tab repair complete** (kind validation, attachments, internal replies, pagination, live SSE, client visibility; 80 tests) — **awaiting production deploy** · **TNT iteration complete** (tenant context: single-tenant writes + multi-tenant selection; stack control plane + env-file contract) — **committed 2026-09-30** · **agent-query-api P0 complete (2026-10-30)** — ticket detail + attachment reads + MCP tools implemented, 128 tests green, live dev-stack verified; **hosted deploy pending (owner)**
+Active: **Activity tab repair complete** (kind validation, attachments, internal replies, pagination, live SSE, client visibility; 80 tests) — **awaiting production deploy** · **TNT iteration complete** (tenant context: single-tenant writes + multi-tenant selection; stack control plane + env-file contract) — **committed 2026-09-30** · **agent-query-api P0–P2 complete (2026-10-30)** — 154 tests green; version **0.1.4**; hosted 0.1.4 deploy pending (owner)
 
 ### Recommended next
-**Recommended next (one):** **verify all of today's changes** (owner directive 2026-10-30) — `@code-verify last` on the close commit (working tree clean), including the MCP end-to-end path, the web-URL resolve route and the doc set; then a cross-model review of the authorization boundary. After that: deploy a **1.1.0** build and run the R22 acceptance on the hosted instance (detail by ref **and by web URL**, newest-first comment page, the three PZT screenshots, capabilities, downloaded MCP file). P0 and P1 are code-complete; only **P2** remains (capabilities endpoint, context counts fix, `project_id` filter, R20 index, served MCP file, framework `update` verb). The Activity repair is complete in code and needs only a production deploy.
+**Recommended next (one):** **apply the `project-query-setup update` patch** in the Agent OS repo (path below), deploy **0.1.4**, and run the hosted R22 acceptance (detail by ref **and by web URL**, newest-first comment page, the three PZT screenshots, `capabilities`, the downloaded MCP file, context counts, `project_id` filter). Then record the human/cross-model review of the authorization boundary and approve SPEC amendment 02. The only remaining item is applying the prepared framework patch (`.work/features/agent-query-api/project-query-setup-update-verb.patch`) in `/mnt/work/Projects/pilo.ai.logicbison` — everything in this repository is code-complete and committed.
 
 ### Next session — verify today's changes (owner directive)
 Run `@code-verify last` on the close commit — it includes the integration fix, the P1 activity feed and the web-URL resolve route — (new `reference/APP_INTEGRATION.md`, corrected `API.md`/`AUTH.md`/`GITHUB.md`/`GITHUB_SETUP.md`/guide, MCP error payloads with `status`/`request_id`/`hint`, webhook `last_delivered_at`, 4 new tests, UNKNOWNS #8), re-run the MCP end-to-end checks, review the doc set for coherence, and record the cross-model/human review of the authorization boundary. Note: **AQA P1** (paginated activities + `list_ticket_activities`) and **web-URL ticket resolution** (`/v1/agent/tickets/resolve`, MCP `url`) were implemented post-close on owner direction — see SPEC amendment 02. Then deploy the 1.1.0 build, run R22, and `@code-implementation plan` for AQA P1.
@@ -48,6 +48,44 @@ Run `@code-verify last` on the close commit — it includes the integration fix,
 ### Intake queue
 - 2026-07-06 · local · "assess making this app multi-tenant" → SPEC created at `.work/features/multi-tenancy/20260706-SPEC.md` (Draft)
 - 2026-10-30 · production · Activity tab repair completed (see `HANDOFF.md` § Activity tab repair) → verified/corrected and **Approved 2026-10-30**; P0 iteration block ready (`20261030-SPEC-amendment-01.md`).
+
+## Current iteration — AQA P2: capabilities, counts, index, distribution
+
+**Milestone ref:** AQA-P2 · source: `.work/features/agent-query-api/20261030-SPEC-amendment-01.md` §12 P2 (Approved) · amendment 02 (Draft, owner-directed)
+**Status:** complete — 2026-10-30 (code + gates green; uncommitted; deployment is an owner action)
+**Started / Completed:** 2026-10-30 / 2026-10-30
+**Trigger:** owner directive 2026-10-30 — finish every missing agent-API implementation before the `0.1.4` deploy.
+
+### In scope
+- `GET /v1/agent/capabilities` (R8) and the served MCP file `GET /v1/agent/client/mcp_server.py` (R10)
+- Context summary counts + totals/truncation flags (R11); `project_id` filter on `/v1/agent/tickets` (R12); R20 index
+- MCP lazy capability probe + graceful degradation; `bin/mcp-sync.sh`
+- API version `0.1.4` (pyproject + `main.py` + a consistency test)
+
+### Tasks
+| ID | Description | Files | Status | Notes |
+|----|-------------|-------|--------|-------|
+| AQA-P2-T1 | Capabilities handshake (version, capabilities, limits, recommended MCP version, download URL) | `api/app/routers/agent_query.py` | **done** | R8; auth matrix tested |
+| AQA-P2-T2 | Serve the packaged MCP client (`text/x-python`, attachment, `X-MCP-Server-Version`) | `api/app/routers/agent_query.py` | **done** | R10; served bytes == packaged module (test) |
+| AQA-P2-T3 | Real context counts + `tasks_total`/`tickets_total`/truncation flags | `api/app/routers/agent_query.py` | **done** | R11; fixes the `0/0/0` defect |
+| AQA-P2-T4 | `project_id` filter on the ticket list | `api/app/routers/agent_query.py` | **done** | R12; unknown project → empty list |
+| AQA-P2-T5 | Idempotent index for the ticket activity page | `sql/schema_indexes.sql` | **done** | R20; apply-ddl ×2, index present |
+| AQA-P2-T6 | MCP lazy/cached capability probe, hide newer tools on old API, keep tools on probe failure | `api/app/client/mcp_server.py` | **done** | R9; tests for 1.0.0/1.1.0/404 |
+| AQA-P2-T7 | `bin/mcp-sync.sh check/sync` between packaged and repo copy | `bin/mcp-sync.sh` | **done** | passes on the current copy |
+| AQA-P2-T8 | Version `0.1.4` + guard test against pyproject drift | `api/pyproject.toml`, `api/app/main.py`, `api/tests/test_version_consistency.py` | **done** | root cause of the prod `0.1.3`: `main.py` hardcoded it |
+| AQA-P2-T9 | Tests + docs for P2 | `api/tests/test_agent_ticket_context.py`, `api/tests/test_mcp_server.py`, `.work/docs/agent-query-api.md` | **done** | capabilities, served file, counts, truncation, filter, degradation |
+| AQA-P2-T10 | Framework `project-query-setup update` verb | external repo (`pilo.ai.logicbison/skills/...`) | **patch ready** | `.work/features/agent-query-api/project-query-setup-update-verb.patch` applies cleanly; direct edit denied by the file sandbox — apply in the Agent OS repo |
+
+### Validation (2026-10-30)
+- [x] `ruff check .` clean · `pyright .` 0 errors · `pytest tests/ -q` **154 passed**
+- [x] `python -m app.cli_schema apply-ddl` ×2 clean; `ix_activities_project_subject_created` present
+- [x] Live dev: capabilities `200` (version/limits/URL), served file byte-identical, context counts real (`open_tickets=2`, `member_count=1`), project filter works, MCP lists 8 tools and `--self-check` reports `agent_api_version: 1.1.0` with declared capabilities
+- [x] `/healthz` and `/openapi.json` report **0.1.4**
+
+### Owner actions
+- Commit/push, deploy `0.1.4`, run the hosted R22 acceptance; approve amendment 02; record the human review; refresh consumer MCP copies; fix the `billing` registry 404.
+
+---
 
 ## Current iteration — AQA P0: ticket detail + attachment reads (agent API 1.1.0)
 

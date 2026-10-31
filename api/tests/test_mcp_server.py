@@ -27,6 +27,14 @@ def _fixed_key(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(mcp_server, "API_KEY", UNIT_TEST_KEY)
 
 
+@pytest.fixture(autouse=True)
+def _reset_capability_cache(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep the lazy capability probe isolated per test (it is process-global)."""
+    monkeypatch.setattr(mcp_server, "_CAPABILITIES_CHECKED", False)
+    monkeypatch.setattr(mcp_server, "_CAPABILITIES_CACHE", None)
+    monkeypatch.setattr(mcp_server, "_CAPABILITIES_ERROR", None)
+
+
 def test_request_headers_send_user_agent(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("MCP_USER_AGENT", raising=False)
 
@@ -381,3 +389,78 @@ def test_api_get_cloudflare_html_403_is_explained(monkeypatch: pytest.MonkeyPatc
     assert result["status"] == 403
     assert "edge/CDN" in result["error"]
     assert "MCP_USER_AGENT" in result["hint"]
+
+
+# ── P2: lazy capability probe / graceful degradation ──────────────────
+
+
+def _reset_capabilities(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(mcp_server, "_CAPABILITIES_CHECKED", False)
+    monkeypatch.setattr(mcp_server, "_CAPABILITIES_CACHE", None)
+    monkeypatch.setattr(mcp_server, "_CAPABILITIES_ERROR", None)
+
+
+def test_tools_are_hidden_on_an_older_api(monkeypatch: pytest.MonkeyPatch) -> None:
+    _reset_capabilities(monkeypatch)
+    monkeypatch.setattr(
+        mcp_server,
+        "_api_get",
+        lambda _path: {"ok": True, "data": {"agent_api_version": "1.0.0"}},
+    )
+
+    enabled = {tool["name"] for tool in mcp_server._enabled_tools()}
+    response = mcp_server._handle_request(
+        {"jsonrpc": "2.0", "id": 1, "method": "tools/list"}
+    )
+
+    assert enabled == mcp_server._BASE_TOOL_NAMES
+    assert response is not None
+    assert {tool["name"] for tool in response["result"]["tools"]} == (
+        mcp_server._BASE_TOOL_NAMES
+    )
+
+
+def test_tools_are_fully_enabled_on_1_1(monkeypatch: pytest.MonkeyPatch) -> None:
+    _reset_capabilities(monkeypatch)
+    monkeypatch.setattr(
+        mcp_server,
+        "_api_get",
+        lambda _path: {"ok": True, "data": {"agent_api_version": "1.1.0"}},
+    )
+
+    assert mcp_server._enabled_tools() == mcp_server.TOOLS
+
+
+def test_tools_stay_enabled_when_capabilities_endpoint_is_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _reset_capabilities(monkeypatch)
+    monkeypatch.setattr(
+        mcp_server,
+        "_api_get",
+        lambda _path: {"ok": False, "error": "HTTP 404: Not Found"},
+    )
+
+    assert mcp_server._enabled_tools() == mcp_server.TOOLS
+
+    lines, ok = mcp_server.self_check()
+    assert ok is True
+    assert any("unavailable" in line for line in lines)
+    assert any("get_ticket_detail" in line for line in lines)
+
+
+def test_capability_probe_is_cached(monkeypatch: pytest.MonkeyPatch) -> None:
+    _reset_capabilities(monkeypatch)
+    calls: list[str] = []
+
+    def _fake(path: str) -> dict[str, object]:
+        calls.append(path)
+        return {"ok": True, "data": {"agent_api_version": "1.1.0"}}
+
+    monkeypatch.setattr(mcp_server, "_api_get", _fake)
+
+    mcp_server._enabled_tools()
+    mcp_server._enabled_tools()
+    mcp_server.self_check()
+
+    assert calls == ["/v1/agent/capabilities"]

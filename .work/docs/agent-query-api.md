@@ -35,7 +35,7 @@ tools, and troubleshooting. Setup walkthroughs link here instead of repeating it
 | Capability | `1.0.0` (live) | `1.1.0` (implemented, pending deploy) |
 |------------|----------------|-------------------|
 | Projects, tasks, tickets (lists), search | yes | unchanged |
-| Project context (members, tickets, GitHub refs) | yes, **summary counts return 0** (known defect) | counts fixed + totals/truncation flags |
+| Project context (members, tickets, GitHub refs) | yes, **summary counts returned 0** (fixed in this build) | real counts + totals/truncation flags |
 | Ticket detail by UUID, `ref` or web URL | no | `GET /v1/agent/tickets/{ticket}` · `GET /v1/agent/tickets/resolve?url=` |
 | Comment/activity thread | no (JWT-only web route) | `GET /v1/agent/tickets/{ticket}/activities` (paginated) + inline newest-first page |
 | Attachment metadata (filename, mime, size) | no | in ticket detail |
@@ -139,9 +139,8 @@ All projects with summary counts.
 
 Project + up to 100 tasks, 100 tickets, members, linked clients, GitHub refs.
 
-> **Known defect (fixed in 1.1.0, SPEC R11).** `project.open_tasks`, `open_tickets` and
-> `member_count` are always `0` in this payload, even though `/v1/agent/projects` reports the real
-> values. Do not rely on them; use the list endpoint until 1.1.0 ships.
+Counts are real (SPEC R11): `open_tasks`, `open_tickets`, `member_count`, plus `tasks_total`,
+`tickets_total` and `tasks_truncated`/`tickets_truncated` when the 100-row lists were clipped.
 
 ### `GET /v1/agent/tasks` · `GET /v1/agent/tickets`
 
@@ -158,9 +157,9 @@ Projects, tasks, tickets, clients, prospects. `q` required; `limit` 1–50 (defa
 ## 5. Endpoints — `1.1.0` (implemented in the repository; pending deployment)
 
 Full contract and test plan: [`20261030-SPEC-amendment-01.md`](../features/agent-query-api/20261030-SPEC-amendment-01.md).
-Detail, paginated activities, binary attachments and the three MCP tools are implemented and tested;
-the capabilities endpoint and the served MCP file remain P2. Until a `1.1.0` build is deployed,
-every route below returns `404` on the hosted instance.
+Detail, paginated activities, binary attachments, capabilities, the served MCP file and the three MCP
+tools are implemented and tested (P0–P2). Until a `1.1.0` build is deployed, every route below
+returns `404` on the hosted instance.
 
 ### `GET /v1/agent/tickets/{ticket}`
 
@@ -263,20 +262,25 @@ Behaviour:
 - `--version` prints the server version; `--self-check` prints the effective base URL and its
   source, calls `/v1/agent/capabilities`, and lists enabled tools.
 
-Update a consumer copy:
+Update a consumer copy (1.1.0+ — the file is served by the deployment and includes the
+Cloudflare-safe `User-Agent`):
 
 ```bash
-# 1.1.0+: from the deployed API (contains the Cloudflare-safe User-Agent)
 curl -s -o .opencode/mcp/project-mcp/mcp_server.py \
-  -H "X-Api-Key: $(tail -n1 ~/.tools-project-key)" \
+  -H "X-Api-Key: $(grep -v '^BASE_URL=' ~/.tools-project-key | head -n1)" \
   -H "User-Agent: tools-project-mcp/1.1.0" \
-  "$(head -n1 ~/.tools-project-key | cut -d= -f2-)/v1/agent/client/mcp_server.py"
+  "$(grep '^BASE_URL=' ~/.tools-project-key | cut -d= -f2-)/v1/agent/client/mcp_server.py"
 chmod 755 .opencode/mcp/project-mcp/mcp_server.py
 python3 .opencode/mcp/project-mcp/mcp_server.py --self-check
-
-# Until 1.1.0 (or if D1 is declined): keep the copy from a repository that already has the header
-grep -q 'User-Agent' .opencode/mcp/project-mcp/mcp_server.py && echo "header present"
 ```
+
+Inside this repository, `bin/mcp-sync.sh check` fails when the `.opencode` copy drifts from the
+packaged `api/app/client/mcp_server.py`; `bin/mcp-sync.sh sync` refreshes it.
+
+On `tools/list` the server probes `/v1/agent/capabilities` once (cached, never blocks
+`initialize`): an older `agent_api_version` hides the 1.1.0 tools; a missing endpoint or a network
+error keeps all tools enabled. `--self-check` prints the effective base URL, the API version,
+declared capabilities and the enabled tools.
 
 ---
 

@@ -86,7 +86,7 @@ _start_time: float = time.time()
 app = FastAPI(
     title="tools-project API",
     description="Project management hub — backend",
-    version="0.1.3",
+    version="0.1.4",
     lifespan=lifespan,
 )
 
@@ -178,6 +178,6 @@ async def healthz() -> dict[str, object]:
     return {
         "status": "ok" if db_ok else "degraded",
         "db": "ok" if db_ok else "unreachable",
-        "version": "0.1.3",
+        "version": "0.1.4",
         "uptime_seconds": int(time.time() - _start_time),
     }

@@ -1,0 +1,90 @@
+--- a/skills/project-query-setup/skill.md
++++ b/skills/project-query-setup/skill.md
+@@ -34,6 +34,7 @@
+ | `@project-query-setup key` | Guide the user through web UI → key creation → `~/.tools-project-key` |
+ | `@project-query-setup test` | Verify connectivity by listing projects |
+ | `@project-query-setup register-mcp` | Register MCP server in consuming project's coding-agent config |
++| `@project-query-setup update` | Refresh the copied MCP server from the deployed API (fallback: the Agent OS source copy); verify version + tools; run `--self-check` |
+ | `@project-query-setup help` | Show available tools and usage patterns for this OS |
+ | `@project-query-setup` (no verb) | Default to `status` mode |
+ 
+@@ -358,6 +359,79 @@
+ 
+ ---
+ 
++## Update protocol
++
++**Purpose:** refresh the MCP server copy in the **current** repository from the deployed API (or the
++Agent OS source), never downgrading silently.
++
++### U1 — Preconditions
++
++1. `~/.tools-project-key` exists with mode `600` and a `BASE_URL=` line (or `TOOLS_PROJECT_API_KEY` /
++   `API_BASE_URL` envs are set).
++2. `python3` is available.
++3. `curl -s "$BASE/healthz"` returns `200`.
++
++### U2 — Fetch the canonical file from the API
++
++```bash
++BASE=$(grep '^BASE_URL=' ~/.tools-project-key | cut -d= -f2-)
++KEY=$(grep -v '^BASE_URL=' ~/.tools-project-key | head -n1)
++TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
++code=$(curl -sS -o "$TMP/mcp_server.py" -w '%{http_code}' \
++  -H "X-Api-Key: $KEY" -H "User-Agent: tools-project-mcp/1.1.0" \
++  "$BASE/v1/agent/client/mcp_server.py")
++echo "download HTTP $code ($(wc -c < "$TMP/mcp_server.py") bytes)"
++```
++
++- `200` → continue to U4.
++- `404` → the deployment predates agent API 1.1.0; use the U3 fallback.
++- `401`/`403` → stop: fix the key, the owner's superuser flag, or the `User-Agent` (never print the key).
++- Any other status (5xx / edge error) → **stop** and report the code + request id; the deployment is unhealthy.
++
++### U3 — Fallback: the Agent OS source copy
++
++```bash
++cp "$AGENT_OS_SOURCE/.opencode/mcp/project-mcp/mcp_server.py" "$TMP/mcp_server.py"
++```
++
++### U4 — Validate, compare versions, write atomically
++
++```bash
++python3 -m py_compile "$TMP/mcp_server.py" || { echo "downloaded file is not Python"; exit 1; }
++LOCAL=.opencode/mcp/project-mcp/mcp_server.py
++local_ver=$(grep -oE 'SERVER_VERSION = "[^"]+"' "$LOCAL" 2>/dev/null | cut -d'"' -f2 || true)
++new_ver=$(grep -oE 'SERVER_VERSION = "[^"]+"' "$TMP/mcp_server.py" | cut -d'"' -f2)
++python3 - "$local_ver" "$new_ver" <<'PYVAL'
++import sys
++def t(v):
++    try: return tuple(int(x) for x in v.split('.'))
++    except Exception: return (0,)
++print(f'local={sys.argv[1] or "missing"} remote={sys.argv[2]}')
++raise SystemExit(0 if t(sys.argv[1]) <= t(sys.argv[2]) else 1)
++PYVAL
++mkdir -p "$(dirname "$LOCAL")" && install -m 755 "$TMP/mcp_server.py" "$LOCAL"
++```
++
++- Missing `$LOCAL` → first install (allowed).
++- Remote **older** than local → stop and ask; only the operator may force it (`--force`).
++
++### U5 — Verify and report
++
++```bash
++python3 .opencode/mcp/project-mcp/mcp_server.py --version
++python3 .opencode/mcp/project-mcp/mcp_server.py --self-check
++```
++
++Report old → new version, the tool count, the API `agent_api_version`, declared capabilities, and
++whether `--self-check` passed. If the file is unchanged, say so.
++
++### U6 — Multi-repo note
++
++The MCP server is per-repository. Run `update` once in each consuming repo (and in the Agent OS repo
++to refresh the distribution copy). Registration in the coding-agent config does not change.
++
++---
++
+ ## Status protocol
+ 
+ Run `~/.tools-project-key` check and a live query. Report:

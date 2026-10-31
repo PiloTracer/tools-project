@@ -1,6 +1,7 @@
 # Web-URL ticket addressing + activity pagination — Feature SPEC amendment 02
 
-**Status:** Draft — owner-directed implementation 2026-10-30 (approval pending)
+**Status:** Approved
+**Approved:** 2026-10-30 (owner directive: "approve all"; implementation verified the same day)
 **Owner:** Engineering
 **Amends:** [`20260701-SPEC.md`](20260701-SPEC.md) (Approved) · [`20261030-SPEC-amendment-01.md`](20261030-SPEC-amendment-01.md) (Approved)
 **Date:** 2026-10-30 · **Slug:** agent-query-api

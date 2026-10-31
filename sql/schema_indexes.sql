@@ -40,6 +40,10 @@ CREATE INDEX IF NOT EXISTS ix_activities_kind ON activities (kind);
 CREATE INDEX IF NOT EXISTS ix_activities_subject_internal
   ON activities (subject_type, subject_id, is_internal);
 
+-- Agent Query API (SPEC amendment 01 R20): ticket activity page, newest first.
+CREATE INDEX IF NOT EXISTS ix_activities_project_subject_created
+  ON activities (project_id, subject_type, subject_id, created_at DESC);
+
 CREATE UNIQUE INDEX IF NOT EXISTS uq_mentions_activity_user ON mentions (activity_id, mentioned_user_id);
 CREATE INDEX IF NOT EXISTS ix_mentions_mentioned_user_id ON mentions (mentioned_user_id);
 CREATE INDEX IF NOT EXISTS ix_mentions_project_id ON mentions (project_id);

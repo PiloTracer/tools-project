@@ -3,10 +3,12 @@ from __future__ import annotations
 import logging
 import re
 import uuid
+from pathlib import Path
 from typing import Annotated
 from urllib.parse import unquote, urlparse
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi.responses import Response
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -441,8 +443,41 @@ async def agent_project_context(
         .limit(50)
     )).scalars().all()
 
+    counts = (
+        await db.execute(
+            select(
+                select(func.count(Task.id))
+                .where(Task.project_id == project_id, Task.status.not_in(("done", "cancelled")))
+                .scalar_subquery(),
+                select(func.count(Ticket.id))
+                .where(Ticket.project_id == project_id, Ticket.status.not_in(("closed", "resolved")))
+                .scalar_subquery(),
+                select(func.count(ProjectMember.user_id))
+                .where(ProjectMember.project_id == project_id)
+                .scalar_subquery(),
+                select(func.count(Task.id))
+                .where(Task.project_id == project_id)
+                .scalar_subquery(),
+                select(func.count(Ticket.id))
+                .where(Ticket.project_id == project_id)
+                .scalar_subquery(),
+            )
+        )
+    ).one()
+    open_tasks, open_tickets, member_count, tasks_total, tickets_total = counts
+
+    project_data = _project_dict(project, open_tasks, open_tickets, member_count)
+    project_data.update(
+        {
+            "tasks_total": int(tasks_total or 0),
+            "tickets_total": int(tickets_total or 0),
+            "tasks_truncated": int(tasks_total or 0) > len(tasks),
+            "tickets_truncated": int(tickets_total or 0) > len(tickets),
+        }
+    )
+
     return _ok({
-        "project": _project_dict(project),
+        "project": project_data,
         "members": members,
         "tasks": tasks,
         "tickets": tickets,
@@ -484,6 +519,7 @@ async def agent_list_tickets(
     request: Request,
     ref: str | None = Query(default=None, description="Filter by ticket ref (e.g. TPR-T-12)"),
     status: str | None = Query(default=None, description="Filter by status"),
+    project_id: uuid.UUID | None = Query(default=None, description="Filter by project UUID"),
     limit: int = Query(default=50, ge=1, le=200),
 ):
     """List tickets, optionally filtered by ref or status."""
@@ -496,6 +532,8 @@ async def agent_list_tickets(
         stmt = stmt.where(Ticket.ref == ref)
     if status:
         stmt = stmt.where(Ticket.status == status)
+    if project_id is not None:
+        stmt = stmt.where(Ticket.project_id == project_id)
     stmt = stmt.order_by(Ticket.updated_at.desc()).limit(limit)
 
     rows = (await db.execute(stmt)).all()
@@ -908,6 +946,76 @@ async def agent_ticket_activities(
             "next_offset": offset + len(items) if has_more else None,
             "order": order,
         }
+    )
+
+
+_MCP_SERVER_FILE = Path(__file__).resolve().parents[1] / "client" / "mcp_server.py"
+_SERVER_VERSION_RE = re.compile(r'^SERVER_VERSION\s*=\s*"([^"]+)"', re.MULTILINE)
+_ATTACHMENT_MAX_BYTES = 25 * 1024 * 1024
+
+
+def _mcp_server_version() -> str:
+    """Version constant of the packaged MCP client (no import side effects)."""
+    try:
+        source = _MCP_SERVER_FILE.read_text()
+    except OSError:
+        return "unknown"
+    match = _SERVER_VERSION_RE.search(source)
+    return match.group(1) if match else "unknown"
+
+
+@router.get("/capabilities")
+async def agent_capabilities(
+    _admin: Annotated[User, Depends(require_agent_superuser)],
+    request: Request,
+):
+    """Version/capability handshake so clients can degrade gracefully (SPEC R8)."""
+    base_url = api_base_url(request)
+    return _ok(
+        {
+            "agent_api_version": AGENT_API_VERSION,
+            "capabilities": [
+                "ticket_detail",
+                "ticket_activities",
+                "attachments",
+                "attachment_download",
+                "capabilities",
+                "mcp_server_file",
+            ],
+            "limits": {
+                "activities_default": 50,
+                "activities_max": 200,
+                "activity_body_max_bytes": 32768,
+                "description_max_bytes": 32000,
+                "attachments_per_response": 200,
+                "attachment_max_bytes": _ATTACHMENT_MAX_BYTES,
+            },
+            "recommended_mcp_server_version": _mcp_server_version(),
+            "mcp_server_download_url": f"{base_url}/v1/agent/client/mcp_server.py",
+        }
+    )
+
+
+@router.get("/client/mcp_server.py")
+async def agent_mcp_server_file(
+    _admin: Annotated[User, Depends(require_agent_superuser)],
+):
+    """Serve the canonical MCP client file (SPEC R10) — packaged with the API."""
+    try:
+        payload = _MCP_SERVER_FILE.read_bytes()
+    except OSError:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail="mcp_server_file_unavailable"
+        ) from None
+
+    return Response(
+        content=payload,
+        media_type="text/x-python",
+        headers={
+            "Content-Disposition": 'attachment; filename="mcp_server.py"',
+            "X-MCP-Server-Version": _mcp_server_version(),
+            "Cache-Control": "no-store",
+        },
     )
 
 
