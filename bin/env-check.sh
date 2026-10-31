@@ -298,7 +298,10 @@ fi
 if [[ -d "$REPO_ROOT/api/app" ]]; then
   for var in $( { grep -E '^    [a-z_]+: [a-zA-Z]' "$REPO_ROOT/api/app/config.py" 2>/dev/null |
                     sed 's/^    \([a-z_]*\):.*/\1/' | tr '[:lower:]' '[:upper:]'
-                  grep -rhoE 'os\.environ(\.get)?\(?"[A-Z0-9_]+"' "$REPO_ROOT/api/app" 2>/dev/null |
+                  # api/app/client/ is the packaged MCP *client*: its env vars are read on the
+                  # consumer machine, not by the API service (skip it to avoid false notes).
+                  grep -rhoE 'os\.environ(\.get)?\(?"[A-Z0-9_]+"' "$REPO_ROOT/api/app" \
+                    --exclude-dir=client 2>/dev/null |
                     grep -oE '"[A-Z0-9_]+"' | tr -d '"'; } | sort -u); do
     case "$var" in
       # Set by compose / the mounts by design, not by the env file.
