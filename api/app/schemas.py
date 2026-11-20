@@ -270,6 +270,37 @@ class ComponentListResponse(BaseModel):
     items: list[ComponentOut]
 
 
+class WorkTypeCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    key: str | None = Field(
+        default=None, max_length=32, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    )
+    description: str | None = Field(default=None, max_length=8000)
+
+
+class WorkTypePatch(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    description: str | None = Field(default=None, max_length=8000)
+    is_default: bool | None = None
+
+
+class WorkTypeOut(BaseModel):
+    id: uuid.UUID
+    project_id: uuid.UUID
+    key: str
+    name: str
+    description: str | None
+    is_default: bool
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class WorkTypeListResponse(BaseModel):
+    items: list[WorkTypeOut]
+
+
 # --- Plan-sync: milestones (plan-sync SPEC §6) ---
 
 class MilestoneCreate(BaseModel):
@@ -339,6 +370,7 @@ class TaskCreate(BaseModel):
     status: str = Field(default="todo", max_length=40)
     priority: str = Field(default="normal", max_length=20)
     component_id: uuid.UUID | None = None
+    work_type_id: uuid.UUID | None = None
     assignee_id: uuid.UUID | None = None
     due_at: datetime | None = None
     parent_task_id: uuid.UUID | None = None
@@ -351,6 +383,7 @@ class TaskPatch(BaseModel):
     status: str | None = Field(default=None, max_length=40)
     priority: str | None = Field(default=None, max_length=20)
     component_id: uuid.UUID | None = None
+    work_type_id: uuid.UUID | None = None
     assignee_id: uuid.UUID | None = None
     due_at: datetime | None = None
     parent_task_id: uuid.UUID | None = None
@@ -365,6 +398,7 @@ class TaskOut(BaseModel):
     id: uuid.UUID
     project_id: uuid.UUID
     component_id: uuid.UUID | None
+    work_type_id: uuid.UUID | None = None
     ref: str | None = None
     title: str
     description: str | None
@@ -585,6 +619,7 @@ class TicketCreate(BaseModel):
     queue_slug: str = Field(default="default", max_length=80)
     requester_email: str | None = None
     assignee_id: uuid.UUID | None = None
+    work_type_id: uuid.UUID | None = None
 
 
 class TicketPatch(BaseModel):
@@ -595,6 +630,7 @@ class TicketPatch(BaseModel):
     queue_slug: str | None = Field(default=None, max_length=80)
     requester_email: str | None = None
     assignee_id: uuid.UUID | None = None
+    work_type_id: uuid.UUID | None = None
 
 
 class TicketTransition(BaseModel):
@@ -605,6 +641,7 @@ class TicketOut(BaseModel):
     id: uuid.UUID
     project_id: uuid.UUID
     ref: str | None = None
+    work_type_id: uuid.UUID | None = None
     title: str
     description: str | None
     status: str

@@ -13,6 +13,7 @@ from app.deps import get_current_user
 from app.models.component import Component
 from app.models.task import Task
 from app.models.user import User
+from app.routers.work_types import require_project_work_type
 from app.schemas import (
     TASK_STATUSES,
     TaskBatchUpdate,
@@ -62,6 +63,7 @@ async def list_tasks(
     task_status: str | None = Query(default=None, alias="status"),
     assignee_id: uuid.UUID | None = None,
     component_id: uuid.UUID | None = None,
+    work_type_id: uuid.UUID | None = None,
     milestone_id: uuid.UUID | None = None,
     plan_state: str | None = Query(default=None, pattern=r"^(active|obsolete)$"),
     is_todo: bool | None = Query(default=None),
@@ -86,6 +88,8 @@ async def list_tasks(
         base = base.where(Task.assignee_id == assignee_id)
     if component_id is not None:
         base = base.where(Task.component_id == component_id)
+    if work_type_id is not None:
+        base = base.where(Task.work_type_id == work_type_id)
     if milestone_id is not None:
         base = base.where(Task.milestone_id == milestone_id)
     if plan_state is not None:
@@ -128,6 +132,8 @@ async def create_task(
                 status.HTTP_400_BAD_REQUEST,
                 detail="component_id must belong to this project",
             )
+    if body.work_type_id is not None:
+        await require_project_work_type(db, project_id, body.work_type_id)
     if body.parent_task_id is not None:
         parent = await db.get(Task, body.parent_task_id)
         if parent is None or parent.project_id != project_id:
@@ -146,6 +152,7 @@ async def create_task(
     row = Task(
         project_id=project_id,
         component_id=body.component_id,
+        work_type_id=body.work_type_id,
         ref=ref,
         title=body.title.strip(),
         description=body.description.strip() if body.description else None,
@@ -212,6 +219,8 @@ async def patch_task(
                 status.HTTP_400_BAD_REQUEST,
                 detail="component_id must belong to this project",
             )
+    if body.work_type_id is not None:
+        await require_project_work_type(db, row.project_id, body.work_type_id)
     if body.parent_task_id is not None:
         parent = await db.get(Task, body.parent_task_id)
         if parent is None or parent.project_id != row.project_id:
@@ -242,6 +251,8 @@ async def patch_task(
         row.priority = body.priority.strip()
     if body.component_id is not None:
         row.component_id = body.component_id
+    if body.work_type_id is not None:
+        row.work_type_id = body.work_type_id
     if body.assignee_id is not None:
         row.assignee_id = body.assignee_id
     if body.due_at is not None:

@@ -3,6 +3,7 @@
 import Link from "next/link";
 
 import { CopyRefButton } from "@/components/CopyRefButton";
+import { findWorkType, WorkTypeBadge, type WorkTypeMark } from "@/components/WorkTypeBadge";
 import { ProgressBar } from "@/components/PlanTaskBody";
 import { taskLabel } from "@/shared/plan-text";
 
@@ -28,6 +29,7 @@ type TaskLike = {
   milestone_id?: string | null;
   plan_ref?: string | null;
   plan_state?: string;
+  work_type_id?: string | null;
 };
 
 function statusPill(status: string): string {
@@ -47,6 +49,7 @@ export function MilestoneGroups({
   tasks,
   onSetMilestoneFilter,
   taskHref,
+  workTypes = [],
 }: {
   projectId: string;
   milestones: MilestoneRow[];
@@ -54,6 +57,7 @@ export function MilestoneGroups({
   onSetMilestoneFilter?: (milestoneId: string) => void;
   /** Link builder that preserves the current view + filters. */
   taskHref?: (taskId: string) => string;
+  workTypes?: WorkTypeMark[];
 }) {
   const href = (taskId: string) =>
     taskHref ? taskHref(taskId) : `/projects/${projectId}/tasks/${taskId}`;
@@ -165,6 +169,9 @@ export function MilestoneGroups({
                     <Link href={href(t.id)} style={{ flex: 1, minWidth: "12rem" }} title={t.title}>
                       {taskLabel(t.title)}
                     </Link>
+                    {findWorkType(workTypes, t.work_type_id) ? (
+                      <WorkTypeBadge workType={findWorkType(workTypes, t.work_type_id)!} />
+                    ) : null}
                     <span className={statusPill(t.status)} style={{ fontSize: "0.6rem" }}>
                       {t.status}
                     </span>
@@ -208,6 +215,9 @@ export function MilestoneGroups({
                 <Link href={href(t.id)} style={{ flex: 1, minWidth: "12rem" }} title={t.title}>
                   {taskLabel(t.title)}
                 </Link>
+                {findWorkType(workTypes, t.work_type_id) ? (
+                  <WorkTypeBadge workType={findWorkType(workTypes, t.work_type_id)!} />
+                ) : null}
                 <span className={statusPill(t.status)} style={{ fontSize: "0.6rem" }}>
                   {t.status}
                 </span>

@@ -39,11 +39,12 @@ export default async function ProjectTasksPage({
   }
   const project = (await pr.json()) as ProjectRow;
 
-  const [tr, cr, mr, mlr] = await Promise.all([
+  const [tr, cr, mr, mlr, wr] = await Promise.all([
     apiServerFetch(`/v1/projects/${id}/tasks?limit=500`),
     apiServerFetch(`/v1/projects/${id}/components`),
     apiServerFetch(`/v1/projects/${id}/members`),
     apiServerFetch(`/v1/projects/${id}/milestones`),
+    apiServerFetch(`/v1/projects/${id}/work-types`),
   ]);
   const tasks = tr.ok ? ((await tr.json()) as { items: TaskRow[] }).items : [];
   const components = cr.ok
@@ -54,6 +55,9 @@ export default async function ProjectTasksPage({
     : [];
   const milestones: MilestoneRow[] = mlr.ok
     ? ((await mlr.json()) as { items: MilestoneRow[] }).items
+    : [];
+  const workTypes = wr.ok
+    ? ((await wr.json()) as { items: { id: string; key: string; name: string; is_default: boolean }[] }).items
     : [];
 
   const sp = (await searchParams) ?? {};
@@ -85,7 +89,7 @@ export default async function ProjectTasksPage({
 
       <div className="card wide stack">
         <h2 style={{ marginTop: 0 }}>New task</h2>
-        <NewTaskForm projectId={id} canEdit={canEdit} components={components} />
+        <NewTaskForm projectId={id} canEdit={canEdit} components={components} workTypes={workTypes} />
       </div>
 
       <div className="card wide stack">
@@ -108,6 +112,7 @@ export default async function ProjectTasksPage({
               initialMilestone={initialMilestone}
               initialPlanState={initialPlanState}
               initialView={initialView}
+              workTypes={workTypes}
             />
           </>
         )}

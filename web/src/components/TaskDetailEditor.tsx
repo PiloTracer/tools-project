@@ -8,6 +8,7 @@ import { PlanTaskBody } from "@/components/PlanTaskBody";
 import { AssigneePicker } from "@/components/AssigneePicker";
 import { usePendingImages } from "@/shared/client/use-pending-images";
 import { toast } from "@/components/Toast";
+import { findWorkType, workTypeHue, WorkTypeBadge, type WorkTypeMark } from "@/components/WorkTypeBadge";
 
 const TASK_STATUSES = ["todo", "in_progress", "blocked", "done", "cancelled"];
 const PRIORITIES = ["low", "normal", "high", "critical"];
@@ -16,6 +17,7 @@ type TaskOut = {
   id: string;
   project_id: string;
   ref: string | null;
+  work_type_id?: string | null;
   title: string;
   description: string | null;
   status: string;
@@ -30,10 +32,12 @@ export function TaskDetailEditor({
   task,
   canEdit,
   members,
+  workTypes,
 }: {
   task: TaskOut;
   canEdit: boolean;
   members: { user_id: string; email: string; role: string }[];
+  workTypes: WorkTypeMark[];
 }) {
   const router = useRouter();
   const { pending, addFiles, remove, clear } = usePendingImages();
@@ -43,6 +47,8 @@ export function TaskDetailEditor({
   const [status, setStatus] = useState(task.status);
   const [priority, setPriority] = useState(task.priority);
   const [assigneeId, setAssigneeId] = useState(task.assignee_id ?? "");
+  const [workTypeId, setWorkTypeId] = useState(task.work_type_id ?? "");
+  const selectedType = findWorkType(workTypes, workTypeId);
   const [dueAt, setDueAt] = useState(task.due_at ? task.due_at.slice(0, 16) : "");
   const [busy, setBusy] = useState(false);
 
@@ -84,6 +90,14 @@ export function TaskDetailEditor({
           </dd>
           <dt className="muted">Priority</dt>
           <dd style={{ margin: 0 }}>{task.priority}</dd>
+          <dt className="muted">Work type</dt>
+          <dd style={{ margin: 0 }}>
+            {findWorkType(workTypes, task.work_type_id) ? (
+              <WorkTypeBadge workType={findWorkType(workTypes, task.work_type_id)!} />
+            ) : (
+              "—"
+            )}
+          </dd>
           <dt className="muted">Assignee</dt>
           <dd style={{ margin: 0 }}>{assigneeLabel(task.assignee_id)}</dd>
           {task.due_at ? (
@@ -155,6 +169,7 @@ export function TaskDetailEditor({
       if (descVal !== task.description) body.description = descVal;
       if (status !== task.status) body.status = status;
       if (priority !== task.priority) body.priority = priority;
+      if (workTypeId && workTypeId !== (task.work_type_id ?? "")) body.work_type_id = workTypeId;
       const newAssignee = assigneeId || null;
       if (newAssignee !== task.assignee_id) body.assignee_id = newAssignee;
       const dueVal = dueAt ? new Date(dueAt).toISOString() : null;
@@ -197,6 +212,7 @@ export function TaskDetailEditor({
     setStatus(task.status);
     setPriority(task.priority);
     setAssigneeId(task.assignee_id ?? "");
+    setWorkTypeId(task.work_type_id ?? "");
     setDueAt(task.due_at ? task.due_at.slice(0, 16) : "");
     setEditing(false);
   }
@@ -235,8 +251,28 @@ export function TaskDetailEditor({
             </select>
           </label>
         </div>
-        <label className="field">
-          <span className="label">Assignee</span>
+          <label className="field">
+            <span className="label" style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
+              Work type
+              {selectedType ? <WorkTypeBadge workType={selectedType} /> : null}
+            </span>
+            <select
+              className="input"
+              value={workTypeId}
+              onChange={(e) => setWorkTypeId(e.target.value)}
+              style={
+                selectedType
+                  ? { borderColor: `hsl(${workTypeHue(selectedType.key)} 72% 62% / 70%)` }
+                  : undefined
+              }
+            >
+              {workTypes.map((row) => (
+                <option key={row.id} value={row.id}>{row.name}</option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
+            <span className="label">Assignee</span>
           <AssigneePicker
             members={members}
             value={assigneeId || null}

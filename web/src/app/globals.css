@@ -417,6 +417,51 @@ h2 {
   border-color: rgb(148 163 184 / 28%);
 }
 
+.work-type {
+  --wt-h: 199;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.2;
+  padding: 0.16rem 0.5rem 0.16rem 0.35rem;
+  border-radius: 999px;
+  border: 1px solid hsl(var(--wt-h) 72% 62% / 48%);
+  background: hsl(var(--wt-h) 70% 48% / 18%);
+  color: hsl(var(--wt-h) 85% 86%);
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.work-type__mark {
+  width: 0.55rem;
+  height: 0.55rem;
+  flex: none;
+  background: hsl(var(--wt-h) 90% 64%);
+}
+
+.work-type--square .work-type__mark {
+  border-radius: 1px;
+}
+
+.work-type--circle .work-type__mark {
+  border-radius: 999px;
+}
+
+.work-type--bar .work-type__mark {
+  width: 0.72rem;
+  height: 0.28rem;
+  border-radius: 2px;
+}
+
+.work-type--diamond .work-type__mark {
+  width: 0.42rem;
+  height: 0.42rem;
+  border-radius: 1px;
+  transform: rotate(45deg);
+}
+
 .grid-dashboard {
   display: grid;
   gap: 1rem;

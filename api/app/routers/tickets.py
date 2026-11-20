@@ -12,6 +12,7 @@ from app.db import get_db
 from app.deps import get_current_user
 from app.models.ticket import Ticket
 from app.models.user import User
+from app.routers.work_types import require_project_work_type
 from app.schemas import (
     TICKET_STATUSES,
     TicketBatchUpdate,
@@ -56,6 +57,7 @@ async def list_tickets(
     db: Annotated[AsyncSession, Depends(get_db)],
     queue_slug: str | None = None,
     ticket_status: str | None = None,
+    work_type_id: uuid.UUID | None = None,
     q: str | None = None,
     limit: int = Query(default=200, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
@@ -75,6 +77,8 @@ async def list_tickets(
         base = base.where(Ticket.queue_slug == queue_slug.strip())
     if ticket_status:
         base = base.where(Ticket.status == ticket_status.strip())
+    if work_type_id is not None:
+        base = base.where(Ticket.work_type_id == work_type_id)
     if is_client_participant(acc):
         peer_ids = await client_company_user_ids(db, acc)
         base = base.where(Ticket.assignee_id.in_(peer_ids))
@@ -115,10 +119,13 @@ async def create_ticket(
             status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid status: {status_val}. Use one of {sorted(TICKET_STATUSES)}",
         )
+    if body.work_type_id is not None:
+        await require_project_work_type(db, project_id, body.work_type_id)
     ref = await allocate_ref(db, project_id, "ticket")
     closed_at = datetime.now(UTC) if status_val in _TERMINAL_TICKET_STATUSES else None
     row = Ticket(
         project_id=project_id,
+        work_type_id=body.work_type_id,
         ref=ref,
         title=body.title.strip(),
         description=body.description.strip() if body.description else None,
@@ -220,6 +227,9 @@ async def patch_ticket(
         row.requester_email = body.requester_email.strip().lower() if body.requester_email else None
     if body.assignee_id is not None:
         row.assignee_id = body.assignee_id
+    if body.work_type_id is not None:
+        await require_project_work_type(db, row.project_id, body.work_type_id)
+        row.work_type_id = body.work_type_id
     await db.commit()
     await db.refresh(row)
     if body.status is not None and _prev_ticket_status != "closed" and row.status == "closed":

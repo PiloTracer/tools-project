@@ -22,8 +22,13 @@ CREATE INDEX IF NOT EXISTS ix_components_project_id ON components (project_id);
 CREATE INDEX IF NOT EXISTS ix_components_lead_user_id ON components (lead_user_id);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_components_project_key ON components (project_id, key) WHERE key IS NOT NULL;
 
+CREATE UNIQUE INDEX IF NOT EXISTS uq_work_types_project_key ON work_types (project_id, key);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_work_types_one_default ON work_types (project_id) WHERE is_default;
+CREATE INDEX IF NOT EXISTS ix_work_types_project_id ON work_types (project_id);
+
 CREATE INDEX IF NOT EXISTS ix_tasks_project_id ON tasks (project_id);
 CREATE INDEX IF NOT EXISTS ix_tasks_component_id ON tasks (component_id);
+CREATE INDEX IF NOT EXISTS ix_tasks_work_type_id ON tasks (work_type_id);
 CREATE INDEX IF NOT EXISTS ix_tasks_assignee_id ON tasks (assignee_id);
 CREATE INDEX IF NOT EXISTS ix_tasks_reporter_id ON tasks (reporter_id);
 CREATE INDEX IF NOT EXISTS ix_tasks_status ON tasks (status);
@@ -52,6 +57,7 @@ CREATE INDEX IF NOT EXISTS ix_tickets_project_id ON tickets (project_id);
 CREATE INDEX IF NOT EXISTS ix_tickets_queue_slug ON tickets (queue_slug);
 CREATE INDEX IF NOT EXISTS ix_tickets_status ON tickets (status);
 CREATE INDEX IF NOT EXISTS ix_tickets_assignee_id ON tickets (assignee_id);
+CREATE INDEX IF NOT EXISTS ix_tickets_work_type_id ON tickets (work_type_id);
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_project_counters_project_type ON project_counters (project_id, counter_type);
 

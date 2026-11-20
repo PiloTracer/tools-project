@@ -9,6 +9,7 @@ export function ProjectSubNav({
     | "overview"
     | "members"
     | "components"
+    | "work-types"
     | "tasks"
     | "activity"
     | "tickets"
@@ -32,6 +33,9 @@ export function ProjectSubNav({
       </Link>
       <Link href={`${base}/components`} className={cls("components")}>
         Components
+      </Link>
+      <Link href={`${base}/work-types`} className={cls("work-types")}>
+        Work types
       </Link>
       <Link href={`${base}/tasks`} className={cls("tasks")}>
         Tasks

@@ -1,6 +1,13 @@
 # Session handoff — tools-project
 
 ## Session status
+**Closed:** 2026-11-20 — **PZT-9 work types shipped in this repo.** Tasks and tickets have one work type. Existing rows are Programming. Each project starts with Programming (default), Administrative, and Documentation, and people can add more. The type is a catalog, separate from components. Each type has its own color and shape. Startup SQL seeds and backfills idempotently (dev: 14/14 tasks, 12/12 tickets, unchanged on a second start). Gates: ruff clean, pyright 0, pytest 161 passed plus the project-delete test, web lint clean. **Pick up:** `.work/plans/NEXT.md`.
+**Updated:** 2026-11-20
+**Repository state:** work types are in the API, the startup SQL, and the web. Dev stack is up; Postgres is published on host port 55439 because 55433 was already taken. `.env.dev` was not changed.
+**Recommended pick-up:** `.work/plans/NEXT.md` — deploy this build so production projects receive the catalog on API start.
+**Open owner actions:** deploy the API and web images. The migration runs on API start. No manual SQL.
+**Explicit unknowns:** none for this change. A type added later gets a diamond and its own hue.
+
 **Closed:** 2026-10-30 — **Agent integration surface delivered end-to-end (P0–P2), deployed and verified in production (0.1.4 / agent API 1.1.0), owner-approved**: SPEC amendment 01 verified/corrected/approved; agent API 1.1.0 implemented — ticket detail by UUID/ref/**web URL**, most-recent comment page + paginated activity feed, attachment reads, **capabilities handshake + served MCP file**, **real context counts**, `project_id` filter, 8 MCP tools with lazy capability degradation; actionable error contract (`status`/`request_id`/`hint`); webhook delivery monitoring; integration docs rebuilt. **154 tests + DDL idempotency + live dev-stack/MCP checks green; API version 0.1.4 (main.py previously hardcoded 0.1.3 — guarded by a test).** P2 work is **uncommitted**; production still runs `0.1.3` — deploy pending. **Owner approved amendment 02 and waived the separate human review** (directive 2026-10-30: "approve all"). **Next session: verify all of today's changes** (`@code-verify last`), then deploy 0.1.4.
 **Closed:** 2026-10-30 — **project Activity tab repaired and verified end-to-end** (kind validation, task/ticket attachment routing, internal reply boundary, pagination, live SSE, non-image attachment rendering, client visibility, commit-link filtering; 80 API tests, web lint/build, headless-Chrome E2E). **Production still runs the old bundle — deploy pending.** **Next session:** implement `.work/features/agent-query-api/20261030-SPEC-amendment-01.md` (corrected 2026-10-30; P0 order and D1–D3 in §16).
 

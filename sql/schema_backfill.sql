@@ -89,3 +89,25 @@ WHERE NOT EXISTS (
     SELECT 1 FROM project_counters pc
     WHERE pc.project_id = p.id AND pc.counter_type = 'ticket'
 );
+
+-- Work types. Projects that already have a catalog are left alone, so a deleted
+-- starter type is not recreated. Projects from before this column get the
+-- starter catalog, then every untyped task and ticket becomes Programming.
+SELECT seed_work_types_for_project(id) FROM projects;
+
+UPDATE tasks AS t
+SET work_type_id = w.id
+FROM work_types AS w
+WHERE t.work_type_id IS NULL
+  AND w.project_id = t.project_id
+  AND w.is_default;
+
+UPDATE tickets AS t
+SET work_type_id = w.id
+FROM work_types AS w
+WHERE t.work_type_id IS NULL
+  AND w.project_id = t.project_id
+  AND w.is_default;
+
+ALTER TABLE tasks ALTER COLUMN work_type_id SET NOT NULL;
+ALTER TABLE tickets ALTER COLUMN work_type_id SET NOT NULL;

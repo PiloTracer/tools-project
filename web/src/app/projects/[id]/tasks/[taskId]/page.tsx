@@ -22,6 +22,7 @@ type TaskOut = {
   id: string;
   project_id: string;
   component_id: string | null;
+  work_type_id: string | null;
   ref: string | null;
   title: string;
   description: string | null;
@@ -63,14 +64,18 @@ export default async function TaskDetailPage({
   }
   const { id: projectId, taskId } = await params;
 
-  const [pr, tr, mr, mlr] = await Promise.all([
+  const [pr, tr, mr, mlr, wr] = await Promise.all([
     apiServerFetch(`/v1/projects/${projectId}`),
     apiServerFetch(`/v1/tasks/${taskId}`),
     apiServerFetch(`/v1/projects/${projectId}/members`),
     apiServerFetch(`/v1/projects/${projectId}/milestones`),
+    apiServerFetch(`/v1/projects/${projectId}/work-types`),
   ]);
   const milestones: MilestoneRow[] = mlr.ok
     ? ((await mlr.json()) as { items: MilestoneRow[] }).items
+    : [];
+  const workTypes = wr.ok
+    ? ((await wr.json()) as { items: { id: string; key: string; name: string }[] }).items
     : [];
   const members: { user_id: string; email: string; role: string }[] = mr.ok
     ? ((await mr.json()) as { items: { user_id: string; email: string; role: string }[] }).items
@@ -178,7 +183,7 @@ export default async function TaskDetailPage({
         <ProjectSubNav projectId={projectId} current="tasks" />
       </div>
 
-      <TaskDetailEditor task={task} canEdit={canEdit} members={members} />
+      <TaskDetailEditor task={task} canEdit={canEdit} members={members} workTypes={workTypes} />
 
       <LinkedCommitsList projectId={projectId} subjectType="task" subjectId={taskId} />
 

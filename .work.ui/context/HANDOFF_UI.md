@@ -2,6 +2,15 @@
 
 > **Path:** `<repo-root>/.work.ui/context/HANDOFF_UI.md` · Maintained by **`ui-*` skills**. Session bookends: **`@session-control`**.
 
+## Latest action (@ui-director)
+**Date:** 2026-11-20
+**Request:** "the different types must be visually differentiated, easy to identify"
+**Classified bucket:** build
+**Executed:**
+1. @ui-component-build continue - work-type marks → each type has its own hue and shape (square, circle, bar, diamond) plus the type name, on the catalog, task and ticket lists, boards, and detail editors
+**Blockers:** none
+**Next recommended:** @ui-design-system init
+
 ## Session status
 
 **Open:** 2026-06-18

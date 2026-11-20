@@ -44,6 +44,7 @@ from app.routers import (
     stats,
     tasks,
     tickets,
+    work_types,
 )
 from app.schema_sql import run_post_bootstrap
 
@@ -130,6 +131,8 @@ app.include_router(project_clients.router)
 app.include_router(project_client_access.router)
 app.include_router(components.router)
 app.include_router(components.detail_router)
+app.include_router(work_types.router)
+app.include_router(work_types.detail_router)
 app.include_router(tasks.project_router)
 app.include_router(tasks.detail_router)
 app.include_router(milestones.router)

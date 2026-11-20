@@ -19,6 +19,7 @@ type TicketOut = {
   id: string;
   project_id: string;
   ref: string | null;
+  work_type_id: string | null;
   title: string;
   description: string | null;
   status: string;
@@ -45,9 +46,10 @@ export default async function TicketDetailPage({
   }
   const { id: projectId, ticketId } = await params;
 
-  const [pr, tr] = await Promise.all([
+  const [pr, tr, wr] = await Promise.all([
     apiServerFetch(`/v1/projects/${projectId}`),
     apiServerFetch(`/v1/tickets/${ticketId}`),
+    apiServerFetch(`/v1/projects/${projectId}/work-types`),
   ]);
   if (pr.status === 404) {
     notFound();
@@ -110,7 +112,13 @@ export default async function TicketDetailPage({
         <ProjectSubNav projectId={projectId} current="tickets" />
       </div>
 
-      <TicketDetailEditor ticket={ticket} canEdit={canEdit} />
+      <TicketDetailEditor
+        ticket={ticket}
+        canEdit={canEdit}
+        workTypes={
+          wr.ok ? ((await wr.json()) as { items: { id: string; key: string; name: string }[] }).items : []
+        }
+      />
 
       <LinkedCommitsList projectId={projectId} subjectType="ticket" subjectId={ticketId} />
 

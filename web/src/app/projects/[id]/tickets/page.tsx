@@ -34,8 +34,14 @@ export default async function ProjectTicketsPage({
     );
   }
   const project = (await pr.json()) as ProjectRow;
-  const tr = await apiServerFetch(`/v1/projects/${id}/tickets`);
+  const [tr, wr] = await Promise.all([
+    apiServerFetch(`/v1/projects/${id}/tickets`),
+    apiServerFetch(`/v1/projects/${id}/work-types`),
+  ]);
   const items = tr.ok ? ((await tr.json()) as { items: TicketQueueRow[] }).items : [];
+  const workTypes = wr.ok
+    ? ((await wr.json()) as { items: { id: string; key: string; name: string; is_default: boolean }[] }).items
+    : [];
   const role = project.membership_role ?? "";
   const canEdit = ["owner", "maintainer", "contributor"].includes(role) || me.is_superuser;
   const canDelete = ["owner", "maintainer"].includes(role) || me.is_superuser;
@@ -64,14 +70,14 @@ export default async function ProjectTicketsPage({
       </div>
       <div className="card wide stack">
         <h2 style={{ marginTop: 0 }}>New ticket</h2>
-        <NewTicketForm projectId={id} canEdit={canEdit} />
+        <NewTicketForm projectId={id} canEdit={canEdit} workTypes={workTypes} />
       </div>
       <div className="card wide stack">
         <h2 style={{ marginTop: 0 }}>Queue</h2>
         {items.length === 0 ? (
           <p className="muted">No tickets.</p>
         ) : (
-          <TicketsView projectId={id} tickets={items} canEdit={canEdit} canDelete={canDelete} />
+          <TicketsView projectId={id} tickets={items} canEdit={canEdit} canDelete={canDelete} workTypes={workTypes} />
         )}
       </div>
     </div>

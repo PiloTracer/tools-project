@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { CopyRefButton } from "@/components/CopyRefButton";
+import { findWorkType, workTypeHue, WorkTypeBadge, type WorkTypeMark } from "@/components/WorkTypeBadge";
 import { KanbanBoard } from "@/components/KanbanBoard";
 import { AssigneePicker } from "@/components/AssigneePicker";
 import { Dialog } from "@/components/Dialog";
@@ -26,22 +27,29 @@ export type TaskRow = {
   milestone_id?: string | null;
   plan_ref?: string | null;
   plan_state?: string;
+  work_type_id?: string | null;
 };
 
 export function NewTaskForm({
   projectId,
   canEdit,
   components,
+  workTypes,
 }: {
   projectId: string;
   canEdit: boolean;
   components: { id: string; name: string }[];
+  workTypes: (WorkTypeMark & { is_default: boolean })[];
 }) {
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [status, setStatus] = useState("todo");
   const [priority, setPriority] = useState("normal");
   const [componentId, setComponentId] = useState("");
+  const [workTypeId, setWorkTypeId] = useState(
+    () => workTypes.find((row) => row.is_default)?.id ?? "",
+  );
+  const selectedType = findWorkType(workTypes, workTypeId);
   if (!canEdit) {
     return <p className="muted text-sm">Viewers cannot create tasks.</p>;
   }
@@ -56,6 +64,9 @@ export function NewTaskForm({
     };
     if (componentId) {
       body.component_id = componentId;
+    }
+    if (workTypeId) {
+      body.work_type_id = workTypeId;
     }
     const r = await fetch(`/api/projects/${projectId}/tasks`, {
       method: "POST",
@@ -123,6 +134,28 @@ export function NewTaskForm({
             ))}
           </select>
         </label>
+        <label className="stack" style={{ gap: "0.25rem" }}>
+          <span className="text-sm muted" style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
+            Work type
+            {selectedType ? <WorkTypeBadge workType={selectedType} /> : null}
+          </span>
+          <select
+            className="input"
+            value={workTypeId}
+            onChange={(e) => setWorkTypeId(e.target.value)}
+            style={
+              selectedType
+                ? { borderColor: `hsl(${workTypeHue(selectedType.key)} 72% 62% / 70%)` }
+                : undefined
+            }
+          >
+            {workTypes.map((row) => (
+              <option key={row.id} value={row.id}>
+                {row.name}
+              </option>
+            ))}
+          </select>
+        </label>
         <button type="submit" className="btn btn-primary">
           Add task
         </button>
@@ -138,6 +171,7 @@ export function TaskTable({
   members,
   milestoneNames,
   taskHref,
+  workTypes = [],
 }: {
   projectId: string;
   tasks: TaskRow[];
@@ -146,6 +180,7 @@ export function TaskTable({
   milestoneNames?: Record<string, string>;
   /** Link builder that preserves the current view + filters. */
   taskHref?: (taskId: string) => string;
+  workTypes?: WorkTypeMark[];
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
@@ -457,6 +492,7 @@ export function TaskTable({
             ) : null}
             {thLabel("ref", "Ref")}
             {thLabel("title", "Title")}
+            <th style={{ padding: "0.5rem 0" }}>Type</th>
             <th style={{ padding: "0.5rem 0" }}>Milestone</th>
             {thLabel("status", "Status")}
             {thLabel("priority", "Priority")}
@@ -513,6 +549,13 @@ export function TaskTable({
                     {t.plan_ref}
                   </span>
                 ) : null}
+              </td>
+              <td style={{ padding: "0.4rem 0.4rem 0.4rem 0" }}>
+                {findWorkType(workTypes, t.work_type_id) ? (
+                  <WorkTypeBadge workType={findWorkType(workTypes, t.work_type_id)!} />
+                ) : (
+                  <span className="muted">—</span>
+                )}
               </td>
               <td className="muted text-sm" style={{ padding: "0.4rem 0", fontSize: "0.8rem" }}>
                 {t.milestone_id ? milestoneNames?.[t.milestone_id] ?? "—" : "—"}
@@ -632,6 +675,7 @@ export function TasksView({
   initialMilestone = "",
   initialPlanState = "active",
   initialView,
+  workTypes = [],
 }: {
   projectId: string;
   tasks: TaskRow[];
@@ -641,6 +685,7 @@ export function TasksView({
   initialMilestone?: string;
   initialPlanState?: string;
   initialView?: "milestones" | "board" | "table";
+  workTypes?: WorkTypeMark[];
 }) {
   const router = useRouter();
   const defaultView: "milestones" | "board" | "table" =
@@ -703,8 +748,16 @@ export function TasksView({
     `/projects/${projectId}/tasks/${taskId}${returnQuery ? `?${returnQuery}` : ""}`;
 
   const boardItems = useMemo(
-    () => visible.map((t) => ({ ...t, title: taskLabel(t.title) })),
-    [visible],
+    () =>
+      visible.map((t) => {
+        const workType = findWorkType(workTypes, t.work_type_id);
+        return {
+          ...t,
+          title: taskLabel(t.title),
+          mark: workType ? <WorkTypeBadge workType={workType} /> : null,
+        };
+      }),
+    [visible, workTypes],
   );
 
   const shownMilestones = milestoneFilter
@@ -810,6 +863,7 @@ export function TasksView({
             syncUrl(view, id, planStateFilter);
           }}
           taskHref={taskHref}
+          workTypes={workTypes}
         />
       ) : view === "board" ? (
         <KanbanBoard
@@ -828,6 +882,7 @@ export function TasksView({
           members={members}
           milestoneNames={milestoneNames}
           taskHref={taskHref}
+          workTypes={workTypes}
         />
       )}
     </div>

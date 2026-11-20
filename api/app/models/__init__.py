@@ -22,6 +22,7 @@ from app.models.user import User
 from app.models.user_api_key import UserApiKey
 from app.models.watcher import Watcher
 from app.models.webhook_subscription import WebhookSubscription
+from app.models.work_type import WorkType
 
 __all__ = [
     "Activity",
@@ -50,4 +51,5 @@ __all__ = [
     "UserApiKey",
     "Watcher",
     "WebhookSubscription",
+    "WorkType",
 ]

@@ -400,5 +400,125 @@ ALTER TABLE tasks ADD COLUMN IF NOT EXISTS milestone_id UUID REFERENCES mileston
 ALTER TABLE tasks ADD COLUMN IF NOT EXISTS plan_ref VARCHAR(64);
 ALTER TABLE tasks ADD COLUMN IF NOT EXISTS plan_state VARCHAR(16) NOT NULL DEFAULT 'active';
 
+-- Work types: the kind of effort (programming, administrative, documentation, …).
+-- Orthogonal to components, which name a product area. Existing rows stay valid:
+-- the column is added nullable here; schema_backfill.sql fills it and sets NOT NULL.
+CREATE TABLE IF NOT EXISTS work_types (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    project_id UUID NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
+    key VARCHAR(32) NOT NULL,
+    name VARCHAR(200) NOT NULL,
+    description TEXT,
+    is_default BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS work_type_id UUID;
+ALTER TABLE tickets ADD COLUMN IF NOT EXISTS work_type_id UUID;
+
+-- Present before the seed function runs. schema_indexes.sql repeats these.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_work_types_project_key ON work_types (project_id, key);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_work_types_one_default ON work_types (project_id) WHERE is_default;
+
+-- Insert the starter catalog only when a project has none. A later restart must
+-- not recreate a starter type the project deleted. ON CONFLICT guards a race
+-- between the project trigger and the backfill.
+CREATE OR REPLACE FUNCTION seed_work_types_for_project(p_project_id UUID) RETURNS void
+LANGUAGE plpgsql AS $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM work_types WHERE project_id = p_project_id) THEN
+    RETURN;
+  END IF;
+  INSERT INTO work_types (project_id, key, name, description, is_default)
+  VALUES
+    (p_project_id, 'programming', 'Programming', 'Software implementation and engineering.', TRUE),
+    (p_project_id, 'administrative', 'Administrative', 'Operations, coordination, and business administration.', FALSE),
+    (p_project_id, 'documentation', 'Documentation', 'Writing and maintaining documents.', FALSE)
+  ON CONFLICT (project_id, key) DO NOTHING;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION seed_project_work_types() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  PERFORM seed_work_types_for_project(NEW.id);
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS tr_projects_seed_work_types ON projects;
+CREATE TRIGGER tr_projects_seed_work_types
+AFTER INSERT ON projects
+FOR EACH ROW
+EXECUTE FUNCTION seed_project_work_types();
+
+-- Fills a missing type from the project default, then rejects a type from another project.
+CREATE OR REPLACE FUNCTION assign_default_work_type() RETURNS trigger
+LANGUAGE plpgsql AS $$
+DECLARE
+  type_project UUID;
+BEGIN
+  IF NEW.work_type_id IS NULL THEN
+    SELECT id INTO NEW.work_type_id
+    FROM work_types
+    WHERE project_id = NEW.project_id AND is_default
+    LIMIT 1;
+  END IF;
+  IF NEW.work_type_id IS NULL THEN
+    RAISE EXCEPTION 'project % has no default work type', NEW.project_id;
+  END IF;
+  SELECT project_id INTO type_project FROM work_types WHERE id = NEW.work_type_id;
+  IF type_project IS DISTINCT FROM NEW.project_id THEN
+    RAISE EXCEPTION 'work type % does not belong to project %', NEW.work_type_id, NEW.project_id;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS tr_tasks_assign_work_type ON tasks;
+CREATE TRIGGER tr_tasks_assign_work_type
+BEFORE INSERT OR UPDATE ON tasks
+FOR EACH ROW
+EXECUTE FUNCTION assign_default_work_type();
+
+DROP TRIGGER IF EXISTS tr_tickets_assign_work_type ON tickets;
+CREATE TRIGGER tr_tickets_assign_work_type
+BEFORE INSERT OR UPDATE ON tickets
+FOR EACH ROW
+EXECUTE FUNCTION assign_default_work_type();
+
+-- Immediate, not deferred: a deferred check stays pending and then blocks
+-- ALTER COLUMN ... SET NOT NULL in the same startup transaction.
+DO $$ BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'fk_tasks_work_type' AND condeferrable
+  ) THEN
+    ALTER TABLE tasks DROP CONSTRAINT fk_tasks_work_type;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_tasks_work_type') THEN
+    ALTER TABLE tasks
+      ADD CONSTRAINT fk_tasks_work_type
+      FOREIGN KEY (work_type_id) REFERENCES work_types (id)
+      ON DELETE RESTRICT;
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'fk_tickets_work_type' AND condeferrable
+  ) THEN
+    ALTER TABLE tickets DROP CONSTRAINT fk_tickets_work_type;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_tickets_work_type') THEN
+    ALTER TABLE tickets
+      ADD CONSTRAINT fk_tickets_work_type
+      FOREIGN KEY (work_type_id) REFERENCES work_types (id)
+      ON DELETE RESTRICT;
+  END IF;
+END $$;
+
 
 

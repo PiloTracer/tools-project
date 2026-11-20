@@ -21,6 +21,13 @@ class Ticket(Base):
         ForeignKey("projects.id", ondelete="CASCADE"),
         index=True,
     )
+    # Nullable in the ORM so existing insert paths can omit it. The database
+    # column is NOT NULL; BEFORE INSERT assigns the project's default type.
+    work_type_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("work_types.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
     ref: Mapped[str | None] = mapped_column(String(40), unique=True, nullable=True, index=True)
     title: Mapped[str] = mapped_column(String(500))
     description: Mapped[str | None] = mapped_column(Text, nullable=True)

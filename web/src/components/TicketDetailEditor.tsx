@@ -7,6 +7,7 @@ import { MarkdownBody } from "@/components/MarkdownBody";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { usePendingImages } from "@/shared/client/use-pending-images";
 import { toast } from "@/components/Toast";
+import { findWorkType, workTypeHue, WorkTypeBadge, type WorkTypeMark } from "@/components/WorkTypeBadge";
 
 const TICKET_STATUSES = ["open", "in_progress", "waiting_customer", "resolved", "closed"];
 const PRIORITIES = ["low", "normal", "high", "critical"];
@@ -15,6 +16,7 @@ type TicketOut = {
   id: string;
   project_id: string;
   ref: string | null;
+  work_type_id?: string | null;
   title: string;
   description: string | null;
   status: string;
@@ -28,9 +30,11 @@ type TicketOut = {
 export function TicketDetailEditor({
   ticket,
   canEdit,
+  workTypes,
 }: {
   ticket: TicketOut;
   canEdit: boolean;
+  workTypes: WorkTypeMark[];
 }) {
   const router = useRouter();
   const { pending, addFiles, remove, clear } = usePendingImages();
@@ -41,6 +45,8 @@ export function TicketDetailEditor({
   const [priority, setPriority] = useState(ticket.priority);
   const [queueSlug, setQueueSlug] = useState(ticket.queue_slug);
   const [requesterEmail, setRequesterEmail] = useState(ticket.requester_email ?? "");
+  const [workTypeId, setWorkTypeId] = useState(ticket.work_type_id ?? "");
+  const selectedType = findWorkType(workTypes, workTypeId);
   const [busy, setBusy] = useState(false);
 
   if (!editing) {
@@ -78,6 +84,14 @@ export function TicketDetailEditor({
           <dt className="muted">Queue</dt>
           <dd style={{ margin: 0 }}>
             <span className="pill">{ticket.queue_slug}</span>
+          </dd>
+          <dt className="muted">Work type</dt>
+          <dd style={{ margin: 0 }}>
+            {findWorkType(workTypes, ticket.work_type_id) ? (
+              <WorkTypeBadge workType={findWorkType(workTypes, ticket.work_type_id)!} />
+            ) : (
+              "—"
+            )}
           </dd>
           {ticket.requester_email ? (
             <>
@@ -144,6 +158,7 @@ export function TicketDetailEditor({
       if (descVal !== ticket.description) body.description = descVal;
       if (status !== ticket.status) body.status = status;
       if (priority !== ticket.priority) body.priority = priority;
+      if (workTypeId && workTypeId !== (ticket.work_type_id ?? "")) body.work_type_id = workTypeId;
       if (queueSlug.trim() !== ticket.queue_slug) body.queue_slug = queueSlug.trim();
       const emailVal = requesterEmail.trim() || null;
       if (emailVal !== ticket.requester_email) body.requester_email = emailVal;
@@ -186,6 +201,7 @@ export function TicketDetailEditor({
     setPriority(ticket.priority);
     setQueueSlug(ticket.queue_slug);
     setRequesterEmail(ticket.requester_email ?? "");
+    setWorkTypeId(ticket.work_type_id ?? "");
     setEditing(false);
   }
 
@@ -206,6 +222,26 @@ export function TicketDetailEditor({
           />
         </label>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.6rem" }}>
+          <label className="field">
+            <span className="label" style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
+              Work type
+              {selectedType ? <WorkTypeBadge workType={selectedType} /> : null}
+            </span>
+            <select
+              className="input"
+              value={workTypeId}
+              onChange={(e) => setWorkTypeId(e.target.value)}
+              style={
+                selectedType
+                  ? { borderColor: `hsl(${workTypeHue(selectedType.key)} 72% 62% / 70%)` }
+                  : undefined
+              }
+            >
+              {workTypes.map((row) => (
+                <option key={row.id} value={row.id}>{row.name}</option>
+              ))}
+            </select>
+          </label>
           <label className="field">
             <span className="label">Status</span>
             <select className="input" value={status} onChange={(e) => setStatus(e.target.value)}>

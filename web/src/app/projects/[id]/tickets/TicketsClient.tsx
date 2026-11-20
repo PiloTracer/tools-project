@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { CopyRefButton } from "@/components/CopyRefButton";
+import { findWorkType, workTypeHue, WorkTypeBadge, type WorkTypeMark } from "@/components/WorkTypeBadge";
 import { KanbanBoard } from "@/components/KanbanBoard";
 
 import { Dialog } from "@/components/Dialog";
@@ -18,6 +19,7 @@ export type TicketQueueRow = {
   ref: string | null;
   title: string;
   description: string | null;
+  work_type_id?: string | null;
   status: string;
   priority: string;
   queue_slug: string;
@@ -138,9 +140,11 @@ function PendingThumbnails({
 export function NewTicketForm({
   projectId,
   canEdit,
+  workTypes,
 }: {
   projectId: string;
   canEdit: boolean;
+  workTypes: (WorkTypeMark & { is_default: boolean })[];
 }) {
   const router = useRouter();
   const { pending, addFiles, remove, clear } = usePendingImages();
@@ -148,6 +152,10 @@ export function NewTicketForm({
   const [description, setDescription] = useState("");
   const [queue, setQueue] = useState("default");
   const [requesterEmail, setRequesterEmail] = useState("");
+  const [workTypeId, setWorkTypeId] = useState(
+    () => workTypes.find((row) => row.is_default)?.id ?? "",
+  );
+  const selectedType = findWorkType(workTypes, workTypeId);
   const [busy, setBusy] = useState(false);
 
   if (!canEdit) {
@@ -167,6 +175,9 @@ export function NewTicketForm({
     }
     if (requesterEmail.trim()) {
       body.requester_email = requesterEmail.trim();
+    }
+    if (workTypeId) {
+      body.work_type_id = workTypeId;
     }
     const r = await fetch(`/api/projects/${projectId}/tickets`, {
       method: "POST",
@@ -267,6 +278,26 @@ export function NewTicketForm({
           <span className="text-sm muted">Queue</span>
           <input className="input" value={queue} onChange={(e) => setQueue(e.target.value)} />
         </label>
+        <label className="stack" style={{ gap: "0.25rem" }}>
+          <span className="text-sm muted" style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
+            Work type
+            {selectedType ? <WorkTypeBadge workType={selectedType} /> : null}
+          </span>
+          <select
+            className="input"
+            value={workTypeId}
+            onChange={(e) => setWorkTypeId(e.target.value)}
+            style={
+              selectedType
+                ? { borderColor: `hsl(${workTypeHue(selectedType.key)} 72% 62% / 70%)` }
+                : undefined
+            }
+          >
+            {workTypes.map((row) => (
+              <option key={row.id} value={row.id}>{row.name}</option>
+            ))}
+          </select>
+        </label>
         <label className="stack" style={{ flex: "1 1 200px", gap: "0.25rem" }}>
           <span className="text-sm muted">Requester email</span>
           <input
@@ -321,11 +352,13 @@ export function TicketTable({
   tickets,
   canEdit,
   canDelete,
+  workTypes = [],
 }: {
   projectId: string;
   tickets: TicketQueueRow[];
   canEdit: boolean;
   canDelete: boolean;
+  workTypes?: WorkTypeMark[];
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
@@ -539,6 +572,7 @@ export function TicketTable({
             <th style={{ padding: "0.5rem 0" }}>Age</th>
             <th style={{ padding: "0.5rem 0" }}>Ref</th>
             <th style={{ padding: "0.5rem 0" }}>Title</th>
+            <th style={{ padding: "0.5rem 0" }}>Type</th>
             <th>Queue</th>
             <th>Status</th>
             <th>Priority</th>
@@ -583,6 +617,13 @@ export function TicketTable({
                     {t.description}
                   </div>
                 ) : null}
+              </td>
+              <td style={{ padding: "0.35rem 0.4rem 0.35rem 0" }}>
+                {findWorkType(workTypes, t.work_type_id) ? (
+                  <WorkTypeBadge workType={findWorkType(workTypes, t.work_type_id)!} />
+                ) : (
+                  <span className="muted">—</span>
+                )}
               </td>
               <td><span className="pill">{t.queue_slug}</span></td>
               <td>
@@ -648,11 +689,13 @@ export function TicketsView({
   tickets,
   canEdit,
   canDelete,
+  workTypes = [],
 }: {
   projectId: string;
   tickets: TicketQueueRow[];
   canEdit: boolean;
   canDelete: boolean;
+  workTypes?: WorkTypeMark[];
 }) {
   const [view, setView] = useState<"board" | "table">("board");
   const router = useRouter();
@@ -689,14 +732,23 @@ export function TicketsView({
       {view === "board" ? (
         <KanbanBoard
           projectId={projectId}
-          items={tickets}
+          items={tickets.map((ticket) => {
+            const workType = findWorkType(workTypes, ticket.work_type_id);
+            return { ...ticket, mark: workType ? <WorkTypeBadge workType={workType} /> : null };
+          })}
           canEdit={canEdit}
           onStatusChange={onStatusChange}
           kind="ticket"
           linkPath={(t) => `/projects/${projectId}/tickets/${t.id}`}
         />
       ) : (
-        <TicketTable projectId={projectId} tickets={tickets} canEdit={canEdit} canDelete={canDelete} />
+        <TicketTable
+          projectId={projectId}
+          tickets={tickets}
+          canEdit={canEdit}
+          canDelete={canDelete}
+          workTypes={workTypes}
+        />
       )}
     </div>
   );

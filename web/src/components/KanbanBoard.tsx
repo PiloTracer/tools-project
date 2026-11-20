@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 
 import { CopyRefButton } from "@/components/CopyRefButton";
 
@@ -12,6 +12,7 @@ export type KanbanItem = {
   status: string;
   priority: string;
   due_at?: string | null;
+  mark?: ReactNode;
 };
 
 const TASK_COLUMNS = [
@@ -167,6 +168,7 @@ export function KanbanBoard({
                   {t.ref || "—"}
                   {t.ref ? <CopyRefButton code={t.ref} /> : null}
                 </div>
+                {t.mark ? <div style={{ marginTop: "0.35rem" }}>{t.mark}</div> : null}
                 <div
                   style={{
                     fontWeight: 500,

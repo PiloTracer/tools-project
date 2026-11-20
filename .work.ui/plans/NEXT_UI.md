@@ -2,7 +2,7 @@
 
 > **Path:** `<repo-root>/.work.ui/plans/NEXT_UI.md` · **`@ui-component-build`** owns `## Current UI iteration`.
 
-**Updated:** 2026-06-18
+**Updated:** 2026-11-20
 
 ---
 
@@ -21,6 +21,7 @@
 | Project settings CRM sections | Client linking + access management |
 | AppShell CRM nav | Prospects, Clients links in navigation |
 | BFF proxy routes | All CRM API endpoints proxied through Next.js API routes |
+| Work-type marks | `web/src/components/WorkTypeBadge.tsx` — hue + shape + name on tasks, tickets, and the catalog |
 
 ---
 
