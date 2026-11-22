@@ -10,6 +10,7 @@
 #   → Web:  127.0.0.1:${WEB_DEV_HOST_PORT:-18513}  (container :3000)
 #   → API:  127.0.0.1:8300  (container :8300)
 #   → Docs: http://127.0.0.1:8300/docs
+#   → Postgres: 127.0.0.1:${POSTGRES_HOST_PORT:-21189} (container :5432)
 
 name: ${COMPOSE_PROJECT_NAME:-tools_project_prd}
 
@@ -22,6 +23,8 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-tools_project}
     volumes:
       - tpr_pg_data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-21189}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:?} -d ${POSTGRES_DB:-tools_project}"]
       interval: 10s

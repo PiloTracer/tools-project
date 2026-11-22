@@ -3,13 +3,13 @@
 > **Path:** `<repo-root>/.work.ui/context/HANDOFF_UI.md` · Maintained by **`ui-*` skills**. Session bookends: **`@session-control`**.
 
 ## Latest action (@ui-director)
-**Date:** 2026-11-20
-**Request:** "the different types must be visually differentiated, easy to identify"
-**Classified bucket:** build
+**Date:** 2026-11-22
+**Request:** "want to implement a working deliverable of this feature: https://www.atlassian.com/software/jira/templates The current layout/template/approach would remain as default or basic. Templates for Engineering, HR, Design, Legal, Finance, IT, Project Management, Sales, Marketing, Operations. Must allow adding new ones in the future. Migrations seamless on rebuild and restart. No current information lost."
+**Classified bucket:** screen-request
 **Executed:**
-1. @ui-component-build continue - work-type marks → each type has its own hue and shape (square, circle, bar, diamond) plus the type name, on the catalog, task and ticket lists, boards, and detail editors
-**Blockers:** none
-**Next recommended:** @ui-design-system init
+1. @ui-screen-spec create - project-templates → Approved `.work.ui/screens/project-templates/20261122-SCREEN-SPEC.md` (2026-11-22)
+**Blockers:** none. API does not exist yet, so the screen is not built.
+**Next recommended:** `@ui-component-build plan` after `@code-implementation plan - project-templates`.
 
 ## Session status
 

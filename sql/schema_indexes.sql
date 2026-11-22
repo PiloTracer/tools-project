@@ -152,3 +152,15 @@ CREATE INDEX IF NOT EXISTS ix_milestones_project_status ON milestones (project_i
 CREATE INDEX IF NOT EXISTS ix_milestones_project_sort ON milestones (project_id, sort_order);
 CREATE INDEX IF NOT EXISTS ix_tasks_project_milestone ON tasks (project_id, milestone_id);
 CREATE INDEX IF NOT EXISTS ix_tasks_project_plan_state ON tasks (project_id, plan_state);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_project_templates_key ON project_templates (key);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_project_template_columns_key
+    ON project_template_columns (template_id, key);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_project_template_work_types_key
+    ON project_template_work_types (template_id, key);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_project_template_one_default
+    ON project_template_work_types (template_id) WHERE is_default;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_project_board_columns_key
+    ON project_board_columns (project_id, key);
+CREATE INDEX IF NOT EXISTS ix_project_board_columns_project
+    ON project_board_columns (project_id, sort_order);

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState, type ReactNode } from "react";
 
 import { CopyRefButton } from "@/components/CopyRefButton";
+import { type BoardColumn } from "@/shared/board-columns";
 
 export type KanbanItem = {
   id: string;
@@ -38,6 +39,7 @@ export function KanbanBoard({
   onStatusChange,
   kind = "task",
   linkPath,
+  columns,
 }: {
   projectId: string;
   items: KanbanItem[];
@@ -45,12 +47,23 @@ export function KanbanBoard({
   onStatusChange: (itemId: string, newStatus: string) => void;
   kind?: "task" | "ticket";
   linkPath?: (item: KanbanItem) => string;
+  columns?: BoardColumn[];
 }) {
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
 
-  const cols = kind === "ticket" ? TICKET_COLUMNS : TASK_COLUMNS;
+  const tones = ["var(--muted)", "var(--accent)", "var(--warning, #b90)", "var(--danger)"];
+  const cols =
+    columns && columns.length > 0
+      ? columns.map((column, index) => ({
+          key: column.key,
+          label: column.label,
+          color: column.is_finished ? "var(--success)" : tones[index % tones.length],
+        }))
+      : kind === "ticket"
+        ? TICKET_COLUMNS
+        : TASK_COLUMNS;
 
-  const columns = useMemo(() => {
+  const grouped = useMemo(() => {
     const map: Record<string, KanbanItem[]> = {};
     for (const col of cols) {
       map[col.key] = [];
@@ -140,11 +153,11 @@ export function KanbanBoard({
               {col.label}
             </span>
             <span className="pill pill-muted" style={{ fontSize: "0.65rem" }}>
-              {(columns[col.key] || []).length}
+              {(grouped[col.key] || []).length}
             </span>
           </div>
           <div className="kanban-col-items stack" style={{ gap: "0.5rem" }}>
-            {(columns[col.key] || []).map((t) => (
+            {(grouped[col.key] || []).map((t) => (
               <div
                 key={t.id}
                 className="card kanban-card"

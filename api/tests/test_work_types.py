@@ -2,7 +2,8 @@
 
 Existing rows and clients that omit the field land on the project's default
 type (Programming). A second pass of the seed does not recreate a type the
-project removed.
+project removed. A catalog from before the later starter keys gains those
+keys once.
 """
 
 from __future__ import annotations
@@ -17,6 +18,24 @@ from app.models.task import Task
 from app.models.work_type import WorkType
 from app.services.project_access import MemberRole
 from tests.factories import add_member, auth_header, create_project, create_user
+
+STARTER_KEYS = {
+    "programming",
+    "administrative",
+    "documentation",
+    "legal",
+    "miscellaneous",
+    "research",
+    "design",
+    "testing",
+    "defect",
+    "support",
+    "operations",
+    "planning",
+    "security",
+    "data",
+    "finance",
+}
 
 
 async def _project(db: AsyncSession):
@@ -49,12 +68,10 @@ def _by_key(items: list[dict], key: str) -> dict:
 async def test_new_project_gets_the_starter_catalog(db: AsyncSession, client: AsyncClient):
     user, project = await _project(db)
     items = await _types(client, user, project)
-    assert {row["key"] for row in items} == {
-        "programming",
-        "administrative",
-        "documentation",
-    }
+    assert {row["key"] for row in items} == STARTER_KEYS
     assert _by_key(items, "programming")["is_default"] is True
+    assert _by_key(items, "legal")["name"] == "Legal"
+    assert _by_key(items, "miscellaneous")["is_default"] is False
     assert sum(1 for row in items if row["is_default"]) == 1
 
 
@@ -130,10 +147,10 @@ async def test_custom_type_can_be_added_and_the_default_cannot_be_deleted(
     created = await client.post(
         f"/v1/projects/{project.id}/work-types",
         headers=headers,
-        json={"name": "Research", "description": "Investigation before a change"},
+        json={"name": "Investigation", "description": "A custom type outside the starter catalog"},
     )
     assert created.status_code == 201, created.text
-    assert created.json()["key"] == "research"
+    assert created.json()["key"] == "investigation"
     assert created.json()["is_default"] is False
 
     programming = _by_key(await _types(client, user, project), "programming")
@@ -162,9 +179,13 @@ async def test_seed_does_not_restore_a_deleted_starter_type(
 ):
     user, project = await _project(db)
     headers = auth_header(user)
-    administrative = _by_key(await _types(client, user, project), "administrative")
-    deleted = await client.delete(f"/v1/work-types/{administrative['id']}", headers=headers)
-    assert deleted.status_code == 204, deleted.text
+    items = await _types(client, user, project)
+    for key in ("administrative", "legal"):
+        deleted = await client.delete(
+            f"/v1/work-types/{_by_key(items, key)['id']}",
+            headers=headers,
+        )
+        assert deleted.status_code == 204, deleted.text
 
     await db.execute(text("SELECT seed_work_types_for_project(:id)"), {"id": project.id})
     await db.execute(text("SELECT seed_work_types_for_project(:id)"), {"id": project.id})
@@ -174,7 +195,45 @@ async def test_seed_does_not_restore_a_deleted_starter_type(
             await db.scalars(select(WorkType).where(WorkType.project_id == project.id))
         ).all()
     }
-    assert keys == {"programming", "documentation"}
+    assert "administrative" not in keys
+    assert "legal" not in keys
+    assert "programming" in keys
+    assert "research" in keys
+
+
+async def test_an_older_catalog_gains_later_starter_types_once(db: AsyncSession):
+    _user, project = await _project(db)
+    await db.execute(
+        text(
+            """
+            DELETE FROM work_types
+            WHERE project_id = :id
+              AND key NOT IN ('programming', 'administrative', 'documentation')
+            """
+        ),
+        {"id": project.id},
+    )
+    await db.execute(
+        text("DELETE FROM work_type_starter_grants WHERE project_id = :id"),
+        {"id": project.id},
+    )
+    await db.commit()
+
+    await db.execute(text("SELECT seed_work_types_for_project(:id)"), {"id": project.id})
+    keys = {
+        row.key
+        for row in (
+            await db.scalars(select(WorkType).where(WorkType.project_id == project.id))
+        ).all()
+    }
+    assert keys == STARTER_KEYS
+
+    await db.execute(text("SELECT seed_work_types_for_project(:id)"), {"id": project.id})
+    again = list(
+        (await db.scalars(select(WorkType).where(WorkType.project_id == project.id))).all()
+    )
+    assert {row.key for row in again} == STARTER_KEYS
+    assert len(again) == len(STARTER_KEYS)
 
     await db.execute(text("ALTER TABLE tasks ALTER COLUMN work_type_id SET NOT NULL"))
     await db.execute(text("ALTER TABLE tickets ALTER COLUMN work_type_id SET NOT NULL"))

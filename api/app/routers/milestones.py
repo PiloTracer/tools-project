@@ -23,6 +23,7 @@ from app.schemas import (
     PlanImportResult,
 )
 from app.services.agent_identity import ensure_agent_user
+from app.services.board_columns import project_has_board
 from app.services.plan_import import ManifestError, run_plan_import
 from app.services.project_access import (
     MemberRole,
@@ -194,6 +195,8 @@ async def plan_import(
     body: dict = Body(...),
 ):
     acc = await require_project_access(db, user, project_id)
+    if await project_has_board(db, project_id):
+        raise HTTPException(status.HTTP_409_CONFLICT, detail="template_project")
     if not can_create_tasks(acc):
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,

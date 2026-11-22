@@ -21,6 +21,8 @@ from app.models.task import Task
 from app.models.ticket import Ticket
 from app.models.user import User
 from app.schemas import (
+    BoardColumnListResponse,
+    BoardColumnOut,
     ClientSummary,
     ProjectCreate,
     ProjectHealth,
@@ -33,6 +35,7 @@ from app.schemas import (
     ProjectUpdate,
     UserSearchResult,
 )
+from app.services.board_columns import load_board_columns
 from app.services.github_token_crypto import decrypt_github_token
 from app.services.project_access import (
     MemberRole,
@@ -43,6 +46,7 @@ from app.services.project_access import (
     parse_member_role,
     require_project_access,
 )
+from app.services.project_templates import apply_template, get_template
 from app.services.tenancy import resolve_write_tenant_id
 
 router = APIRouter(prefix="/v1/projects", tags=["projects"])
@@ -151,6 +155,9 @@ async def create_project(
 ):
     tenant = await get_current_tenant(request, db)
     effective_tenant_id = resolve_write_tenant_id(user, tenant)
+    template_key = (body.template_key or "basic").strip() or "basic"
+    if template_key != "basic" and await get_template(db, template_key) is None:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="unknown_template")
     base_slug = (body.slug.strip() if body.slug else _slugify(body.name)).strip()
     slug = await _unique_slug(db, base_slug, effective_tenant_id)
     row = Project(
@@ -161,6 +168,7 @@ async def create_project(
         status="active",
         project_key=None,
         tenant_id=effective_tenant_id,
+        template_key=template_key,
     )
     db.add(row)
     await db.flush()
@@ -171,10 +179,30 @@ async def create_project(
             role=MemberRole.owner.value,
         )
     )
+    if template_key != "basic":
+        await apply_template(
+            db,
+            project_id=row.id,
+            template_key=template_key,
+            reporter_id=user.id,
+        )
     await db.commit()
     await db.refresh(row)
     return ProjectOut.model_validate(row).model_copy(
         update={"membership_role": MemberRole.owner.value}
+    )
+
+
+@router.get("/{project_id}/board-columns", response_model=BoardColumnListResponse)
+async def list_board_columns(
+    project_id: uuid.UUID,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    await require_project_access(db, user, project_id)
+    columns = await load_board_columns(db, project_id)
+    return BoardColumnListResponse(
+        items=[BoardColumnOut.model_validate(column) for column in columns]
     )
 
 

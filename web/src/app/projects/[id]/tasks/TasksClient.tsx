@@ -12,6 +12,7 @@ import { Dialog } from "@/components/Dialog";
 import { toast } from "@/components/Toast";
 import { apiRequest } from "@/shared/client/api";
 import { taskLabel } from "@/shared/plan-text";
+import { BASIC_TASK_COLUMNS, type BoardColumn } from "@/shared/board-columns";
 
 import { MilestoneGroups, type MilestoneRow } from "./MilestoneGroups";
 
@@ -30,20 +31,30 @@ export type TaskRow = {
   work_type_id?: string | null;
 };
 
+function StatusChoices({ columns }: { columns: BoardColumn[] }) {
+  return columns.map((column) => (
+    <option key={column.key} value={column.key}>
+      {column.label}
+    </option>
+  ));
+}
+
 export function NewTaskForm({
   projectId,
   canEdit,
   components,
   workTypes,
+  columns = BASIC_TASK_COLUMNS,
 }: {
   projectId: string;
   canEdit: boolean;
   components: { id: string; name: string }[];
   workTypes: (WorkTypeMark & { is_default: boolean })[];
+  columns?: BoardColumn[];
 }) {
   const router = useRouter();
   const [title, setTitle] = useState("");
-  const [status, setStatus] = useState("todo");
+  const [status, setStatus] = useState(columns[0]?.key ?? "todo");
   const [priority, setPriority] = useState("normal");
   const [componentId, setComponentId] = useState("");
   const [workTypeId, setWorkTypeId] = useState(
@@ -103,11 +114,7 @@ export function NewTaskForm({
         <label className="stack" style={{ gap: "0.25rem" }}>
           <span className="text-sm muted">Status</span>
           <select className="input" value={status} onChange={(e) => setStatus(e.target.value)}>
-            <option value="todo">todo</option>
-            <option value="in_progress">in_progress</option>
-            <option value="blocked">blocked</option>
-            <option value="done">done</option>
-            <option value="cancelled">cancelled</option>
+            <StatusChoices columns={columns} />
           </select>
         </label>
         <label className="stack" style={{ gap: "0.25rem" }}>
@@ -172,6 +179,7 @@ export function TaskTable({
   milestoneNames,
   taskHref,
   workTypes = [],
+  columns = BASIC_TASK_COLUMNS,
 }: {
   projectId: string;
   tasks: TaskRow[];
@@ -181,6 +189,7 @@ export function TaskTable({
   /** Link builder that preserves the current view + filters. */
   taskHref?: (taskId: string) => string;
   workTypes?: WorkTypeMark[];
+  columns?: BoardColumn[];
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
@@ -403,11 +412,7 @@ export function TaskTable({
             disabled={batchBusy}
           >
             <option value="">Set status…</option>
-            <option value="todo">todo</option>
-            <option value="in_progress">in_progress</option>
-            <option value="blocked">blocked</option>
-            <option value="done">done</option>
-            <option value="cancelled">cancelled</option>
+            <StatusChoices columns={columns} />
           </select>
 
           <select
@@ -569,11 +574,7 @@ export function TaskTable({
                     disabled={busy === t.id}
                     onChange={(e) => setStatus(t.id, e.target.value)}
                   >
-                    <option value="todo">todo</option>
-                    <option value="in_progress">in_progress</option>
-                    <option value="blocked">blocked</option>
-                    <option value="done">done</option>
-                    <option value="cancelled">cancelled</option>
+                    <StatusChoices columns={columns} />
                   </select>
                 ) : (
                   <span className="pill">{t.status}</span>
@@ -676,6 +677,7 @@ export function TasksView({
   initialPlanState = "active",
   initialView,
   workTypes = [],
+  columns,
 }: {
   projectId: string;
   tasks: TaskRow[];
@@ -686,8 +688,10 @@ export function TasksView({
   initialPlanState?: string;
   initialView?: "milestones" | "board" | "table";
   workTypes?: WorkTypeMark[];
+  columns?: BoardColumn[];
 }) {
   const router = useRouter();
+  const statusColumns = columns && columns.length > 0 ? columns : BASIC_TASK_COLUMNS;
   const defaultView: "milestones" | "board" | "table" =
     milestones.length > 0 ? "milestones" : "board";
   const [view, setView] = useState<"milestones" | "board" | "table">(initialView ?? defaultView);
@@ -873,6 +877,7 @@ export function TasksView({
           onStatusChange={onStatusChange}
           kind="task"
           linkPath={(t) => taskHref(t.id)}
+          columns={columns && columns.length > 0 ? columns : undefined}
         />
       ) : (
         <TaskTable
@@ -883,6 +888,7 @@ export function TasksView({
           milestoneNames={milestoneNames}
           taskHref={taskHref}
           workTypes={workTypes}
+          columns={statusColumns}
         />
       )}
     </div>

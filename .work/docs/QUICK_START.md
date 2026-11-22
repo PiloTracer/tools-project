@@ -22,7 +22,7 @@ cp .env.example .env.dev     # dev stack; production uses .env.prd
 ```
 
 This starts:
-- **PostgreSQL 16** on port `55433`
+- **PostgreSQL 16** on port `21189`
 - **FastAPI backend** on port `8300`
 - **Next.js frontend** on port `18513`
 

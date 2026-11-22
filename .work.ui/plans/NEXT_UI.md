@@ -37,11 +37,12 @@
 
 | Priority | Item | Notes |
 |----------|------|-------|
-| **0** | `@ui-design-system init` | Populate CATALOG.md with built primitives |
-| **1** | `@ui-screen-spec review - prospects-list` | Approve the Draft spec (post-hoc) |
-| **2** | `@ui-screen-spec review - prospects-detail` | Approve Draft → Approved |
-| **3** | `@ui-screen-spec review - clients-list` | Approve Draft → Approved |
-| **4** | `@ui-screen-spec review - clients-detail` | Approve Draft → Approved |
+| **0** | `@ui-component-build plan` for project-templates | Screen SPEC Approved 2026-11-22. Start after `@code-implementation plan - project-templates`. |
+| **1** | `@ui-design-system init` | Populate CATALOG.md with built primitives |
+| **2** | `@ui-screen-spec review - prospects-list` | Approve the Draft spec (post-hoc) |
+| **3** | `@ui-screen-spec review - prospects-detail` | Approve Draft → Approved |
+| **4** | `@ui-screen-spec review - clients-list` | Approve Draft → Approved |
+| **5** | `@ui-screen-spec review - clients-detail` | Approve Draft → Approved |
 
 ---
 
@@ -49,7 +50,7 @@
 
 > Free-text UI requests captured by `@ui-screen-spec intake - <sentence>`. Format: `- <YYYY-MM-DD> · <class> · "<sentence>" → <next command>`. Classes: local / cross-cutting / brownfield / underspecified.
 
-- (none yet)
+- 2026-11-22 · local · "pick a template when creating a project, and let an administrator add one" → `.work.ui/screens/project-templates/20261122-SCREEN-SPEC.md` **Approved 2026-11-22**
 
 ---
 

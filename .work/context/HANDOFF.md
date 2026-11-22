@@ -1,11 +1,35 @@
 # Session handoff — tools-project
 
+## Latest action (@ai-director)
+**Date:** 2026-11-22
+**Request:** "want to implement a working deliverable of this feature: https://www.atlassian.com/software/jira/templates The current layout/template/approach would remain as default or basic. Templates for Engineering, HR, Design, Legal, Finance, IT, Project Management, Sales, Marketing, Operations. Must allow adding new ones in the future. Migrations seamless on rebuild and restart. No current information lost."
+**Classified bucket:** feature-spec-create
+**Routing confidence:** high
+**Executed:**
+1. @feature-spec create - project-templates → Draft `.work/features/project-templates/20261122-SPEC.md`
+**User correction:** Work-type colors stay. A template is a process: its own board columns, item types, and starter items. Basic stays today's project. Revised 2026-11-22 after the gallery was re-read.
+**Blockers:** none. Implemented in the working tree on 2026-11-22. Not committed. Production is unchanged.
+**Next recommended:** Review the new-project picker and a Bug tracking board in the dev app, then commit when ready.
+
+## Cross-framework action (@x-director)
+**Date:** 2026-11-22
+**Request:** "want to implement a working deliverable of this feature: https://www.atlassian.com/software/jira/templates The current layout/template/approach would remain as default or basic. Templates for Engineering, HR, Design, Legal, Finance, IT, Project Management, Sales, Marketing, Operations. Must allow adding new ones in the future. Migrations seamless on rebuild and restart. No current information lost."
+**Frameworks involved:** .ai, .ai.ui
+**Classified bucket(s):** engineering, ui
+**Executed:**
+1. @ai-director - templates plan → feature SPEC Draft
+2. @ui-director - template picker and add-template screen → screen SPEC Draft
+**Coordination notes:** Screen SPEC links the feature SPEC and does not restate API rules. Work-type marks stay untouched.
+**Blockers:** none. Both specs Approved 2026-11-22.
+**Next recommended:** `@code-implementation plan - project-templates`
+
 ## Session status
+**Closed:** 2026-11-22 — **TPR-5 department templates and ref fix.** A new project can start from Basic or from Engineering, HR, Design, Legal, Finance, IT, Project Management, Sales, Marketing, or Operations. Each department copies its own board, item types, and starter items. Existing projects stay as they are. Creating a task or ticket skips refs that already exist. Postgres host port is 21189 in dev and production. **Pick up:** `.work/plans/NEXT.md`.
+**Updated:** 2026-11-22
 **Closed:** 2026-11-20 — **PZT-9 work types shipped in this repo.** Tasks and tickets have one work type. Existing rows are Programming. Each project starts with Programming (default), Administrative, and Documentation, and people can add more. The type is a catalog, separate from components. Each type has its own color and shape. Startup SQL seeds and backfills idempotently (dev: 14/14 tasks, 12/12 tickets, unchanged on a second start). Gates: ruff clean, pyright 0, pytest 161 passed plus the project-delete test, web lint clean. **Pick up:** `.work/plans/NEXT.md`.
-**Updated:** 2026-11-20
-**Repository state:** work types are in the API, the startup SQL, and the web. Dev stack is up; Postgres is published on host port 55439 because 55433 was already taken. `.env.dev` was not changed.
-**Recommended pick-up:** `.work/plans/NEXT.md` — deploy this build so production projects receive the catalog on API start.
-**Open owner actions:** deploy the API and web images. The migration runs on API start. No manual SQL.
+**Repository state:** work types are in the API, the startup SQL, and the web. Postgres host port is **21189** on 127.0.0.1 in `.env.dev`, `.env.example`, and the production env file. `55433` stays with the other database that already holds it.
+**Recommended pick-up:** `.work/plans/NEXT.md` — deploy this build. API start applies the template catalog and moves ref counters forward. Postgres publishes on 21189.
+**Open owner actions:** deploy the API and web images. The next production start publishes Postgres on 127.0.0.1:21189. No manual SQL.
 **Explicit unknowns:** none for this change. A type added later gets a diamond and its own hue.
 
 **Closed:** 2026-10-30 — **Agent integration surface delivered end-to-end (P0–P2), deployed and verified in production (0.1.4 / agent API 1.1.0), owner-approved**: SPEC amendment 01 verified/corrected/approved; agent API 1.1.0 implemented — ticket detail by UUID/ref/**web URL**, most-recent comment page + paginated activity feed, attachment reads, **capabilities handshake + served MCP file**, **real context counts**, `project_id` filter, 8 MCP tools with lazy capability degradation; actionable error contract (`status`/`request_id`/`hint`); webhook delivery monitoring; integration docs rebuilt. **154 tests + DDL idempotency + live dev-stack/MCP checks green; API version 0.1.4 (main.py previously hardcoded 0.1.3 — guarded by a test).** P2 work is **uncommitted**; production still runs `0.1.3` — deploy pending. **Owner approved amendment 02 and waived the separate human review** (directive 2026-10-30: "approve all"). **Next session: verify all of today's changes** (`@code-verify last`), then deploy 0.1.4.

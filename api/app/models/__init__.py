@@ -14,6 +14,13 @@ from app.models.project_client import ProjectClient
 from app.models.project_client_access import ProjectClientAccess
 from app.models.project_counter import ProjectCounter
 from app.models.project_member import ProjectMember
+from app.models.project_template import (
+    ProjectBoardColumn,
+    ProjectTemplate,
+    ProjectTemplateColumn,
+    ProjectTemplateItem,
+    ProjectTemplateWorkType,
+)
 from app.models.prospect import Prospect
 from app.models.task import Task
 from app.models.tenant import Tenant
@@ -39,6 +46,11 @@ __all__ = [
     "Mention",
     "Milestone",
     "Project",
+    "ProjectBoardColumn",
+    "ProjectTemplate",
+    "ProjectTemplateColumn",
+    "ProjectTemplateItem",
+    "ProjectTemplateWorkType",
     "ProjectClient",
     "ProjectClientAccess",
     "ProjectCounter",

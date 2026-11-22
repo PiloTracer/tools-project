@@ -28,7 +28,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-prj_dev_change_me}
       POSTGRES_DB: ${POSTGRES_DB:-tools_project}
     ports:
-      - "${POSTGRES_HOST_PORT:-55433}:5432"
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-21189}:5432"
     volumes:
       - tpr_pg_data:/var/lib/postgresql/data
     healthcheck:

@@ -43,7 +43,7 @@ Integrated/hybrid: **consume** dashboard OAuth — do not replace the IdP. Stand
 |---------|-------------|
 | **Web** | http://localhost:**18513** (`WEB_DEV_HOST_PORT`) |
 | **API** | http://localhost:**8300** — `/healthz`, `/docs`, `/v1/auth/config` |
-| **Postgres** | host **55433** → container `5432` (`POSTGRES_HOST_PORT`) |
+| **Postgres** | host **21189** → container `5432` (`POSTGRES_HOST_PORT`). Same port in dev and production. |
 
 Compose does **not** require a root `.env` file; defaults live in the compose files. The stack control plane (`bin/start.sh <dev|prd>`) reads exactly one env file per mode — **`.env.dev`** or **`.env.prd`** (both gitignored; a bare `.env` is never read).
 

@@ -34,6 +34,7 @@ ALTER TABLE projects ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAUL
 ALTER TABLE projects ADD COLUMN IF NOT EXISTS project_key VARCHAR(32);
 ALTER TABLE projects ADD COLUMN IF NOT EXISTS github_task_registry_enabled BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE projects ADD COLUMN IF NOT EXISTS auto_prefix_enabled BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS template_key VARCHAR(32);
 
 CREATE TABLE IF NOT EXISTS project_members (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -400,7 +401,7 @@ ALTER TABLE tasks ADD COLUMN IF NOT EXISTS milestone_id UUID REFERENCES mileston
 ALTER TABLE tasks ADD COLUMN IF NOT EXISTS plan_ref VARCHAR(64);
 ALTER TABLE tasks ADD COLUMN IF NOT EXISTS plan_state VARCHAR(16) NOT NULL DEFAULT 'active';
 
--- Work types: the kind of effort (programming, administrative, documentation, …).
+-- Work types: the kind of effort (programming, legal, research, …).
 -- Orthogonal to components, which name a product area. Existing rows stay valid:
 -- the column is added nullable here; schema_backfill.sql fills it and sets NOT NULL.
 CREATE TABLE IF NOT EXISTS work_types (
@@ -421,20 +422,105 @@ ALTER TABLE tickets ADD COLUMN IF NOT EXISTS work_type_id UUID;
 CREATE UNIQUE INDEX IF NOT EXISTS uq_work_types_project_key ON work_types (project_id, key);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_work_types_one_default ON work_types (project_id) WHERE is_default;
 
--- Insert the starter catalog only when a project has none. A later restart must
--- not recreate a starter type the project deleted. ON CONFLICT guards a race
--- between the project trigger and the backfill.
+-- Remembers that a starter key was offered. Deleting the type leaves this row,
+-- so the next API start does not put that type back.
+CREATE TABLE IF NOT EXISTS work_type_starter_grants (
+    project_id UUID NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
+    key VARCHAR(32) NOT NULL,
+    PRIMARY KEY (project_id, key)
+);
+
+-- Empty catalogs receive the full starter set. Catalogs that already exist
+-- receive only starter keys added after the first three, and only once.
+-- A deleted starter is not recreated. ON CONFLICT guards a race between the
+-- project trigger and the backfill.
 CREATE OR REPLACE FUNCTION seed_work_types_for_project(p_project_id UUID) RETURNS void
 LANGUAGE plpgsql AS $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM work_types WHERE project_id = p_project_id) THEN
-    RETURN;
+  IF NOT EXISTS (SELECT 1 FROM work_types WHERE project_id = p_project_id) THEN
+    INSERT INTO work_types (project_id, key, name, description, is_default)
+    VALUES
+      (p_project_id, 'programming', 'Programming', 'Software implementation and engineering.', TRUE),
+      (p_project_id, 'administrative', 'Administrative', 'Operations, coordination, and business administration.', FALSE),
+      (p_project_id, 'documentation', 'Documentation', 'Writing and maintaining documents.', FALSE),
+      (p_project_id, 'legal', 'Legal', 'Contracts, compliance, privacy, and intellectual property.', FALSE),
+      (p_project_id, 'miscellaneous', 'Miscellaneous', 'Work that does not fit another type.', FALSE),
+      (p_project_id, 'research', 'Research', 'Discovery, spikes, and feasibility before a commitment.', FALSE),
+      (p_project_id, 'design', 'Design', 'Interface, visual, and experience work.', FALSE),
+      (p_project_id, 'testing', 'Testing', 'Checks that behavior matches what was agreed.', FALSE),
+      (p_project_id, 'defect', 'Defect', 'Fixing something that is broken.', FALSE),
+      (p_project_id, 'support', 'Support', 'Helping a user or customer with a problem.', FALSE),
+      (p_project_id, 'operations', 'Operations', 'Deploys, incidents, and the environments the system runs in.', FALSE),
+      (p_project_id, 'planning', 'Planning', 'Scope, estimates, and the order of work.', FALSE),
+      (p_project_id, 'security', 'Security', 'Access, hardening, and review of risk.', FALSE),
+      (p_project_id, 'data', 'Data', 'Analysis, migration, and reporting.', FALSE),
+      (p_project_id, 'finance', 'Finance', 'Billing, invoices, and budgets.', FALSE)
+    ON CONFLICT (project_id, key) DO NOTHING;
+
+    INSERT INTO work_type_starter_grants (project_id, key)
+    SELECT p_project_id, v.key
+    FROM (VALUES
+      ('programming'),
+      ('administrative'),
+      ('documentation'),
+      ('legal'),
+      ('miscellaneous'),
+      ('research'),
+      ('design'),
+      ('testing'),
+      ('defect'),
+      ('support'),
+      ('operations'),
+      ('planning'),
+      ('security'),
+      ('data'),
+      ('finance')
+    ) AS v(key)
+    ON CONFLICT (project_id, key) DO NOTHING;
   END IF;
+
   INSERT INTO work_types (project_id, key, name, description, is_default)
-  VALUES
-    (p_project_id, 'programming', 'Programming', 'Software implementation and engineering.', TRUE),
-    (p_project_id, 'administrative', 'Administrative', 'Operations, coordination, and business administration.', FALSE),
-    (p_project_id, 'documentation', 'Documentation', 'Writing and maintaining documents.', FALSE)
+  SELECT p_project_id, v.key, v.name, v.description, FALSE
+  FROM (VALUES
+    ('legal', 'Legal', 'Contracts, compliance, privacy, and intellectual property.'),
+    ('miscellaneous', 'Miscellaneous', 'Work that does not fit another type.'),
+    ('research', 'Research', 'Discovery, spikes, and feasibility before a commitment.'),
+    ('design', 'Design', 'Interface, visual, and experience work.'),
+    ('testing', 'Testing', 'Checks that behavior matches what was agreed.'),
+    ('defect', 'Defect', 'Fixing something that is broken.'),
+    ('support', 'Support', 'Helping a user or customer with a problem.'),
+    ('operations', 'Operations', 'Deploys, incidents, and the environments the system runs in.'),
+    ('planning', 'Planning', 'Scope, estimates, and the order of work.'),
+    ('security', 'Security', 'Access, hardening, and review of risk.'),
+    ('data', 'Data', 'Analysis, migration, and reporting.'),
+    ('finance', 'Finance', 'Billing, invoices, and budgets.')
+  ) AS v(key, name, description)
+  WHERE NOT EXISTS (
+    SELECT 1 FROM work_type_starter_grants g
+    WHERE g.project_id = p_project_id AND g.key = v.key
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM work_types w
+    WHERE w.project_id = p_project_id AND w.key = v.key
+  )
+  ON CONFLICT (project_id, key) DO NOTHING;
+
+  INSERT INTO work_type_starter_grants (project_id, key)
+  SELECT p_project_id, v.key
+  FROM (VALUES
+    ('legal'),
+    ('miscellaneous'),
+    ('research'),
+    ('design'),
+    ('testing'),
+    ('defect'),
+    ('support'),
+    ('operations'),
+    ('planning'),
+    ('security'),
+    ('data'),
+    ('finance')
+  ) AS v(key)
   ON CONFLICT (project_id, key) DO NOTHING;
 END;
 $$;
@@ -442,10 +528,65 @@ $$;
 CREATE OR REPLACE FUNCTION seed_project_work_types() RETURNS trigger
 LANGUAGE plpgsql AS $$
 BEGIN
+  -- Null and basic keep today's work-type seed. Any other template copies its
+  -- own columns and types in the application, in the same transaction.
+  IF NEW.template_key IS NOT NULL AND NEW.template_key <> 'basic' THEN
+    RETURN NEW;
+  END IF;
   PERFORM seed_work_types_for_project(NEW.id);
   RETURN NEW;
 END;
 $$;
+
+-- Process templates. A project with no board-column rows keeps the global
+-- task statuses. Rows exist only when a non-basic template was applied.
+CREATE TABLE IF NOT EXISTS project_templates (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    key VARCHAR(32) NOT NULL,
+    name VARCHAR(200) NOT NULL,
+    team VARCHAR(80),
+    description TEXT,
+    is_builtin BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS project_template_columns (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    template_id UUID NOT NULL REFERENCES project_templates (id) ON DELETE CASCADE,
+    key VARCHAR(32) NOT NULL,
+    label VARCHAR(80) NOT NULL,
+    sort_order INT NOT NULL DEFAULT 0,
+    is_finished BOOLEAN NOT NULL DEFAULT FALSE
+);
+
+CREATE TABLE IF NOT EXISTS project_template_work_types (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    template_id UUID NOT NULL REFERENCES project_templates (id) ON DELETE CASCADE,
+    key VARCHAR(32) NOT NULL,
+    name VARCHAR(200) NOT NULL,
+    description TEXT,
+    is_default BOOLEAN NOT NULL DEFAULT FALSE,
+    sort_order INT NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS project_template_items (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    template_id UUID NOT NULL REFERENCES project_templates (id) ON DELETE CASCADE,
+    title VARCHAR(200) NOT NULL,
+    column_key VARCHAR(32) NOT NULL,
+    work_type_key VARCHAR(32) NOT NULL,
+    sort_order INT NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS project_board_columns (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    project_id UUID NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
+    key VARCHAR(32) NOT NULL,
+    label VARCHAR(80) NOT NULL,
+    sort_order INT NOT NULL DEFAULT 0,
+    is_finished BOOLEAN NOT NULL DEFAULT FALSE
+);
 
 DROP TRIGGER IF EXISTS tr_projects_seed_work_types ON projects;
 CREATE TRIGGER tr_projects_seed_work_types

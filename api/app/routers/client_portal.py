@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -24,7 +23,6 @@ from app.models.ticket import Ticket
 from app.models.user import User
 from app.routers.activities import _enrich_subject_titles
 from app.schemas import (
-    TASK_STATUSES,
     ActivityListResponse,
     ActivityOut,
     ClientSummary,
@@ -38,6 +36,7 @@ from app.schemas import (
 )
 from app.services.activity_visibility import client_activity_condition
 from app.services.activity_writer import write_activity
+from app.services.board_columns import apply_task_status, task_status_sets
 from app.services.project_access import MemberRole, ProjectAccess
 from app.services.ref_alloc import allocate_ref
 
@@ -245,14 +244,9 @@ async def create_client_project_task(
                 status.HTTP_400_BAD_REQUEST,
                 detail="parent_task_id must belong to this project",
             )
-    status_val = body.status.strip()
-    if status_val not in TASK_STATUSES:
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid status: {status_val}. Use one of {sorted(TASK_STATUSES)}",
-        )
+    allowed, finished = await task_status_sets(db, project_id)
+    status_val, closed_at = apply_task_status(body.status, allowed, finished)
     ref = await allocate_ref(db, project_id, "task")
-    closed_at = datetime.now(UTC) if status_val in {"done", "cancelled"} else None
     row = Task(
         project_id=project_id,
         component_id=body.component_id,

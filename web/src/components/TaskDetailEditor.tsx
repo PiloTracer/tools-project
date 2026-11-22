@@ -9,8 +9,7 @@ import { AssigneePicker } from "@/components/AssigneePicker";
 import { usePendingImages } from "@/shared/client/use-pending-images";
 import { toast } from "@/components/Toast";
 import { findWorkType, workTypeHue, WorkTypeBadge, type WorkTypeMark } from "@/components/WorkTypeBadge";
-
-const TASK_STATUSES = ["todo", "in_progress", "blocked", "done", "cancelled"];
+import { BASIC_TASK_COLUMNS, type BoardColumn } from "@/shared/board-columns";
 const PRIORITIES = ["low", "normal", "high", "critical"];
 
 type TaskOut = {
@@ -33,11 +32,13 @@ export function TaskDetailEditor({
   canEdit,
   members,
   workTypes,
+  statuses = BASIC_TASK_COLUMNS,
 }: {
   task: TaskOut;
   canEdit: boolean;
   members: { user_id: string; email: string; role: string }[];
   workTypes: WorkTypeMark[];
+  statuses?: BoardColumn[];
 }) {
   const router = useRouter();
   const { pending, addFiles, remove, clear } = usePendingImages();
@@ -237,8 +238,8 @@ export function TaskDetailEditor({
           <label className="field">
             <span className="label">Status</span>
             <select className="input" value={status} onChange={(e) => setStatus(e.target.value)}>
-              {TASK_STATUSES.map((s) => (
-                <option key={s} value={s}>{s}</option>
+              {statuses.map((column) => (
+                <option key={column.key} value={column.key}>{column.label}</option>
               ))}
             </select>
           </label>

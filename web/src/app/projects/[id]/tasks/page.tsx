@@ -4,6 +4,8 @@ import { notFound, redirect } from "next/navigation";
 import { apiServerFetch, fetchMe } from "@/shared/server/session";
 
 import { ProjectSubNav } from "../ProjectSubNav";
+import type { BoardColumn } from "@/shared/board-columns";
+
 import { NewTaskForm, TasksView, type TaskRow } from "./TasksClient";
 import type { MilestoneRow } from "./MilestoneGroups";
 
@@ -39,12 +41,13 @@ export default async function ProjectTasksPage({
   }
   const project = (await pr.json()) as ProjectRow;
 
-  const [tr, cr, mr, mlr, wr] = await Promise.all([
+  const [tr, cr, mr, mlr, wr, br] = await Promise.all([
     apiServerFetch(`/v1/projects/${id}/tasks?limit=500`),
     apiServerFetch(`/v1/projects/${id}/components`),
     apiServerFetch(`/v1/projects/${id}/members`),
     apiServerFetch(`/v1/projects/${id}/milestones`),
     apiServerFetch(`/v1/projects/${id}/work-types`),
+    apiServerFetch(`/v1/projects/${id}/board-columns`),
   ]);
   const tasks = tr.ok ? ((await tr.json()) as { items: TaskRow[] }).items : [];
   const components = cr.ok
@@ -59,6 +62,7 @@ export default async function ProjectTasksPage({
   const workTypes = wr.ok
     ? ((await wr.json()) as { items: { id: string; key: string; name: string; is_default: boolean }[] }).items
     : [];
+  const columns = br.ok ? ((await br.json()) as { items: BoardColumn[] }).items : [];
 
   const sp = (await searchParams) ?? {};
   const initialMilestone = typeof sp.milestone === "string" ? sp.milestone : "";
@@ -89,7 +93,13 @@ export default async function ProjectTasksPage({
 
       <div className="card wide stack">
         <h2 style={{ marginTop: 0 }}>New task</h2>
-        <NewTaskForm projectId={id} canEdit={canEdit} components={components} workTypes={workTypes} />
+        <NewTaskForm
+          projectId={id}
+          canEdit={canEdit}
+          components={components}
+          workTypes={workTypes}
+          columns={columns.length > 0 ? columns : undefined}
+        />
       </div>
 
       <div className="card wide stack">
@@ -113,6 +123,7 @@ export default async function ProjectTasksPage({
               initialPlanState={initialPlanState}
               initialView={initialView}
               workTypes={workTypes}
+              columns={columns.length > 0 ? columns : undefined}
             />
           </>
         )}

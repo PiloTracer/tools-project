@@ -4,33 +4,45 @@ export type WorkTypeMark = {
   name: string;
 };
 
-const RESERVED = [
-  { key: "programming", hue: 199 },
-  { key: "administrative", hue: 36 },
-  { key: "documentation", hue: 152 },
-] as const;
+type MarkShape = "square" | "circle" | "bar" | "diamond";
+
+/** Starter keys. Hues stay fixed so a type does not change color between releases. */
+const STARTERS: readonly { key: string; hue: number; shape: MarkShape }[] = [
+  { key: "programming", hue: 199, shape: "square" },
+  { key: "administrative", hue: 36, shape: "circle" },
+  { key: "documentation", hue: 152, shape: "bar" },
+  { key: "legal", hue: 64, shape: "square" },
+  { key: "miscellaneous", hue: 86, shape: "circle" },
+  { key: "research", hue: 108, shape: "bar" },
+  { key: "design", hue: 130, shape: "diamond" },
+  { key: "testing", hue: 174, shape: "square" },
+  { key: "defect", hue: 221, shape: "circle" },
+  { key: "support", hue: 243, shape: "bar" },
+  { key: "operations", hue: 265, shape: "diamond" },
+  { key: "planning", hue: 287, shape: "square" },
+  { key: "security", hue: 309, shape: "circle" },
+  { key: "data", hue: 331, shape: "bar" },
+  { key: "finance", hue: 353, shape: "diamond" },
+];
 
 function hueDistance(a: number, b: number): number {
   const d = Math.abs(a - b) % 360;
   return Math.min(d, 360 - d);
 }
 
-/** Stable hue. The three starter types keep fixed colors; added types avoid those hues. */
+/** Stable hue. Starter types keep fixed colors; a custom type avoids sitting on one. */
 export function workTypeHue(key: string): number {
-  const known = RESERVED.find((row) => row.key === key);
+  const known = STARTERS.find((row) => row.key === key);
   if (known) return known.hue;
   let n = 0;
   for (let i = 0; i < key.length; i += 1) n = (n * 33 + key.charCodeAt(i)) >>> 0;
   let hue = n % 360;
-  if (RESERVED.some((row) => hueDistance(hue, row.hue) < 28)) hue = (hue + 70) % 360;
+  if (STARTERS.some((row) => hueDistance(hue, row.hue) < 12)) hue = (hue + 9) % 360;
   return hue;
 }
 
-function markShape(key: string): "square" | "circle" | "bar" | "diamond" {
-  if (key === "programming") return "square";
-  if (key === "administrative") return "circle";
-  if (key === "documentation") return "bar";
-  return "diamond";
+function markShape(key: string): MarkShape {
+  return STARTERS.find((row) => row.key === key)?.shape ?? "diamond";
 }
 
 export function findWorkType(

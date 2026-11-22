@@ -27,6 +27,7 @@ class Project(Base):
     project_key: Mapped[str | None] = mapped_column(String(32), nullable=True)
     github_task_registry_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     auto_prefix_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    template_key: Mapped[str | None] = mapped_column(String(32), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

@@ -1,10 +1,19 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { MarkdownEditor } from "@/components/MarkdownEditor";
+import { TemplatePicker, type TemplateChoice } from "@/components/TemplatePicker";
 import { usePendingImages } from "@/shared/client/use-pending-images";
+
+const FALLBACK_TEMPLATE: TemplateChoice = {
+  key: "basic",
+  name: "Basic",
+  team: null,
+  description: "Today's project. The current board and the current work types.",
+  columns: [],
+};
 
 export function NewProjectForm() {
   const router = useRouter();
@@ -12,16 +21,33 @@ export function NewProjectForm() {
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [description, setDescription] = useState("");
+  const [templateKey, setTemplateKey] = useState("basic");
+  const [templates, setTemplates] = useState<TemplateChoice[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetch("/api/project-templates")
+      .then(async (response) => {
+        if (!response.ok) return;
+        const body = (await response.json()) as { items: TemplateChoice[] };
+        if (!cancelled) setTemplates(body.items);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setBusy(true);
     try {
-      const body: { name: string; description?: string; slug?: string } = {
+      const body: { name: string; description?: string; slug?: string; template_key: string } = {
         name: name.trim(),
+        template_key: templateKey || "basic",
       };
       const d = description.trim();
       if (d) body.description = d;
@@ -95,7 +121,7 @@ export function NewProjectForm() {
         }
       }
 
-      router.replace(`/projects/${created.id}`);
+      router.replace(`/projects/${created.id}/tasks?view=board`);
       router.refresh();
     } catch {
       setError("Network error");
@@ -110,6 +136,11 @@ export function NewProjectForm() {
           {error}
         </p>
       ) : null}
+      <TemplatePicker
+        templates={templates.length > 0 ? templates : [FALLBACK_TEMPLATE]}
+        value={templateKey}
+        onChange={setTemplateKey}
+      />
       <label className="field">
         <span className="label">Name</span>
         <input

@@ -81,6 +81,24 @@ WHERE NOT EXISTS (
     WHERE pc.project_id = p.id AND pc.counter_type = 'task'
 );
 
+-- Move a task counter past refs that already exist, such as TPR-4 while
+-- next_value is still 2. Never lowers a counter. Does not change task rows.
+UPDATE project_counters AS pc
+SET next_value = src.next_needed
+FROM (
+    SELECT p.id AS project_id,
+           MAX(substring(t.ref FROM length(p.project_key) + 2)::int) + 1 AS next_needed
+    FROM tasks AS t
+    JOIN projects AS p ON p.id = t.project_id
+    WHERE p.project_key IS NOT NULL
+      AND p.project_key <> ''
+      AND t.ref ~ ('^' || p.project_key || '-[0-9]+$')
+    GROUP BY p.id
+) AS src
+WHERE pc.project_id = src.project_id
+  AND pc.counter_type = 'task'
+  AND src.next_needed > pc.next_value;
+
 -- Seed project counters for existing projects that lack a ticket counter row.
 INSERT INTO project_counters (id, project_id, counter_type, next_value)
 SELECT gen_random_uuid(), p.id, 'ticket', 1
@@ -90,9 +108,26 @@ WHERE NOT EXISTS (
     WHERE pc.project_id = p.id AND pc.counter_type = 'ticket'
 );
 
--- Work types. Projects that already have a catalog are left alone, so a deleted
--- starter type is not recreated. Projects from before this column get the
--- starter catalog, then every untyped task and ticket becomes Programming.
+-- Same repair for ticket refs (TPR-T-10 while the ticket counter is still 1).
+UPDATE project_counters AS pc
+SET next_value = src.next_needed
+FROM (
+    SELECT p.id AS project_id,
+           MAX(substring(t.ref FROM length(p.project_key) + 4)::int) + 1 AS next_needed
+    FROM tickets AS t
+    JOIN projects AS p ON p.id = t.project_id
+    WHERE p.project_key IS NOT NULL
+      AND p.project_key <> ''
+      AND t.ref ~ ('^' || p.project_key || '-T-[0-9]+$')
+    GROUP BY p.id
+) AS src
+WHERE pc.project_id = src.project_id
+  AND pc.counter_type = 'ticket'
+  AND src.next_needed > pc.next_value;
+
+-- Work types. An empty catalog gets the full starter set. A catalog that
+-- already exists gains starter keys added later, once; a deleted starter is
+-- not recreated. Untyped tasks and tickets become Programming.
 SELECT seed_work_types_for_project(id) FROM projects;
 
 UPDATE tasks AS t

@@ -17,9 +17,12 @@ export default async function NewProjectPage() {
           ← Projects
         </Link>
         <h1 style={{ marginTop: "0.5rem" }}>New project</h1>
-        <p className="muted">Name is required. Slug is optional (lowercase, hyphens).</p>
+        <p className="muted">
+          Start from a department. Finance, Marketing, and the others each bring their own board.
+          Basic keeps the board you already use. Name is required. Slug is optional.
+        </p>
       </div>
-      <div className="card wide" style={{ maxWidth: "36rem" }}>
+      <div className="card wide" style={{ maxWidth: "68rem" }}>
         <NewProjectForm />
       </div>
     </div>

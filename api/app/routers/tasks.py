@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
@@ -15,7 +15,6 @@ from app.models.task import Task
 from app.models.user import User
 from app.routers.work_types import require_project_work_type
 from app.schemas import (
-    TASK_STATUSES,
     TaskBatchUpdate,
     TaskCreate,
     TaskListResponse,
@@ -24,6 +23,7 @@ from app.schemas import (
     TaskTransition,
 )
 from app.services.activity_writer import write_activity
+from app.services.board_columns import apply_task_status, task_status_sets
 from app.services.github_task_registry import (
     spawn_push_task_ref,
 )
@@ -47,7 +47,11 @@ project_router = APIRouter(
 )
 detail_router = APIRouter(prefix="/v1/tasks", tags=["tasks"])
 
-_TERMINAL_TASK_STATUSES: frozenset[str] = frozenset({"done", "cancelled"})
+async def _checked_status(
+    db: AsyncSession, project_id: uuid.UUID, raw: str
+) -> tuple[str, datetime | None]:
+    allowed, finished = await task_status_sets(db, project_id)
+    return apply_task_status(raw, allowed, finished)
 
 
 async def _require_task_project(task: Task, user: User, db: AsyncSession):
@@ -141,14 +145,8 @@ async def create_task(
                 status.HTTP_400_BAD_REQUEST,
                 detail="parent_task_id must belong to this project",
             )
-    status_val = body.status.strip()
-    if status_val not in TASK_STATUSES:
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid status: {status_val}. Use one of {sorted(TASK_STATUSES)}",
-        )
+    status_val, closed_at = await _checked_status(db, project_id, body.status)
     ref = await allocate_ref(db, project_id, "task")
-    closed_at = datetime.now(UTC) if status_val in _TERMINAL_TASK_STATUSES else None
     row = Task(
         project_id=project_id,
         component_id=body.component_id,
@@ -236,17 +234,9 @@ async def patch_task(
     _prev_status = row.status
     _prev_assignee = row.assignee_id
     if body.status is not None:
-        status_val = body.status.strip()
-        if status_val not in TASK_STATUSES:
-            raise HTTPException(
-                status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid status: {status_val}. Use one of {sorted(TASK_STATUSES)}",
-            )
+        status_val, closed_at = await _checked_status(db, row.project_id, body.status)
         row.status = status_val
-        if status_val in _TERMINAL_TASK_STATUSES:
-            row.closed_at = datetime.now(UTC)
-        else:
-            row.closed_at = None
+        row.closed_at = closed_at
     if body.priority is not None:
         row.priority = body.priority.strip()
     if body.component_id is not None:
@@ -305,18 +295,10 @@ async def transition_task(
             status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to change task status",
         )
-    status_val = body.status.strip()
-    if status_val not in TASK_STATUSES:
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid status: {status_val}. Use one of {sorted(TASK_STATUSES)}",
-        )
+    status_val, closed_at = await _checked_status(db, row.project_id, body.status)
     prev = row.status
     row.status = status_val
-    if status_val in _TERMINAL_TASK_STATUSES:
-        row.closed_at = datetime.now(UTC)
-    else:
-        row.closed_at = None
+    row.closed_at = closed_at
     await db.flush()
     if prev != status_val:
         await write_activity(
@@ -390,21 +372,12 @@ async def batch_update_tasks(
             )
 
     updated: list[Task] = []
-    now = datetime.now(UTC)
     for row in rows:
         changed = False
         if body.status is not None:
-            status_val = body.status.strip()
-            if status_val not in TASK_STATUSES:
-                raise HTTPException(
-                    status.HTTP_400_BAD_REQUEST,
-                    detail=f"Invalid status: {status_val}. Use one of {sorted(TASK_STATUSES)}",
-                )
+            status_val, closed_at = await _checked_status(db, row.project_id, body.status)
             row.status = status_val
-            if status_val in {"done", "cancelled"}:
-                row.closed_at = now
-            else:
-                row.closed_at = None
+            row.closed_at = closed_at
             changed = True
         if body.priority is not None:
             row.priority = body.priority.strip()

@@ -30,7 +30,9 @@ Open: **production deploy pending** for the Activity repair (committed this sess
 Active: **Activity tab repair complete** (kind validation, attachments, internal replies, pagination, live SSE, client visibility; 80 tests) — **awaiting production deploy** · **TNT iteration complete** (tenant context: single-tenant writes + multi-tenant selection; stack control plane + env-file contract) — **committed 2026-09-30** · **agent-query-api P0–P2 complete (2026-10-30)** — 154 tests green; version **0.1.4**; hosted 0.1.4 deploy pending (owner)
 
 ### Recommended next
-**Recommended next (one):** deploy this build. API start applies the work-type SQL (seed Programming, Administrative, and Documentation, then backfill existing tasks and tickets to Programming). Rebuild the web image so the type marks and the Work types page are live.
+**Recommended next (one):** deploy this build. API start loads the department templates and moves task and ticket counters past refs that already exist. Rebuild the web image so the department picker is live. Postgres is on host port 21189 in dev and production.
+
+Templates shipped 2026-11-22 as TPR-5. SPECs: `.work/features/project-templates/20261122-SPEC.md` and `.work.ui/screens/project-templates/20261122-SCREEN-SPEC.md`.
 
 Prior next, still open and not this change: the `project-query-setup update` patch in `/mnt/work/Projects/pilo.ai.logicbison`, consumer MCP refresh, and the authorization-boundary review for agent API 1.1.0. The `bin/env-check.sh` fix is already on `main` (`f850ca7`).
 
@@ -48,6 +50,7 @@ Run `@code-verify last` on the close commit — it includes the integration fix,
 7. **plan-sync P2:** `@plan-sync` agent skill — work order for the framework handed over at `.work/prompts/20260929-plan-sync-skill-instructions.md` (decision: direct HTTP, option (a); MCP stays read-only). Deliver to `pilo.ai.logicbison`, then `@deploy-basic` here to pick up the skills table row.
 
 ### Intake queue
+- 2026-11-22 · local · "working Templates deliverable, Basic plus ten departments, add more later, no data loss" → `.work/features/project-templates/20261122-SPEC.md` **Approved 2026-11-22**
 - 2026-07-06 · local · "assess making this app multi-tenant" → SPEC created at `.work/features/multi-tenancy/20260706-SPEC.md` (Draft)
 - 2026-10-30 · production · Activity tab repair completed (see `HANDOFF.md` § Activity tab repair) → verified/corrected and **Approved 2026-10-30**; P0 iteration block ready (`20261030-SPEC-amendment-01.md`).
 

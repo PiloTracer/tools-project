@@ -14,7 +14,7 @@ tools-project is a development-phase internal tool. The hosting model must suppo
 - **API server:** Uvicorn with `--reload` for hot-reload in dev; production would use Uvicorn workers or Gunicorn.
 - **Web server:** Next.js `npm run dev` in dev; `npm run build && npm start` for production.
 - **Database:** PostgreSQL 16 container with named volume (`tpr_pg_data`) for persistence across restarts.
-- **Port convention:** API `8300`, Web `18513` (dev), PostgreSQL `55433:5432` — all configurable via `.env`.
+- **Port convention:** API `8300`, Web `18513` (dev), PostgreSQL `21189:5432` on 127.0.0.1 — the same Postgres host port in dev and production, set by `POSTGRES_HOST_PORT`. Moved off `55433` because that port is already used by another database on this machine.
 - **Auth:** Dual-mode — local JWT (`AUTH_LOCAL_ENABLED`) and/or OAuth 2.0 via tools-dashboard (`AUTH_OAUTH_ENABLED`). Controlled by env vars.
 - **Schema management:** SQL files (`sql/schema_*.sql`) executed on API startup — no dedicated migration container.
 - **Attachments:** Local filesystem bind-mounted volume — not suitable for multi-replica production without object storage.

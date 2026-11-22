@@ -9,6 +9,7 @@ import { LinkedCommitsList } from "@/components/LinkedCommitsList";
 import type { MilestoneRow } from "../MilestoneGroups";
 import { parseTaskText } from "@/shared/plan-text";
 import { TaskDetailEditor } from "@/components/TaskDetailEditor";
+import type { BoardColumn } from "@/shared/board-columns";
 import { TaskDiscussion } from "@/components/TaskDiscussion";
 import { ProjectSubNav } from "../../ProjectSubNav";
 
@@ -64,12 +65,13 @@ export default async function TaskDetailPage({
   }
   const { id: projectId, taskId } = await params;
 
-  const [pr, tr, mr, mlr, wr] = await Promise.all([
+  const [pr, tr, mr, mlr, wr, br] = await Promise.all([
     apiServerFetch(`/v1/projects/${projectId}`),
     apiServerFetch(`/v1/tasks/${taskId}`),
     apiServerFetch(`/v1/projects/${projectId}/members`),
     apiServerFetch(`/v1/projects/${projectId}/milestones`),
     apiServerFetch(`/v1/projects/${projectId}/work-types`),
+    apiServerFetch(`/v1/projects/${projectId}/board-columns`),
   ]);
   const milestones: MilestoneRow[] = mlr.ok
     ? ((await mlr.json()) as { items: MilestoneRow[] }).items
@@ -77,6 +79,7 @@ export default async function TaskDetailPage({
   const workTypes = wr.ok
     ? ((await wr.json()) as { items: { id: string; key: string; name: string }[] }).items
     : [];
+  const statuses = br.ok ? ((await br.json()) as { items: BoardColumn[] }).items : [];
   const members: { user_id: string; email: string; role: string }[] = mr.ok
     ? ((await mr.json()) as { items: { user_id: string; email: string; role: string }[] }).items
     : [];
@@ -183,7 +186,13 @@ export default async function TaskDetailPage({
         <ProjectSubNav projectId={projectId} current="tasks" />
       </div>
 
-      <TaskDetailEditor task={task} canEdit={canEdit} members={members} workTypes={workTypes} />
+      <TaskDetailEditor
+        task={task}
+        canEdit={canEdit}
+        members={members}
+        workTypes={workTypes}
+        statuses={statuses.length > 0 ? statuses : undefined}
+      />
 
       <LinkedCommitsList projectId={projectId} subjectType="task" subjectId={taskId} />
 

@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import update
+from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.project import Project
 from app.models.project_counter import ProjectCounter
+from app.models.task import Task
+from app.models.ticket import Ticket
 
 
 async def _ensure_counter(
@@ -46,23 +48,30 @@ async def allocate_ref(
         return None
     await _ensure_counter(db, project_id, counter_type)
 
-    result = await db.execute(
-        update(ProjectCounter)
-        .where(
-            ProjectCounter.project_id == project_id,
-            ProjectCounter.counter_type == counter_type,
+    # A ref can already exist when a task or ticket was created outside this
+    # counter (for example a registry stub). Keep moving forward until the
+    # formatted ref is free. A failed insert used to roll the counter back and
+    # then retry the same taken number forever.
+    for _ in range(1000):
+        result = await db.execute(
+            update(ProjectCounter)
+            .where(
+                ProjectCounter.project_id == project_id,
+                ProjectCounter.counter_type == counter_type,
+            )
+            .values(next_value=ProjectCounter.next_value + 1)
+            .returning(ProjectCounter.next_value)
         )
-        .values(next_value=ProjectCounter.next_value + 1)
-        .returning(ProjectCounter.next_value)
-    )
-    row = result.fetchone()
-    # next_value is the *new* value after increment; the one we just assigned
-    # is (new_value - 1).  But RETURNING gives us the updated value.
-    # Actually the returned value is the post-increment value.
-    # We assigned this value. The previous value was (next_value - 1).
-    if row is None:
-        return None
-    assigned_number = row[0] - 1  # the number we just allocated
-    if counter_type == "ticket":
-        return f"{proj.project_key}-T-{assigned_number}"
-    return f"{proj.project_key}-{assigned_number}"
+        row = result.fetchone()
+        if row is None:
+            return None
+        assigned_number = row[0] - 1
+        if counter_type == "ticket":
+            ref = f"{proj.project_key}-T-{assigned_number}"
+            taken = await db.scalar(select(Ticket.id).where(Ticket.ref == ref).limit(1))
+        else:
+            ref = f"{proj.project_key}-{assigned_number}"
+            taken = await db.scalar(select(Task.id).where(Task.ref == ref).limit(1))
+        if taken is None:
+            return ref
+    return None

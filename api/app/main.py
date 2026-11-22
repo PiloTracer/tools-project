@@ -38,6 +38,7 @@ from app.routers import (
     platform,
     project_client_access,
     project_clients,
+    project_templates,
     projects,
     prospects,
     reports,
@@ -127,6 +128,7 @@ async def request_id_middleware(request: Request, call_next):
 app.include_router(auth.router)
 app.include_router(admin_users.router)
 app.include_router(projects.router)
+app.include_router(project_templates.router)
 app.include_router(project_clients.router)
 app.include_router(project_client_access.router)
 app.include_router(components.router)

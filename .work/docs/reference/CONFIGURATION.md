@@ -15,7 +15,7 @@ All configuration is done via environment variables. Copy `.env.example` to `.en
 |----------|---------|-------------|
 | `WEB_DEV_HOST_PORT` | `18513` | Next.js dev server port |
 | `API_HOST_PORT` | `8300` | FastAPI port |
-| `POSTGRES_HOST_PORT` | `55433` | PostgreSQL host port |
+| `POSTGRES_HOST_PORT` | `21189` | PostgreSQL host port. Same number in dev and production. Bound on 127.0.0.1. |
 
 ## Authentication
 

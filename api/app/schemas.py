@@ -163,6 +163,7 @@ class ProjectCreate(BaseModel):
         max_length=80,
         pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$",
     )
+    template_key: str | None = Field(default=None, max_length=32)
 
 
 class ProjectUpdate(BaseModel):
@@ -191,6 +192,7 @@ class ProjectOut(BaseModel):
     project_key: str | None
     github_task_registry_enabled: bool = False
     auto_prefix_enabled: bool = False
+    template_key: str | None = None
     created_at: datetime
     updated_at: datetime
     membership_role: str | None = None
@@ -208,6 +210,81 @@ class ProjectHealth(BaseModel):
 
 class ProjectListResponse(BaseModel):
     items: list[ProjectOut]
+
+
+class BoardColumnOut(BaseModel):
+    key: str
+    label: str
+    sort_order: int
+    is_finished: bool
+
+    model_config = {"from_attributes": True}
+
+
+class BoardColumnListResponse(BaseModel):
+    items: list[BoardColumnOut]
+
+
+class TemplateColumnIn(BaseModel):
+    label: str = Field(min_length=1, max_length=80)
+    is_finished: bool = False
+
+
+class TemplateWorkTypeIn(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    description: str | None = Field(default=None, max_length=8000)
+    is_default: bool = False
+
+
+class TemplateItemIn(BaseModel):
+    title: str = Field(min_length=1, max_length=200)
+    column_label: str = Field(min_length=1, max_length=80)
+    work_type_name: str = Field(min_length=1, max_length=200)
+
+
+class ProjectTemplateCreate(BaseModel):
+    team: str = Field(min_length=1, max_length=80)
+    name: str = Field(min_length=1, max_length=200)
+    description: str | None = Field(default=None, max_length=8000)
+    columns: list[TemplateColumnIn] = Field(min_length=1)
+    work_types: list[TemplateWorkTypeIn] = Field(min_length=1)
+    items: list[TemplateItemIn] = Field(default_factory=list)
+
+
+class TemplateColumnOut(BaseModel):
+    key: str
+    label: str
+    sort_order: int
+    is_finished: bool
+
+
+class TemplateWorkTypeOut(BaseModel):
+    key: str
+    name: str
+    description: str | None
+    is_default: bool
+
+
+class TemplateItemOut(BaseModel):
+    title: str
+    column_key: str
+    work_type_key: str
+
+
+class ProjectTemplateOut(BaseModel):
+    id: uuid.UUID
+    key: str
+    name: str
+    team: str | None
+    description: str | None
+    is_builtin: bool
+    columns: list[TemplateColumnOut]
+    work_types: list[TemplateWorkTypeOut]
+    items: list[TemplateItemOut]
+
+
+class ProjectTemplateListResponse(BaseModel):
+    items: list[ProjectTemplateOut]
 
 
 class ProjectMemberCreate(BaseModel):
