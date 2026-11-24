@@ -141,6 +141,89 @@ async def test_bootstrap_superuser_can_create_client_and_prospect(
     assert prospect_row.tenant_id == default_tenant_id
 
 
+async def test_tenant_bound_user_does_not_see_default_prospects_when_flag_off(
+    client: AsyncClient, db: AsyncSession
+) -> None:
+    """Moving a user to another org must hide default-tenant CRM (flag off).
+
+    Regression: get_current_tenant always returned ``default`` when
+    MULTI_TENANCY_ENABLED=false, so Prospects kept showing the old org's data.
+    """
+    default_id = await _default_tenant_id(db)
+    other = await _tenant(db, "logicbison")
+    bound = await _user_in(db, other, is_superuser=True)
+    tag = uuid.uuid4().hex[:8]
+    db.add(
+        Prospect(
+            company_name=f"Default Only {tag}",
+            pipeline_stage="target",
+            created_by=bound.id,
+            tenant_id=default_id,
+        )
+    )
+    await db.commit()
+
+    listed = await client.get("/v1/prospects", headers=_jwt(bound))
+    assert listed.status_code == 200, listed.text
+    names = [p["company_name"] for p in listed.json()["items"]]
+    assert f"Default Only {tag}" not in names
+
+    # Creating under the bound user stamps their org, not default.
+    created = await client.post(
+        "/v1/prospects",
+        json={"company_name": f"Bound Org {tag}", "pipeline_stage": "target"},
+        headers=_jwt(bound),
+    )
+    assert created.status_code == 201, created.text
+    row = await db.get(Prospect, uuid.UUID(created.json()["id"]))
+    assert row is not None
+    assert row.tenant_id == other.id
+
+    listed_again = await client.get("/v1/prospects", headers=_jwt(bound))
+    assert listed_again.status_code == 200, listed_again.text
+    names_again = [p["company_name"] for p in listed_again.json()["items"]]
+    assert f"Bound Org {tag}" in names_again
+    assert f"Default Only {tag}" not in names_again
+
+
+async def test_tenant_bound_user_cannot_list_foreign_project_via_membership(
+    client: AsyncClient, db: AsyncSession
+) -> None:
+    """Membership in a default project must not leak after the user moves orgs."""
+    from app.models.project_member import ProjectMember
+
+    default_id = await _default_tenant_id(db)
+    other = await _tenant(db, "acme")
+    bound = await _user_in(db, other, is_superuser=False)
+    owner = await _cross_tenant_superuser(db)
+    tag = uuid.uuid4().hex[:8]
+    project = Project(
+        name=f"Default Project {tag}",
+        slug=f"default-proj-{tag}",
+        owner_id=owner.id,
+        status="active",
+        tenant_id=default_id,
+    )
+    db.add(project)
+    await db.flush()
+    db.add(
+        ProjectMember(
+            project_id=project.id,
+            user_id=bound.id,
+            role="contributor",
+        )
+    )
+    await db.commit()
+
+    listed = await client.get("/v1/projects", headers=_jwt(bound))
+    assert listed.status_code == 200, listed.text
+    ids = [p["id"] for p in listed.json()["items"]]
+    assert str(project.id) not in ids
+
+    detail = await client.get(f"/v1/projects/{project.id}", headers=_jwt(bound))
+    assert detail.status_code == 404, detail.text
+
+
 async def test_bootstrap_superuser_can_create_user_without_tenant_slug(
     client: AsyncClient, db: AsyncSession
 ) -> None:

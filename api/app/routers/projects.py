@@ -131,6 +131,9 @@ async def list_projects(
         .where(ProjectMember.user_id == user.id)
         .order_by(Project.updated_at.desc())
     )
+    # Bound users only see projects in their own org (membership alone is not enough).
+    if user.tenant_id is not None:
+        q = q.where(Project.tenant_id == user.tenant_id)
     result = await db.execute(q)
     rows = list(result.all())
 

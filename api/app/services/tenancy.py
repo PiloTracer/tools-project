@@ -1,10 +1,10 @@
 """Tenant resolution helpers shared by deps, bootstrap, and routers.
 
-Multi-tenant deployments resolve the request tenant from subdomain → JWT →
-``X-Tenant-Slug``. Single-tenant deployments (``MULTI_TENANCY_ENABLED=false``)
-keep every tenant-scoped row in the ``default`` tenant created by
-``sql/schema_backfill.sql``, even though the bootstrap superuser has
-``tenant_id IS NULL`` (SPEC multi-tenancy §Feature flag, R4c).
+A tenant-bound user (``users.tenant_id`` set) is always scoped to that org for
+reads and writes. ``MULTI_TENANCY_ENABLED`` only turns on multi-org login UX
+(subdomain / ``X-Tenant-Slug`` / 300-choice). Cross-tenant superusers
+(``tenant_id IS NULL``) with the flag off stamp new rows into the ``default``
+tenant created by ``sql/schema_backfill.sql`` (SPEC R4c).
 """
 
 from __future__ import annotations

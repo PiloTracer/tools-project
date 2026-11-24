@@ -73,29 +73,46 @@ async def get_current_tenant(
     request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> Tenant | None:
-    """Resolve the current tenant: subdomain → X-Tenant-Slug → authenticated user.
+    """Resolve the current tenant for this request.
 
-    When multi-tenancy is disabled this is a single-tenant deployment, so the
-    ``default`` tenant is returned silently (SPEC multi-tenancy §Feature flag) —
-    including for the bootstrap superuser, whose ``tenant_id`` is NULL.
+    Isolation invariant: a tenant-bound user (``users.tenant_id`` set) ALWAYS
+    resolves to their own tenant — whether or not ``MULTI_TENANCY_ENABLED`` is
+    on. The flag only enables subdomain / ``X-Tenant-Slug`` selection for
+    cross-tenant admins and multi-choice login UX.
 
-    Returns None only when no tenant can be resolved, which for a single-tenant
-    deployment means the ``default`` row is missing; tenant-scoped writes then
-    fail with a clear error instead of writing NULL into a NOT NULL column.
-    The resolved tenant is stored on ``request.state._tenant`` for logging and
-    downstream readers.
+    Cross-tenant superusers (``tenant_id IS NULL``) with the flag off fall back
+    to the deployment ``default`` tenant so bootstrap writes keep working.
     """
     settings = get_settings()
+    user_tenant_id = getattr(request.state, "tenant_id", None)
+
+    async def _load_user_tenant() -> Tenant | None:
+        if not user_tenant_id:
+            return None
+        tenant = await db.get(Tenant, uuid.UUID(user_tenant_id))
+        if tenant is None:
+            raise HTTPException(
+                status.HTTP_401_UNAUTHORIZED, detail="Tenant not found"
+            )
+        if not tenant.is_active:
+            raise HTTPException(
+                status.HTTP_403_FORBIDDEN,
+                detail="Organization account is disabled",
+            )
+        request.state._tenant = tenant
+        return tenant
+
     if not settings.multi_tenancy_enabled:
+        # Bound user → their org. Never silently widen to `default`.
+        bound = await _load_user_tenant()
+        if bound is not None:
+            return bound
         tenant = await get_default_tenant(db)
         if tenant is not None:
             request.state._tenant = tenant
         return tenant
 
-    user_tenant_id = getattr(request.state, "tenant_id", None)
-
-    # 1. Subdomain resolution from Host header, then 2. X-Tenant-Slug header
-    #    (for API clients that cannot set subdomains)
+    # 1. Subdomain, then 2. X-Tenant-Slug (cross-tenant admin selection)
     tenant_slug = _selected_tenant_slug(request)
 
     if tenant_slug:
@@ -103,10 +120,11 @@ async def get_current_tenant(
         if tenant is None:
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Tenant not found")
         if not tenant.is_active:
-            raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Organization account is disabled")
-        # The subdomain / header only *selects* a tenant; authorization still comes
-        # from the JWT or API key (SPEC R2b) — a tenant-bound caller cannot widen
-        # their scope by pointing at another tenant's subdomain or slug.
+            raise HTTPException(
+                status.HTTP_403_FORBIDDEN,
+                detail="Organization account is disabled",
+            )
+        # Bound callers cannot widen scope via header/subdomain (SPEC R2b).
         if user_tenant_id is not None and str(tenant.id) != user_tenant_id:
             raise HTTPException(
                 status.HTTP_403_FORBIDDEN,
@@ -115,13 +133,10 @@ async def get_current_tenant(
         request.state._tenant = tenant
         return tenant
 
-    # 3. Tenant of the authenticated user (JWT claim, validated in
-    #    get_current_user / get_current_user_local and stored on request.state)
-    if user_tenant_id:
-        tenant = await db.get(Tenant, uuid.UUID(user_tenant_id))
-        if tenant is not None and tenant.is_active:
-            request.state._tenant = tenant
-            return tenant
+    # 3. Authenticated user's own tenant
+    bound = await _load_user_tenant()
+    if bound is not None:
+        return bound
 
     # No tenant resolved — allow only on auth/config, health, login endpoints
     path = request.url.path
@@ -166,13 +181,12 @@ async def get_current_user_local(
         raise HTTPException(
             status.HTTP_401_UNAUTHORIZED, detail="User not found or inactive"
         )
-    # Multi-tenancy: validate JWT tenant_id claim matches user's tenant
-    if settings.multi_tenancy_enabled:
-        jwt_tenant_id = payload.get("tenant_id")
-        if row.tenant_id is not None and jwt_tenant_id and str(row.tenant_id) != jwt_tenant_id:
-            raise HTTPException(
-                status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
-            )
+    # Stale JWT after tenant reassignment must force re-login.
+    jwt_tenant_id = payload.get("tenant_id")
+    if row.tenant_id is not None and jwt_tenant_id and str(row.tenant_id) != jwt_tenant_id:
+        raise HTTPException(
+            status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
+        )
     _remember_user_tenant(request, row)
     return row
 
@@ -208,13 +222,12 @@ async def get_current_user(
                 raise HTTPException(
                     status.HTTP_401_UNAUTHORIZED, detail="User not found or inactive"
                 )
-            # Multi-tenancy: validate JWT tenant_id claim matches user's tenant
-            if settings.multi_tenancy_enabled:
-                jwt_tenant_id = payload.get("tenant_id")
-                if row.tenant_id is not None and jwt_tenant_id and str(row.tenant_id) != jwt_tenant_id:
-                    raise HTTPException(
-                        status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
-                    )
+            # Stale JWT after tenant reassignment must force re-login.
+            jwt_tenant_id = payload.get("tenant_id")
+            if row.tenant_id is not None and jwt_tenant_id and str(row.tenant_id) != jwt_tenant_id:
+                raise HTTPException(
+                    status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
+                )
             _remember_user_tenant(request, row)
             return row
 
@@ -360,17 +373,12 @@ def _tenant_can_read(user: User, resource_tenant_id: uuid.UUID | None) -> bool:
     """Check whether the caller's tenant may read a resource tenant.
 
     Returns True when:
-    - multi_tenancy is disabled (single-tenant deployment, no-op)
     - the caller is a tenant-less *superuser* (cross-tenant admin, R4a)
     - resource_tenant_id matches the caller's tenant
 
-    The tenant-less branch is deliberately gated on ``is_superuser``: the
-    ``users`` CHECK constraint (``is_superuser = true OR tenant_id IS NOT NULL``)
-    already forbids tenant-less regular users, and this keeps that rule explicit
-    for callers. Currently unused — kept as the documented boundary helper.
+    Isolation follows ``users.tenant_id`` even when ``MULTI_TENANCY_ENABLED`` is
+    false — the flag only controls multi-org login UX, not row visibility.
     """
-    if not get_settings().multi_tenancy_enabled:
-        return True
     if user.tenant_id is None:
         return user.is_superuser
     return resource_tenant_id == user.tenant_id

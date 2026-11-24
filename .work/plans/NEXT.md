@@ -30,7 +30,7 @@ Open: **production deploy pending** for the Activity repair (committed this sess
 Active: **Activity tab repair complete** (kind validation, attachments, internal replies, pagination, live SSE, client visibility; 80 tests) — **awaiting production deploy** · **TNT iteration complete** (tenant context: single-tenant writes + multi-tenant selection; stack control plane + env-file contract) — **committed 2026-09-30** · **agent-query-api P0–P2 complete (2026-10-30)** — 154 tests green; version **0.1.4**; hosted 0.1.4 deploy pending (owner)
 
 ### Recommended next
-**Recommended next (one):** deploy this build (API + web). Ships the tenant-create BFF fix, user/project tenant assignment UI, per-tenant project slug index, and department templates from TPR-5. After deploy, create/bind tenants in Admin; set `MULTI_TENANCY_ENABLED=true` in `.env.prd` when login should enforce org isolation. Guide: `.work/docs/guides/TENANCY.md`.
+**Recommended next (one):** deploy this build (API + web). Ships tenant-create BFF, user/project tenant assignment, and **isolation by `users.tenant_id` even when MULTI_TENANCY_ENABLED=false** (Prospects/Projects no longer leak from `default` after a user moves orgs). After deploy: sign out/in as the bound user — expect an empty org until you create or move data. Guide: `.work/docs/guides/TENANCY.md`.
 
 Prior next, still open: the `project-query-setup update` patch in `/mnt/work/Projects/pilo.ai.logicbison`, consumer MCP refresh, and the authorization-boundary review for agent API 1.1.0.
 
@@ -40,10 +40,10 @@ Run `@code-verify last` on the close commit — it includes the integration fix,
 **Backlog (queued, not this next session):**
 
 1. ~~**NEXT SESSION (user directive 2026-09-29): cross-LLM verification of the plan-sync P1 commit.**~~ **DISCHARGED 2026-09-30 — PASS**, run by a different model than the author (`11432fe`; gates re-run green in the container, no SPEC violations — `.work/context/HANDOFF.md` § Cross-LLM verification).
-2. **Multi-tenancy:** SPEC is **Approved**; add HTTP-level cross-tenant leak tests for remaining routers; enable `MULTI_TENANCY_ENABLED=true` in production when ready (owner env approval).
+2. **Multi-tenancy:** SPEC is **Approved**; bound-user isolation works with flag off (2026-11-24). Still open: HTTP-level cross-tenant leak tests for remaining routers; optional `MULTI_TENANCY_ENABLED=true` for subdomain/picker UX.
 3. Add automated tests for the ecosystem hub modifications (Mod 1–4) if not already covered.
 4. Build satellite apps (CompanyBrain, OpsBoard, SignFlow, LedgerLite) that consume the ecosystem APIs.
-5. ~~Restart the dev stack and smoke-test tenant-scoped login + CRUD~~ — tenant create BFF + bindings verified 2026-11-24 (176 tests); production enablement still owner action.
+5. ~~Restart the dev stack and smoke-test tenant-scoped login + CRUD~~ — BFF + isolation verified 2026-11-24 (178 tests); production deploy still owner action.
 6. **plan-sync P3:** web UI — milestone list, task-by-milestone filter, obsolete badge (SPEC §2); next iteration per plan-sync P1 scope split.
 7. **plan-sync P2:** `@plan-sync` agent skill — work order for the framework handed over at `.work/prompts/20260929-plan-sync-skill-instructions.md` (decision: direct HTTP, option (a); MCP stays read-only). Deliver to `pilo.ai.logicbison`, then `@deploy-basic` here to pick up the skills table row.
 

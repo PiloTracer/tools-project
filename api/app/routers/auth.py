@@ -143,7 +143,7 @@ async def local_login(
     # for a cross-tenant superuser) and the tenant context this login resolved, so
     # the web client can persist the selection for X-Tenant-Slug on later calls.
     bound_tenant_slug: str | None = None
-    if s.multi_tenancy_enabled and user.tenant_id is not None:
+    if user.tenant_id is not None:
         bound_tenant = await db.get(Tenant, user.tenant_id)
         if bound_tenant is not None:
             bound_tenant_slug = bound_tenant.slug
@@ -192,11 +192,12 @@ async def auth_me(
         client_contact_id = contact.id
         client_name = contact.client.name if contact.client else None
 
-    # Multi-tenancy: include tenant info
+    # Always surface the user's org binding (isolation key), even when the
+    # MULTI_TENANCY_ENABLED flag is off — the flag only gates multi-org UX.
     tenant_id_val: uuid.UUID | None = None
     tenant_slug: str | None = None
     tenant_name: str | None = None
-    if get_settings().multi_tenancy_enabled and user.tenant_id is not None:
+    if user.tenant_id is not None:
         tenant_id_val = user.tenant_id
         tenant_row = await db.get(Tenant, user.tenant_id)
         if tenant_row is not None:

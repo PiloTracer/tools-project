@@ -24,12 +24,27 @@
 **Next recommended:** `@code-implementation plan - project-templates`
 
 ## Session status
-**Closed:** 2026-11-24 — **Tenant create Network error fixed; user↔tenant↔project bindings made operable.** Admin Tenants now uses a cookie BFF (no browser call to Docker-internal `api`). Cross-tenant admins can assign users and projects to a tenant slug; membership rejects cross-tenant joins; project slugs are unique per tenant (idempotent DDL on restart). Guide: `.work/docs/guides/TENANCY.md`. Gates: ruff clean, pyright 0, pytest **176 passed**, DDL index `uq_projects_slug_tenant` verified after restart. **Pick up:** deploy this build; set `MULTI_TENANCY_ENABLED=true` in production when ready so login isolation enforces bindings.
+**Closed:** 2026-11-24 — **Tenant isolation follows `users.tenant_id` even when MULTI_TENANCY_ENABLED=false.** Bound users no longer see `default` Prospects/Projects after moving to another org (`get_current_tenant`, project list, project_access, `/me`/login). Moving a user does not move CRM rows — the new org starts empty. Gates: ruff clean, pyright 0, pytest **178 passed**. Guide: `.work/docs/guides/TENANCY.md`. **Pick up:** deploy API (`git pull` + `./bin/start.sh prd start`), then sign out/in as the LogicBison user.
 **Updated:** 2026-11-24
-**Repository state:** tenancy UI/API fixes uncommitted until this close; Postgres host port remains **21189**.
-**Recommended pick-up:** `.work/plans/NEXT.md` — deploy API + web; optionally enable multi-tenancy in `.env.prd`.
-**Open owner actions:** production deploy; approve `MULTI_TENANCY_ENABLED=true` in `.env.prd` when orgs should be isolated at login.
-**Explicit unknowns:** none for this change. UNKNOWNS #8 (webhook tenant filter) remains open from prior work.
+**Repository state:** isolation fix ready to commit/push with this close.
+**Recommended pick-up:** production deploy of this commit.
+**Open owner actions:** production deploy; optional `MULTI_TENANCY_ENABLED=true` for subdomain/picker UX only (isolation already on for bound users).
+**Explicit unknowns:** UNKNOWNS #8 (webhook tenant filter) remains open.
+
+## Latest action (@ai-director)
+**Date:** 2026-11-24
+**Request:** "changed slug from default to logicbison… still see same Prospects… reanalyze and implement necessary fixes"
+**Classified bucket:** code-repair
+**Routing confidence:** high
+**Executed:**
+1. Root-cause: `get_current_tenant` always returned `default` when flag off → Prospects filtered to default even for LogicBison users
+2. Fix: bound users always resolve to their `users.tenant_id`; flag only gates multi-org UX; project list + project_access enforce same boundary; `/me` and login always echo binding
+3. Tests: isolation regressions in `test_tenancy_resolution.py`; suite **178 passed**
+**User correction:** none
+**Blockers:** none after deploy
+**Next recommended:** production `./bin/start.sh prd start`
+
+**Prior Closed:** 2026-11-24 — **Tenant create Network error fixed; user↔tenant↔project bindings made operable** (`fed1826`). Guide: `.work/docs/guides/TENANCY.md`.
 
 **Closed:** 2026-11-22 — **TPR-5 department templates and ref fix.** A new project can start from Basic or from Engineering, HR, Design, Legal, Finance, IT, Project Management, Sales, Marketing, or Operations. Each department copies its own board, item types, and starter items. Existing projects stay as they are. Creating a task or ticket skips refs that already exist. Postgres host port is 21189 in dev and production.
 **Closed:** 2026-11-20 — **PZT-9 work types shipped in this repo.** Tasks and tickets have one work type. Existing rows are Programming. Each project starts with Programming (default), Administrative, and Documentation, and people can add more.

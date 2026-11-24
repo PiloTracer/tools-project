@@ -58,13 +58,9 @@ async def resolve_project_access(
     if proj is None:
         return None
 
-    # Multi-tenancy: cross-tenant superusers bypass; regular users must match project's tenant.
-    from app.config import get_settings
-    if (
-        get_settings().multi_tenancy_enabled
-        and user.tenant_id is not None
-        and proj.tenant_id != user.tenant_id
-    ):
+    # Tenant-bound users cannot open a project owned by another org — regardless
+    # of MULTI_TENANCY_ENABLED. Cross-tenant superusers (tenant_id IS NULL) bypass.
+    if user.tenant_id is not None and proj.tenant_id != user.tenant_id:
         return None
 
     if user.is_superuser:
