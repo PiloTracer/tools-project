@@ -8,8 +8,10 @@ import { Badge, stageBadgeVariant } from "@/components/Badge";
 import { Dialog } from "@/components/Dialog";
 import { DropdownMenu, DropdownItem } from "@/components/DropdownMenu";
 import { toast } from "@/components/Toast";
+import { CrmFormFieldsCustomize } from "@/components/CrmFormFieldsCustomize";
 import { CrmProfileFields } from "@/components/CrmProfileFields";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
+import { useCrmFormPrefs } from "@/components/useCrmFormPrefs";
 import { apiRequest } from "@/shared/client/api";
 import {
   crmProfileFromProspect,
@@ -38,6 +40,8 @@ type ProspectDetail = {
   pipeline_stage: string;
   pipeline_value: number | null;
   source: string | null;
+  industry: string | null;
+  zone: string | null;
   first_contact_date: string | null;
   last_interaction: string | null;
   next_action: string | null;
@@ -88,6 +92,7 @@ export default function ProspectDetailPage() {
   const [editNotes, setEditNotes] = useState("");
   const [editProfile, setEditProfile] = useState<CrmProfileFormState>(emptyCrmProfileForm);
   const [editErr, setEditErr] = useState<string | null>(null);
+  const { fields: crmFields, setField: setCrmField, isVisible } = useCrmFormPrefs();
 
   const [promotedResult, setPromotedResult] = useState<{ client: { id: string; name: string }; project: { id: string; name: string } } | null>(null);
 
@@ -272,8 +277,16 @@ export default function ProspectDetailPage() {
             <span style={{ fontSize: "1.15rem", fontWeight: 700 }}>{formatCurrency(prospect.pipeline_value)}</span>
           </div>
           <div>
-            <span className="text-sm muted" style={{ display: "block", marginBottom: "0.15rem" }}>Source</span>
+            <span className="text-sm muted" style={{ display: "block", marginBottom: "0.15rem" }}>Fuente</span>
             <span>{prospect.source ?? "—"}</span>
+          </div>
+          <div>
+            <span className="text-sm muted" style={{ display: "block", marginBottom: "0.15rem" }}>Giro de negocio</span>
+            <span>{prospect.industry ?? "—"}</span>
+          </div>
+          <div>
+            <span className="text-sm muted" style={{ display: "block", marginBottom: "0.15rem" }}>Zona</span>
+            <span>{prospect.zone ?? "—"}</span>
           </div>
           <div>
             <span className="text-sm muted" style={{ display: "block", marginBottom: "0.15rem" }}>First contact</span>
@@ -453,31 +466,40 @@ export default function ProspectDetailPage() {
         }
       >
         <form id="edit-form" onSubmit={handleSave} className="stack" style={{ gap: "0.65rem" }}>
+          <CrmFormFieldsCustomize fields={crmFields} onToggle={setCrmField} />
           <label className="field">
             <span className="label">Organization name</span>
             <input className="input" value={editName} onChange={(e) => setEditName(e.target.value)} required />
           </label>
-          <label className="field">
-            <span className="label">Pipeline stage</span>
-            <select className="input" value={editStage} onChange={(e) => setEditStage(e.target.value)}>
-              {PIPELINE_STAGES.map((s) => (
-                <option key={s} value={s}>{STAGE_LABELS[s] ?? s}</option>
-              ))}
-            </select>
-          </label>
-          <label className="field">
-            <span className="label">Value (USD)</span>
-            <input className="input" type="number" min="0" step="0.01" value={editValue} onChange={(e) => setEditValue(e.target.value)} />
-          </label>
-          <label className="field">
-            <span className="label">Source</span>
-            <input className="input" value={editSource} onChange={(e) => setEditSource(e.target.value)} />
-          </label>
-          <CrmProfileFields value={editProfile} onChange={setEditProfile} showContact />
-          <label className="field">
-            <span className="label">Notes</span>
-            <MarkdownEditor value={editNotes} onChange={setEditNotes} rows={3} />
-          </label>
+          {isVisible("pipeline_stage") ? (
+            <label className="field">
+              <span className="label">Pipeline stage</span>
+              <select className="input" value={editStage} onChange={(e) => setEditStage(e.target.value)}>
+                {PIPELINE_STAGES.map((s) => (
+                  <option key={s} value={s}>{STAGE_LABELS[s] ?? s}</option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          {isVisible("pipeline_value") ? (
+            <label className="field">
+              <span className="label">Value (USD)</span>
+              <input className="input" type="number" min="0" step="0.01" value={editValue} onChange={(e) => setEditValue(e.target.value)} />
+            </label>
+          ) : null}
+          {isVisible("source") ? (
+            <label className="field">
+              <span className="label">Fuente</span>
+              <input className="input" value={editSource} onChange={(e) => setEditSource(e.target.value)} />
+            </label>
+          ) : null}
+          <CrmProfileFields value={editProfile} onChange={setEditProfile} showContact isVisible={isVisible} />
+          {isVisible("notes") ? (
+            <label className="field">
+              <span className="label">Notes</span>
+              <MarkdownEditor value={editNotes} onChange={setEditNotes} rows={3} />
+            </label>
+          ) : null}
           {editErr ? <p id="edit-form-err" className="err text-sm" role="alert">{editErr}</p> : null}
         </form>
       </Dialog>

@@ -688,5 +688,12 @@ ALTER TABLE clients ADD COLUMN IF NOT EXISTS address TEXT;
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS latitude NUMERIC(10, 7);
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS longitude NUMERIC(10, 7);
 
+-- CRM classification fields (Giro / Zona / Fuente) + durable UI prefs.
+-- Giro de negocio → industry; Zona → zone; Fuente → source (prospects already had source).
+ALTER TABLE prospects ADD COLUMN IF NOT EXISTS industry VARCHAR(100);
+ALTER TABLE prospects ADD COLUMN IF NOT EXISTS zone VARCHAR(100);
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS zone VARCHAR(100);
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS source VARCHAR(30);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS ui_preferences JSONB NOT NULL DEFAULT '{}'::jsonb;
 
 

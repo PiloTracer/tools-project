@@ -14,9 +14,10 @@ from app.deps import get_current_user
 from app.models.client_contact import ClientContact
 from app.models.tenant import Tenant
 from app.models.user import User
-from app.schemas import LocalLoginRequest, MeResponse, TenantChoice, TokenResponse
+from app.schemas import LocalLoginRequest, MeResponse, TenantChoice, TokenResponse, UiPreferencesUpdate
 from app.services.auth_local import create_local_access_token, decode_local_token, verify_password
 from app.services.rate_limiter import check_login_rate_limit
+from app.services.ui_preferences import merge_ui_preferences, public_ui_preferences
 
 router = APIRouter(prefix="/v1/auth", tags=["auth"])
 
@@ -216,4 +217,28 @@ async def auth_me(
         tenant_id=tenant_id_val,
         tenant_slug=tenant_slug,
         tenant_name=tenant_name,
+        ui_preferences=public_ui_preferences(user.ui_preferences),
     )
+
+
+@router.patch(
+    "/me/preferences",
+    response_model=MeResponse,
+    summary="Update UI preferences",
+    description=(
+        "Merges CRM form field visibility (and future UI prefs) onto the user record. "
+        "Survives hard refresh and new browser sessions for this account."
+    ),
+)
+async def update_me_preferences(
+    body: UiPreferencesUpdate,
+    request: Request,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    patch = body.model_dump(exclude_unset=True)
+    user.ui_preferences = merge_ui_preferences(user.ui_preferences, patch)
+    await db.commit()
+    await db.refresh(user)
+    # Reuse auth_me assembly for a consistent MeResponse.
+    return await auth_me(request, user, db)

@@ -74,6 +74,9 @@ async def test_prospect_create_and_patch_profile(client: AsyncClient, db: AsyncS
         json={
             "company_name": f"Org {tag}",
             "pipeline_stage": "engaged",
+            "source": "Referral",
+            "industry": "SaaS",
+            "zone": "GAM",
             "contact_name": "Pat Contact",
             "contact_email": "Pat@Org.example",
             "contact_phone": "+1 555 0100",
@@ -90,6 +93,9 @@ async def test_prospect_create_and_patch_profile(client: AsyncClient, db: AsyncS
     assert create.status_code == 201, create.text
     data = create.json()
     assert data["company_name"] == f"Org {tag}"
+    assert data["source"] == "Referral"
+    assert data["industry"] == "SaaS"
+    assert data["zone"] == "GAM"
     assert data["contact_name"] == "Pat Contact"
     assert data["contact_email"] == "pat@org.example"
     assert data["org_email"] == "hello@org.example"
@@ -129,6 +135,9 @@ async def test_client_create_and_patch_profile(client: AsyncClient, db: AsyncSes
         headers=headers,
         json={
             "name": f"Client Org {tag}",
+            "industry": "Retail",
+            "zone": "Norte",
+            "source": "Website",
             "email": "Ops@Client.example",
             "phone": "+1 555 0200",
             "working_schedule": "24/7",
@@ -141,6 +150,9 @@ async def test_client_create_and_patch_profile(client: AsyncClient, db: AsyncSes
     )
     assert create.status_code == 201, create.text
     data = create.json()
+    assert data["industry"] == "Retail"
+    assert data["zone"] == "Norte"
+    assert data["source"] == "Website"
     assert data["email"] == "ops@client.example"
     assert data["working_schedule"] == "24/7"
     assert float(data["longitude"]) == pytest.approx(-74.006)
@@ -174,6 +186,9 @@ async def test_promote_copies_profile_and_primary_contact(
         json={
             "company_name": f"Win Co {tag}",
             "pipeline_stage": "negotiating",
+            "source": "Event",
+            "industry": "Finance",
+            "zone": "Pacific",
             "contact_name": "Lead Name",
             "contact_email": f"lead-{tag}@win.example",
             "contact_phone": "+1 555 0300",
@@ -201,6 +216,9 @@ async def test_promote_copies_profile_and_primary_contact(
     client_out = body["promoted_client"]
     assert client_out["email"] == f"hello-{tag}@win.example"
     assert client_out["phone"] == "+1 555 0301"
+    assert client_out["industry"] == "Finance"
+    assert client_out["zone"] == "Pacific"
+    assert client_out["source"] == "Event"
     assert client_out["service"] == "Retainer"
     assert client_out["address"] == "9 Victory Ln"
     assert float(client_out["latitude"]) == pytest.approx(1.23)
@@ -222,3 +240,36 @@ async def test_promote_copies_profile_and_primary_contact(
     assert contacts[0].name == "Lead Name"
     assert contacts[0].email == f"lead-{tag}@win.example"
     assert contacts[0].phone == "+1 555 0300"
+
+
+async def test_ui_preferences_crm_form_fields_persist(client: AsyncClient, db: AsyncSession) -> None:
+    admin = await create_user(
+        db, email=f"crm-prefs-{uuid.uuid4().hex[:8]}@example.com", is_superuser=True
+    )
+    await db.commit()
+    headers = auth_header(admin)
+
+    me = await client.get("/v1/auth/me", headers=headers)
+    assert me.status_code == 200, me.text
+    prefs = me.json()["ui_preferences"]["crm_form_fields"]
+    assert prefs["source"] is True
+    assert prefs["industry"] is True
+    assert prefs["zone"] is True
+    assert prefs["coordinates"] is False
+
+    patched = await client.patch(
+        "/v1/auth/me/preferences",
+        headers=headers,
+        json={"crm_form_fields": {"coordinates": True, "message": True, "source": False}},
+    )
+    assert patched.status_code == 200, patched.text
+    fields = patched.json()["ui_preferences"]["crm_form_fields"]
+    assert fields["coordinates"] is True
+    assert fields["message"] is True
+    assert fields["source"] is False
+    assert fields["zone"] is True  # default retained
+
+    again = await client.get("/v1/auth/me", headers=headers)
+    assert again.status_code == 200
+    assert again.json()["ui_preferences"]["crm_form_fields"]["source"] is False
+    assert again.json()["ui_preferences"]["crm_form_fields"]["coordinates"] is True

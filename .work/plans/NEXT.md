@@ -30,9 +30,15 @@ Open: **production deploy pending** for the Activity repair (committed this sess
 Active: **Activity tab repair complete** (kind validation, attachments, internal replies, pagination, live SSE, client visibility; 80 tests) — **awaiting production deploy** · **TNT iteration complete** (tenant context: single-tenant writes + multi-tenant selection; stack control plane + env-file contract) — **committed 2026-09-30** · **agent-query-api P0–P2 complete (2026-10-30)** — 154 tests green; version **0.1.4**; hosted 0.1.4 deploy pending (owner)
 
 ### Recommended next
-**Recommended next (one):** deploy this build (API + web). Ships **CRM intake profile** (org/contact fields on prospects and clients, idempotent DDL, promote copy) plus tenant-create BFF, user/project tenant assignment, and **isolation by `users.tenant_id` even when MULTI_TENANCY_ENABLED=false**. After deploy: sign out/in as the bound user; create a prospect with contact/org fields and confirm promote carries them to the client. Guide: `.work/docs/guides/TENANCY.md`.
+**Recommended next (one):** deploy this build (API + web). Ships **Giro/Zona/Fuente**, **Customize fields** (account-scoped prefs), CRM intake profile, tenant BFF, and isolation by `users.tenant_id`. After deploy: New prospect → Customize fields → hard refresh and confirm the same field set. Guide: `.work/docs/guides/TENANCY.md`.
 
 Prior next, still open: the `project-query-setup update` patch in `/mnt/work/Projects/pilo.ai.logicbison`, consumer MCP refresh, and the authorization-boundary review for agent API 1.1.0.
+
+### Done this iteration (2026-11-24 CRM Giro/Zona/Fuente + prefs)
+- `industry`/`zone` on prospects; `zone`/`source` on clients; promote copies classification
+- `users.ui_preferences` + `PATCH /v1/auth/me/preferences`; BFF `/api/auth/me`
+- Customize fields UI on prospect/client create·edit; lean defaults
+- Tests: `test_crm_profile` 6/6 (incl. prefs persistence)
 
 ### Done this iteration (2026-11-24 CRM profile)
 - Prospect/client models + schemas + routers for org/contact profile fields

@@ -24,12 +24,26 @@
 **Next recommended:** `@code-implementation plan - project-templates`
 
 ## Session status
-**Closed:** 2026-11-24 — **CRM prospect/client intake profile extended** (org/contact name·email·phone, working schedule, message, service, address, coordinates). Idempotent `sql/schema_changes.sql` ALTERs; models/schemas/routers; promote copies profile + primary contact; web create/edit/detail forms. Gates: `test_crm_profile` 5/5, related 22/22, apply-ddl ×2, web `tsc` clean.
+**Closed:** 2026-11-24 — **CRM Giro/Zona/Fuente + Customize fields.** Classification columns on prospects/clients; durable `users.ui_preferences` with `PATCH /v1/auth/me/preferences`; form field toggles (localStorage + server) on create/edit. Gates: `test_crm_profile` 6/6, apply-ddl idempotent, web tsc clean.
 **Updated:** 2026-11-24
-**Repository state:** CRM profile + prior tenant isolation on `main` after this close commit.
-**Recommended pick-up:** production deploy (`git pull` + `./bin/start.sh prd start`), then exercise New prospect / New client with the new fields.
-**Open owner actions:** production deploy; optional `MULTI_TENANCY_ENABLED=true` for subdomain/picker UX only (isolation already on for bound users).
+**Repository state:** CRM classification + prefs on `main` after this close commit.
+**Recommended pick-up:** production deploy (`git pull` + `./bin/start.sh prd start`), then open New prospect → Customize fields and confirm prefs survive refresh.
+**Open owner actions:** production deploy; optional `MULTI_TENANCY_ENABLED=true` for subdomain/picker UX only.
 **Explicit unknowns:** UNKNOWNS #8 (webhook tenant filter) remains open.
+
+## Cross-framework action (@x-director)
+**Date:** 2026-11-24
+**Request:** "verify if the following fields are available, if not, add them: Giro de Negocio, Zona, Fuente. allow the user to set which fields he wants to use, this setting must survive hard refreshes and live across sessions…"
+**Frameworks involved:** .ai, .ai.ui
+**Classified bucket(s):** engineering, ui
+**Executed:**
+1. @ai-director → added `industry`/`zone` on prospects, `zone`/`source` on clients; `users.ui_preferences` JSONB; `PATCH /v1/auth/me/preferences`; promote copies classification; tests 6/6
+2. @ui-director (same pass) → labels Fuente/Giro/Zona; **Customize fields** on create/edit dialogs; localStorage cache + server sync
+**Coordination notes:** API first, then web; defaults keep forms lean (heavy intake fields off)
+**Blockers:** none
+**Next recommended:** production deploy of this close commit
+
+**Prior Closed:** 2026-11-24 — **CRM prospect/client intake profile extended** (`8e3a220`).
 
 **Prior Closed:** 2026-11-24 — **Tenant isolation follows `users.tenant_id` even when MULTI_TENANCY_ENABLED=false** (`9e9fa98`). Guide: `.work/docs/guides/TENANCY.md`.
 

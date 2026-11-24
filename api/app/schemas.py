@@ -81,8 +81,15 @@ class MeResponse(BaseModel):
     tenant_id: uuid.UUID | None = None
     tenant_slug: str | None = None
     tenant_name: str | None = None
+    ui_preferences: dict = Field(default_factory=dict)
 
     model_config = {"from_attributes": True}
+
+
+class UiPreferencesUpdate(BaseModel):
+    """Partial UI prefs; currently supports crm_form_fields toggles."""
+
+    crm_form_fields: dict[str, bool] | None = None
 
 
 class AdminUserCreate(BaseModel):
@@ -1077,6 +1084,8 @@ class ProspectCreate(BaseModel):
     pipeline_stage: str = Field(default="target", max_length=20)
     pipeline_value: float | None = Field(default=None, ge=0)
     source: str | None = Field(default=None, max_length=30)
+    industry: str | None = Field(default=None, max_length=100)
+    zone: str | None = Field(default=None, max_length=100)
     first_contact_date: date | None = None
     notes: str | None = Field(default=None, max_length=16000)
     contact_name: str | None = Field(default=None, max_length=200)
@@ -1104,6 +1113,8 @@ class ProspectUpdate(BaseModel):
     pipeline_stage: str | None = Field(default=None, max_length=20)
     pipeline_value: float | None = Field(default=None, ge=0)
     source: str | None = Field(default=None, max_length=30)
+    industry: str | None = Field(default=None, max_length=100)
+    zone: str | None = Field(default=None, max_length=100)
     first_contact_date: date | None = None
     notes: str | None = Field(default=None, max_length=16000)
     contact_name: str | None = Field(default=None, max_length=200)
@@ -1143,6 +1154,8 @@ class ProspectOut(BaseModel):
     pipeline_stage: str
     pipeline_value: float | None = None
     source: str | None = None
+    industry: str | None = None
+    zone: str | None = None
     first_contact_date: date | None = None
     last_interaction: datetime | None = None
     next_action: str | None = None
@@ -1195,6 +1208,8 @@ def slugify(name: str) -> str:
 class ClientCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     industry: str | None = Field(default=None, max_length=100)
+    zone: str | None = Field(default=None, max_length=100)
+    source: str | None = Field(default=None, max_length=30)
     notes: str | None = Field(default=None, max_length=16000)
     email: str | None = Field(default=None, max_length=320)
     phone: str | None = Field(default=None, max_length=50)
@@ -1209,6 +1224,8 @@ class ClientCreate(BaseModel):
 class ClientUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=200)
     industry: str | None = Field(default=None, max_length=100)
+    zone: str | None = Field(default=None, max_length=100)
+    source: str | None = Field(default=None, max_length=30)
     notes: str | None = Field(default=None, max_length=16000)
     email: str | None = Field(default=None, max_length=320)
     phone: str | None = Field(default=None, max_length=50)
@@ -1226,6 +1243,8 @@ class ClientOut(BaseModel):
     name: str
     slug: str
     industry: str | None = None
+    zone: str | None = None
+    source: str | None = None
     notes: str | None = None
     email: str | None = None
     phone: str | None = None

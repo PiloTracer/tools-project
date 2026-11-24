@@ -2,14 +2,22 @@
 
 > **Path:** `<repo-root>/.work.ui/context/HANDOFF_UI.md` · Maintained by **`ui-*` skills**. Session bookends: **`@session-control`**.
 
-## Latest action (@ui-director)
-**Date:** 2026-11-22
-**Request:** "want to implement a working deliverable of this feature: https://www.atlassian.com/software/jira/templates The current layout/template/approach would remain as default or basic. Templates for Engineering, HR, Design, Legal, Finance, IT, Project Management, Sales, Marketing, Operations. Must allow adding new ones in the future. Migrations seamless on rebuild and restart. No current information lost."
-**Classified bucket:** screen-request
+## Latest action (@ui-director via @x-director)
+**Date:** 2026-11-24
+**Request:** CRM Giro/Zona/Fuente + Customize fields preference UI
+**Classified bucket:** ui-component (degraded into engineering pass — existing CRM screens)
 **Executed:**
-1. @ui-screen-spec create - project-templates → Approved `.work.ui/screens/project-templates/20261122-SCREEN-SPEC.md` (2026-11-22)
-**Blockers:** none. API does not exist yet, so the screen is not built.
-**Next recommended:** `@ui-component-build plan` after `@code-implementation plan - project-templates`.
+1. Labels Fuente / Giro de negocio / Zona on prospect & client forms and tables
+2. **Customize fields** disclosure on create/edit dialogs; visibility driven by `useCrmFormPrefs` (localStorage + `PATCH /api/auth/me/preferences`)
+**Blockers:** none
+**Next recommended:** smoke New prospect form in the browser after API restart
+
+## Prior action (@ui-director)
+**Date:** 2026-11-22
+**Request:** project templates gallery
+**Classified bucket:** screen-request
+**Executed:** Approved `.work.ui/screens/project-templates/20261122-SCREEN-SPEC.md`
+**Next recommended:** `@ui-component-build plan` after templates API
 
 ## Session status
 

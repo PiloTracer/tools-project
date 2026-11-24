@@ -18,6 +18,8 @@ def email_or_none(value: str | None) -> str | None:
 
 
 PROSPECT_PROFILE_KEYS = (
+    "industry",
+    "zone",
     "contact_name",
     "contact_email",
     "contact_phone",
@@ -32,6 +34,8 @@ PROSPECT_PROFILE_KEYS = (
 )
 
 CLIENT_PROFILE_KEYS = (
+    "zone",
+    "source",
     "email",
     "phone",
     "working_schedule",
@@ -45,6 +49,9 @@ CLIENT_PROFILE_KEYS = (
 _EMAIL_KEYS = frozenset({"contact_email", "org_email", "email"})
 _TEXT_KEYS = frozenset(
     {
+        "industry",
+        "zone",
+        "source",
         "contact_name",
         "contact_phone",
         "org_phone",

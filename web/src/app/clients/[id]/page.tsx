@@ -7,8 +7,10 @@ import Link from "next/link";
 import { Badge } from "@/components/Badge";
 import { Dialog } from "@/components/Dialog";
 import { toast } from "@/components/Toast";
+import { CrmFormFieldsCustomize } from "@/components/CrmFormFieldsCustomize";
 import { CrmProfileFields } from "@/components/CrmProfileFields";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
+import { useCrmFormPrefs } from "@/components/useCrmFormPrefs";
 import { apiRequest } from "@/shared/client/api";
 import {
   clientProfileBody,
@@ -22,6 +24,8 @@ type ClientDetail = {
   name: string;
   slug: string;
   industry: string | null;
+  zone: string | null;
+  source: string | null;
   notes: string | null;
   email: string | null;
   phone: string | null;
@@ -72,10 +76,11 @@ export default function ClientDetailPage() {
 
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState("");
-  const [editIndustry, setEditIndustry] = useState("");
+  const [editSource, setEditSource] = useState("");
   const [editNotes, setEditNotes] = useState("");
   const [editProfile, setEditProfile] = useState<CrmProfileFormState>(emptyCrmProfileForm);
   const [editErr, setEditErr] = useState<string | null>(null);
+  const { fields: crmFields, setField: setCrmField, isVisible } = useCrmFormPrefs();
 
   const [showDelete, setShowDelete] = useState(false);
   const [deleteContactId, setDeleteContactId] = useState<string | null>(null);
@@ -147,7 +152,7 @@ export default function ClientDetailPage() {
     if (!client) return;
     setEditing(true);
     setEditName(client.name);
-    setEditIndustry(client.industry ?? "");
+    setEditSource(client.source ?? "");
     setEditNotes(client.notes ?? "");
     setEditProfile(crmProfileFromClient(client));
     setEditErr(null);
@@ -156,10 +161,10 @@ export default function ClientDetailPage() {
   const handleEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     setEditErr(null);
-    const body: Record<string, unknown> = { ...clientProfileBody(editProfile) };
+    const body: Record<string, unknown> = {
+      ...clientProfileBody(editProfile, { source: editSource }),
+    };
     if (editName.trim()) body.name = editName.trim();
-    if (editIndustry.trim()) body.industry = editIndustry.trim();
-    else body.industry = null;
     if (editNotes.trim()) body.notes = editNotes.trim();
     else body.notes = null;
     const r = await fetch(`/api/clients/${id}`, {
@@ -327,8 +332,16 @@ export default function ClientDetailPage() {
       <div className="card" style={{ maxWidth: "700px" }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "1rem" }}>
           <div>
-            <span className="text-sm muted" style={{ display: "block", marginBottom: "0.15rem" }}>Industry</span>
+            <span className="text-sm muted" style={{ display: "block", marginBottom: "0.15rem" }}>Giro de negocio</span>
             <span>{client.industry ?? "—"}</span>
+          </div>
+          <div>
+            <span className="text-sm muted" style={{ display: "block", marginBottom: "0.15rem" }}>Zona</span>
+            <span>{client.zone ?? "—"}</span>
+          </div>
+          <div>
+            <span className="text-sm muted" style={{ display: "block", marginBottom: "0.15rem" }}>Fuente</span>
+            <span>{client.source ?? "—"}</span>
           </div>
           <div>
             <span className="text-sm muted" style={{ display: "block", marginBottom: "0.15rem" }}>Organization email</span>
@@ -475,19 +488,34 @@ export default function ClientDetailPage() {
         }
       >
         <form id="edit-client-form" onSubmit={handleEdit} className="stack" style={{ gap: "0.65rem" }}>
+          <CrmFormFieldsCustomize
+            fields={crmFields}
+            onToggle={setCrmField}
+            hideContact
+            hidePipeline
+          />
           <label className="field">
             <span className="label">Organization name</span>
             <input className="input" value={editName} onChange={(e) => setEditName(e.target.value)} required />
           </label>
-          <label className="field">
-            <span className="label">Industry</span>
-            <input className="input" value={editIndustry} onChange={(e) => setEditIndustry(e.target.value)} />
-          </label>
-          <CrmProfileFields value={editProfile} onChange={setEditProfile} showContact={false} />
-          <label className="field">
-            <span className="label">Notes</span>
-            <MarkdownEditor value={editNotes} onChange={setEditNotes} rows={3} />
-          </label>
+          {isVisible("source") ? (
+            <label className="field">
+              <span className="label">Fuente</span>
+              <input className="input" value={editSource} onChange={(e) => setEditSource(e.target.value)} />
+            </label>
+          ) : null}
+          <CrmProfileFields
+            value={editProfile}
+            onChange={setEditProfile}
+            showContact={false}
+            isVisible={isVisible}
+          />
+          {isVisible("notes") ? (
+            <label className="field">
+              <span className="label">Notes</span>
+              <MarkdownEditor value={editNotes} onChange={setEditNotes} rows={3} />
+            </label>
+          ) : null}
           {editErr ? <p id="edit-client-form-err" className="err text-sm" role="alert">{editErr}</p> : null}
         </form>
       </Dialog>

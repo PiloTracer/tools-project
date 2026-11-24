@@ -8,8 +8,10 @@ import { DataTable, type Column } from "@/components/DataTable";
 import { Dialog } from "@/components/Dialog";
 import { toast } from "@/components/Toast";
 import { useDownload } from "@/components/useDownload";
+import { CrmFormFieldsCustomize } from "@/components/CrmFormFieldsCustomize";
 import { CrmProfileFields } from "@/components/CrmProfileFields";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
+import { useCrmFormPrefs } from "@/components/useCrmFormPrefs";
 import { redirectToLogin } from "@/shared/client/api";
 import {
   clientProfileBody,
@@ -22,6 +24,8 @@ type ClientRow = {
   name: string;
   slug: string;
   industry: string | null;
+  zone: string | null;
+  source: string | null;
   notes: string | null;
   email: string | null;
   phone: string | null;
@@ -70,10 +74,11 @@ export default function ClientsPage() {
 
   const [showCreate, setShowCreate] = useState(false);
   const [formName, setFormName] = useState("");
-  const [formIndustry, setFormIndustry] = useState("");
+  const [formSource, setFormSource] = useState("");
   const [formNotes, setFormNotes] = useState("");
   const [formProfile, setFormProfile] = useState<CrmProfileFormState>(emptyCrmProfileForm);
   const [formErr, setFormErr] = useState<string | null>(null);
+  const { fields: crmFields, setField: setCrmField, isVisible } = useCrmFormPrefs();
 
   const fetchRows = useCallback(async () => {
     setLoading(true);
@@ -115,7 +120,7 @@ export default function ClientsPage() {
 
   const resetCreateForm = () => {
     setFormName("");
-    setFormIndustry("");
+    setFormSource("");
     setFormNotes("");
     setFormProfile(emptyCrmProfileForm());
     setFormErr(null);
@@ -126,9 +131,8 @@ export default function ClientsPage() {
     setFormErr(null);
     const body: Record<string, unknown> = {
       name: formName.trim(),
-      ...clientProfileBody(formProfile),
+      ...clientProfileBody(formProfile, { source: formSource }),
     };
-    if (formIndustry.trim()) body.industry = formIndustry.trim();
     if (formNotes.trim()) body.notes = formNotes.trim();
     const r = await fetch("/api/clients", {
       method: "POST",
@@ -179,9 +183,21 @@ export default function ClientsPage() {
     },
     {
       key: "industry",
-      label: "Industry",
+      label: "Giro",
       sortable: true,
       render: (r) => r.industry ? <span>{r.industry}</span> : <span className="muted text-sm">—</span>,
+    },
+    {
+      key: "zone",
+      label: "Zona",
+      sortable: true,
+      render: (r) => r.zone ? <span>{r.zone}</span> : <span className="muted text-sm">—</span>,
+    },
+    {
+      key: "source",
+      label: "Fuente",
+      sortable: true,
+      render: (r) => r.source ? <span className="muted text-sm">{r.source}</span> : <span className="muted text-sm">—</span>,
     },
     {
       key: "created_at",
@@ -326,19 +342,39 @@ export default function ClientsPage() {
         }
       >
         <form id="client-form" onSubmit={handleCreate} className="stack" style={{ gap: "0.65rem" }}>
+          <CrmFormFieldsCustomize
+            fields={crmFields}
+            onToggle={setCrmField}
+            hideContact
+            hidePipeline
+          />
           <label className="field">
             <span className="label">Organization name *</span>
             <input className="input" value={formName} onChange={(e) => setFormName(e.target.value)} required placeholder="Acme Corp" />
           </label>
-          <label className="field">
-            <span className="label">Industry</span>
-            <input className="input" value={formIndustry} onChange={(e) => setFormIndustry(e.target.value)} placeholder="Technology, Healthcare…" />
-          </label>
-          <CrmProfileFields value={formProfile} onChange={setFormProfile} showContact={false} />
-          <label className="field">
-            <span className="label">Notes</span>
-            <MarkdownEditor value={formNotes} onChange={setFormNotes} rows={3} />
-          </label>
+          {isVisible("source") ? (
+            <label className="field">
+              <span className="label">Fuente</span>
+              <input
+                className="input"
+                value={formSource}
+                onChange={(e) => setFormSource(e.target.value)}
+                placeholder="Referral, website…"
+              />
+            </label>
+          ) : null}
+          <CrmProfileFields
+            value={formProfile}
+            onChange={setFormProfile}
+            showContact={false}
+            isVisible={isVisible}
+          />
+          {isVisible("notes") ? (
+            <label className="field">
+              <span className="label">Notes</span>
+              <MarkdownEditor value={formNotes} onChange={setFormNotes} rows={3} />
+            </label>
+          ) : null}
           {formErr ? <p id="client-form-err" className="err text-sm" role="alert">{formErr}</p> : null}
         </form>
       </Dialog>

@@ -39,6 +39,8 @@ class Prospect(Base):
     pipeline_stage: Mapped[str] = mapped_column(String(20), default="target")
     pipeline_value: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
     source: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    industry: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    zone: Mapped[str | None] = mapped_column(String(100), nullable=True)
     first_contact_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     last_interaction: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True

@@ -13,8 +13,11 @@ import { PipelineFunnel, type PipelineStageRow } from "@/components/PipelineFunn
 import { useDownload } from "@/components/useDownload";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { ProspectBoard } from "@/components/ProspectBoard";
+import { CrmFormFieldsCustomize } from "@/components/CrmFormFieldsCustomize";
 import { CrmProfileFields } from "@/components/CrmProfileFields";
+import { useCrmFormPrefs } from "@/components/useCrmFormPrefs";
 import { apiRequest, redirectToLogin } from "@/shared/client/api";
+import type { CrmFormFieldKey } from "@/shared/crm-form-prefs";
 import {
   crmProfileFromProspect,
   emptyCrmProfileForm,
@@ -47,6 +50,8 @@ type ProspectRow = {
   pipeline_stage: string;
   pipeline_value: number | null;
   source: string | null;
+  industry: string | null;
+  zone: string | null;
   first_contact_date: string | null;
   last_interaction: string | null;
   next_action: string | null;
@@ -99,6 +104,7 @@ export default function ProspectsPage() {
   const [filterSource, setFilterSource] = useState("");
   const [search, setSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const { fields: crmFields, setField: setCrmField, isVisible } = useCrmFormPrefs();
 
   const [pipelineStats, setPipelineStats] = useState<PipelineStageRow[] | null>(null);
   const [pipelineTotal, setPipelineTotal] = useState(0);
@@ -312,9 +318,21 @@ export default function ProspectsPage() {
     },
     {
       key: "source",
-      label: "Source",
+      label: "Fuente",
       sortable: true,
       render: (r) => r.source ? <span className="muted text-sm">{r.source}</span> : <span className="muted text-sm">—</span>,
+    },
+    {
+      key: "industry",
+      label: "Giro",
+      sortable: true,
+      render: (r) => r.industry ? <span className="muted text-sm">{r.industry}</span> : <span className="muted text-sm">—</span>,
+    },
+    {
+      key: "zone",
+      label: "Zona",
+      sortable: true,
+      render: (r) => r.zone ? <span className="muted text-sm">{r.zone}</span> : <span className="muted text-sm">—</span>,
     },
     {
       key: "next_action",
@@ -476,7 +494,7 @@ export default function ProspectsPage() {
             aria-label="Filter by source"
             style={{ maxWidth: "160px", fontSize: "0.88rem" }}
           >
-            <option value="">All sources</option>
+            <option value="">All fuentes</option>
             {Array.from(new Set(rows.map((r) => r.source).filter(Boolean))).map((s) => (
               <option key={s} value={s!}>{s}</option>
             ))}
@@ -551,6 +569,9 @@ export default function ProspectsPage() {
           formNotes={formNotes}
           formProfile={formProfile}
           formErr={formErr}
+          crmFields={crmFields}
+          isVisible={isVisible}
+          onCrmFieldToggle={setCrmField}
           onSubmit={handleCreate}
           onNameChange={setFormName}
           onStageChange={setFormStage}
@@ -580,6 +601,9 @@ export default function ProspectsPage() {
           formNotes={formNotes}
           formProfile={formProfile}
           formErr={formErr}
+          crmFields={crmFields}
+          isVisible={isVisible}
+          onCrmFieldToggle={setCrmField}
           onSubmit={handleEdit}
           onNameChange={setFormName}
           onStageChange={setFormStage}
@@ -649,10 +673,14 @@ export default function ProspectsPage() {
 
 function ProspectForm({
   formName, formStage, formValue, formSource, formNotes, formProfile, formErr,
+  crmFields, isVisible, onCrmFieldToggle,
   onSubmit, onNameChange, onStageChange, onValueChange, onSourceChange, onNotesChange, onProfileChange,
 }: {
   formName: string; formStage: string; formValue: string; formSource: string; formNotes: string;
   formProfile: CrmProfileFormState; formErr: string | null;
+  crmFields: Record<CrmFormFieldKey, boolean>;
+  isVisible: (key: CrmFormFieldKey) => boolean;
+  onCrmFieldToggle: (key: CrmFormFieldKey, visible: boolean) => void;
   onSubmit: (e: React.FormEvent) => void;
   onNameChange: (v: string) => void; onStageChange: (v: string) => void; onValueChange: (v: string) => void;
   onSourceChange: (v: string) => void; onNotesChange: (v: string) => void;
@@ -660,31 +688,40 @@ function ProspectForm({
 }) {
   return (
     <form id="prospect-form" onSubmit={onSubmit} className="stack" style={{ gap: "0.65rem" }}>
+      <CrmFormFieldsCustomize fields={crmFields} onToggle={onCrmFieldToggle} />
       <label className="field">
         <span className="label">Organization name *</span>
         <input className="input" value={formName} onChange={(e) => onNameChange(e.target.value)} required placeholder="Acme Corp" />
       </label>
-      <label className="field">
-        <span className="label">Pipeline stage</span>
-        <select className="input" value={formStage} onChange={(e) => onStageChange(e.target.value)}>
-          {PIPELINE_STAGES.map((s) => (
-            <option key={s} value={s}>{STAGE_LABELS[s] ?? s}</option>
-          ))}
-        </select>
-      </label>
-      <label className="field">
-        <span className="label">Value (USD)</span>
-        <input className="input" type="number" min="0" step="0.01" value={formValue} onChange={(e) => onValueChange(e.target.value)} placeholder="10000" />
-      </label>
-      <label className="field">
-        <span className="label">Source</span>
-        <input className="input" value={formSource} onChange={(e) => onSourceChange(e.target.value)} placeholder="Referral, website, cold call…" />
-      </label>
-      <CrmProfileFields value={formProfile} onChange={onProfileChange} showContact />
-      <label className="field">
-        <span className="label">Notes</span>
-        <MarkdownEditor value={formNotes} onChange={onNotesChange} rows={3} />
-      </label>
+      {isVisible("pipeline_stage") ? (
+        <label className="field">
+          <span className="label">Pipeline stage</span>
+          <select className="input" value={formStage} onChange={(e) => onStageChange(e.target.value)}>
+            {PIPELINE_STAGES.map((s) => (
+              <option key={s} value={s}>{STAGE_LABELS[s] ?? s}</option>
+            ))}
+          </select>
+        </label>
+      ) : null}
+      {isVisible("pipeline_value") ? (
+        <label className="field">
+          <span className="label">Value (USD)</span>
+          <input className="input" type="number" min="0" step="0.01" value={formValue} onChange={(e) => onValueChange(e.target.value)} placeholder="10000" />
+        </label>
+      ) : null}
+      {isVisible("source") ? (
+        <label className="field">
+          <span className="label">Fuente</span>
+          <input className="input" value={formSource} onChange={(e) => onSourceChange(e.target.value)} placeholder="Referral, website, cold call…" />
+        </label>
+      ) : null}
+      <CrmProfileFields value={formProfile} onChange={onProfileChange} showContact isVisible={isVisible} />
+      {isVisible("notes") ? (
+        <label className="field">
+          <span className="label">Notes</span>
+          <MarkdownEditor value={formNotes} onChange={onNotesChange} rows={3} />
+        </label>
+      ) : null}
       {formErr ? <p id="prospect-form-err" className="err text-sm" role="alert">{formErr}</p> : null}
     </form>
   );
