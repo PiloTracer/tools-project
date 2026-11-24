@@ -8,8 +8,15 @@ import { Badge, stageBadgeVariant } from "@/components/Badge";
 import { Dialog } from "@/components/Dialog";
 import { DropdownMenu, DropdownItem } from "@/components/DropdownMenu";
 import { toast } from "@/components/Toast";
+import { CrmProfileFields } from "@/components/CrmProfileFields";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { apiRequest } from "@/shared/client/api";
+import {
+  crmProfileFromProspect,
+  emptyCrmProfileForm,
+  prospectProfileBody,
+  type CrmProfileFormState,
+} from "@/shared/crm-profile";
 
 const PIPELINE_STAGES = [
   "target", "connected", "engaged", "call_scheduled", "call_done",
@@ -36,6 +43,17 @@ type ProspectDetail = {
   next_action: string | null;
   next_action_date: string | null;
   notes: string | null;
+  contact_name: string | null;
+  contact_email: string | null;
+  contact_phone: string | null;
+  org_email: string | null;
+  org_phone: string | null;
+  working_schedule: string | null;
+  message: string | null;
+  service: string | null;
+  address: string | null;
+  latitude: number | null;
+  longitude: number | null;
   client_id: string | null;
   created_by: string;
   created_at: string;
@@ -68,6 +86,7 @@ export default function ProspectDetailPage() {
   const [editValue, setEditValue] = useState("");
   const [editSource, setEditSource] = useState("");
   const [editNotes, setEditNotes] = useState("");
+  const [editProfile, setEditProfile] = useState<CrmProfileFormState>(emptyCrmProfileForm);
   const [editErr, setEditErr] = useState<string | null>(null);
 
   const [promotedResult, setPromotedResult] = useState<{ client: { id: string; name: string }; project: { id: string; name: string } } | null>(null);
@@ -116,7 +135,7 @@ export default function ProspectDetailPage() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setEditErr(null);
-    const body: Record<string, unknown> = {};
+    const body: Record<string, unknown> = { ...prospectProfileBody(editProfile) };
     if (editName.trim()) body.company_name = editName.trim();
     if (editStage) body.pipeline_stage = editStage;
     if (editValue) body.pipeline_value = parseFloat(editValue);
@@ -138,6 +157,18 @@ export default function ProspectDetailPage() {
     setEditing(false);
     toast("Prospect updated");
     fetchProspect();
+  };
+
+  const openEdit = () => {
+    if (!prospect) return;
+    setEditing(true);
+    setEditName(prospect.company_name);
+    setEditStage(prospect.pipeline_stage);
+    setEditValue(prospect.pipeline_value ? String(prospect.pipeline_value) : "");
+    setEditSource(prospect.source ?? "");
+    setEditNotes(prospect.notes ?? "");
+    setEditProfile(crmProfileFromProspect(prospect));
+    setEditErr(null);
   };
 
   const handleDelete = async () => {
@@ -206,7 +237,7 @@ export default function ProspectDetailPage() {
               </button>
             }
           >
-            <DropdownItem onClick={() => { setEditing(true); setEditName(prospect.company_name); setEditStage(prospect.pipeline_stage); setEditValue(prospect.pipeline_value ? String(prospect.pipeline_value) : ""); setEditSource(prospect.source ?? ""); setEditNotes(prospect.notes ?? ""); setEditErr(null); }}>
+            <DropdownItem onClick={openEdit}>
               Edit
             </DropdownItem>
             {nextStage ? (
@@ -261,6 +292,60 @@ export default function ProspectDetailPage() {
             <span>{formatDate(prospect.created_at)}</span>
           </div>
         </div>
+      </div>
+
+      <div className="card" style={{ maxWidth: "700px" }}>
+        <h2 style={{ marginBottom: "0.75rem" }}>Contact &amp; organization</h2>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "1rem" }}>
+          <div>
+            <span className="text-sm muted" style={{ display: "block", marginBottom: "0.15rem" }}>Contact name</span>
+            <span>{prospect.contact_name ?? "—"}</span>
+          </div>
+          <div>
+            <span className="text-sm muted" style={{ display: "block", marginBottom: "0.15rem" }}>Contact email</span>
+            <span>{prospect.contact_email ?? "—"}</span>
+          </div>
+          <div>
+            <span className="text-sm muted" style={{ display: "block", marginBottom: "0.15rem" }}>Contact phone</span>
+            <span>{prospect.contact_phone ?? "—"}</span>
+          </div>
+          <div>
+            <span className="text-sm muted" style={{ display: "block", marginBottom: "0.15rem" }}>Organization email</span>
+            <span>{prospect.org_email ?? "—"}</span>
+          </div>
+          <div>
+            <span className="text-sm muted" style={{ display: "block", marginBottom: "0.15rem" }}>Organization phone</span>
+            <span>{prospect.org_phone ?? "—"}</span>
+          </div>
+          <div>
+            <span className="text-sm muted" style={{ display: "block", marginBottom: "0.15rem" }}>Service</span>
+            <span>{prospect.service ?? "—"}</span>
+          </div>
+          <div>
+            <span className="text-sm muted" style={{ display: "block", marginBottom: "0.15rem" }}>Working schedule</span>
+            <span>{prospect.working_schedule ?? "—"}</span>
+          </div>
+          <div>
+            <span className="text-sm muted" style={{ display: "block", marginBottom: "0.15rem" }}>Coordinates</span>
+            <span>
+              {prospect.latitude != null && prospect.longitude != null
+                ? `${prospect.latitude}, ${prospect.longitude}`
+                : "—"}
+            </span>
+          </div>
+        </div>
+        {prospect.address ? (
+          <div style={{ marginTop: "1rem" }}>
+            <span className="text-sm muted" style={{ display: "block", marginBottom: "0.15rem" }}>Address</span>
+            <p className="text-sm" style={{ whiteSpace: "pre-wrap", margin: 0 }}>{prospect.address}</p>
+          </div>
+        ) : null}
+        {prospect.message ? (
+          <div style={{ marginTop: "1rem" }}>
+            <span className="text-sm muted" style={{ display: "block", marginBottom: "0.15rem" }}>Message</span>
+            <p className="text-sm" style={{ whiteSpace: "pre-wrap", margin: 0 }}>{prospect.message}</p>
+          </div>
+        ) : null}
       </div>
 
       {prospect.notes ? (
@@ -369,7 +454,7 @@ export default function ProspectDetailPage() {
       >
         <form id="edit-form" onSubmit={handleSave} className="stack" style={{ gap: "0.65rem" }}>
           <label className="field">
-            <span className="label">Company name</span>
+            <span className="label">Organization name</span>
             <input className="input" value={editName} onChange={(e) => setEditName(e.target.value)} required />
           </label>
           <label className="field">
@@ -388,6 +473,7 @@ export default function ProspectDetailPage() {
             <span className="label">Source</span>
             <input className="input" value={editSource} onChange={(e) => setEditSource(e.target.value)} />
           </label>
+          <CrmProfileFields value={editProfile} onChange={setEditProfile} showContact />
           <label className="field">
             <span className="label">Notes</span>
             <MarkdownEditor value={editNotes} onChange={setEditNotes} rows={3} />

@@ -24,12 +24,14 @@
 **Next recommended:** `@code-implementation plan - project-templates`
 
 ## Session status
-**Closed:** 2026-11-24 — **Tenant isolation follows `users.tenant_id` even when MULTI_TENANCY_ENABLED=false.** Bound users no longer see `default` Prospects/Projects after moving to another org (`get_current_tenant`, project list, project_access, `/me`/login). Moving a user does not move CRM rows — the new org starts empty. Gates: ruff clean, pyright 0, pytest **178 passed**. Guide: `.work/docs/guides/TENANCY.md`. **Pick up:** deploy API (`git pull` + `./bin/start.sh prd start`), then sign out/in as the LogicBison user.
+**Closed:** 2026-11-24 — **CRM prospect/client intake profile extended** (org/contact name·email·phone, working schedule, message, service, address, coordinates). Idempotent `sql/schema_changes.sql` ALTERs; models/schemas/routers; promote copies profile + primary contact; web create/edit/detail forms. Gates: `test_crm_profile` 5/5, related 22/22, apply-ddl ×2, web `tsc` clean.
 **Updated:** 2026-11-24
-**Repository state:** isolation fix ready to commit/push with this close.
-**Recommended pick-up:** production deploy of this commit.
+**Repository state:** CRM profile + prior tenant isolation on `main` after this close commit.
+**Recommended pick-up:** production deploy (`git pull` + `./bin/start.sh prd start`), then exercise New prospect / New client with the new fields.
 **Open owner actions:** production deploy; optional `MULTI_TENANCY_ENABLED=true` for subdomain/picker UX only (isolation already on for bound users).
 **Explicit unknowns:** UNKNOWNS #8 (webhook tenant filter) remains open.
+
+**Prior Closed:** 2026-11-24 — **Tenant isolation follows `users.tenant_id` even when MULTI_TENANCY_ENABLED=false** (`9e9fa98`). Guide: `.work/docs/guides/TENANCY.md`.
 
 ## Latest action (@ai-director)
 **Date:** 2026-11-24

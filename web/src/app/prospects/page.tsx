@@ -13,7 +13,14 @@ import { PipelineFunnel, type PipelineStageRow } from "@/components/PipelineFunn
 import { useDownload } from "@/components/useDownload";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { ProspectBoard } from "@/components/ProspectBoard";
+import { CrmProfileFields } from "@/components/CrmProfileFields";
 import { apiRequest, redirectToLogin } from "@/shared/client/api";
+import {
+  crmProfileFromProspect,
+  emptyCrmProfileForm,
+  prospectProfileBody,
+  type CrmProfileFormState,
+} from "@/shared/crm-profile";
 
 const PIPELINE_STAGES = [
   "target", "connected", "engaged", "call_scheduled", "call_done",
@@ -45,6 +52,17 @@ type ProspectRow = {
   next_action: string | null;
   next_action_date: string | null;
   notes: string | null;
+  contact_name: string | null;
+  contact_email: string | null;
+  contact_phone: string | null;
+  org_email: string | null;
+  org_phone: string | null;
+  working_schedule: string | null;
+  message: string | null;
+  service: string | null;
+  address: string | null;
+  latitude: number | null;
+  longitude: number | null;
   client_id: string | null;
   created_at: string;
 };
@@ -97,6 +115,7 @@ export default function ProspectsPage() {
   const [formValue, setFormValue] = useState("");
   const [formSource, setFormSource] = useState("");
   const [formNotes, setFormNotes] = useState("");
+  const [formProfile, setFormProfile] = useState<CrmProfileFormState>(emptyCrmProfileForm);
   const [formErr, setFormErr] = useState<string | null>(null);
 
   const fetchRows = useCallback(async (opts?: { stage?: string; source?: string }) => {
@@ -187,7 +206,11 @@ export default function ProspectsPage() {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormErr(null);
-    const body: Record<string, unknown> = { company_name: formName.trim(), pipeline_stage: formStage };
+    const body: Record<string, unknown> = {
+      company_name: formName.trim(),
+      pipeline_stage: formStage,
+      ...prospectProfileBody(formProfile),
+    };
     if (formValue) body.pipeline_value = parseFloat(formValue);
     if (formSource.trim()) body.source = formSource.trim();
     if (formNotes.trim()) body.notes = formNotes.trim();
@@ -211,7 +234,7 @@ export default function ProspectsPage() {
     e.preventDefault();
     if (!showEdit) return;
     setFormErr(null);
-    const body: Record<string, unknown> = {};
+    const body: Record<string, unknown> = { ...prospectProfileBody(formProfile) };
     if (formName.trim()) body.company_name = formName.trim();
     if (formStage) body.pipeline_stage = formStage;
     if (formValue) body.pipeline_value = parseFloat(formValue);
@@ -252,6 +275,7 @@ export default function ProspectsPage() {
     setFormValue("");
     setFormSource("");
     setFormNotes("");
+    setFormProfile(emptyCrmProfileForm());
     setFormErr(null);
   };
 
@@ -262,6 +286,7 @@ export default function ProspectsPage() {
     setFormValue(row.pipeline_value ? String(row.pipeline_value) : "");
     setFormSource(row.source ?? "");
     setFormNotes(row.notes ?? "");
+    setFormProfile(crmProfileFromProspect(row));
     setFormErr(null);
   };
 
@@ -524,6 +549,7 @@ export default function ProspectsPage() {
           formValue={formValue}
           formSource={formSource}
           formNotes={formNotes}
+          formProfile={formProfile}
           formErr={formErr}
           onSubmit={handleCreate}
           onNameChange={setFormName}
@@ -531,6 +557,7 @@ export default function ProspectsPage() {
           onValueChange={setFormValue}
           onSourceChange={setFormSource}
           onNotesChange={setFormNotes}
+          onProfileChange={setFormProfile}
         />
       </Dialog>
 
@@ -551,6 +578,7 @@ export default function ProspectsPage() {
           formValue={formValue}
           formSource={formSource}
           formNotes={formNotes}
+          formProfile={formProfile}
           formErr={formErr}
           onSubmit={handleEdit}
           onNameChange={setFormName}
@@ -558,6 +586,7 @@ export default function ProspectsPage() {
           onValueChange={setFormValue}
           onSourceChange={setFormSource}
           onNotesChange={setFormNotes}
+          onProfileChange={setFormProfile}
         />
       </Dialog>
 
@@ -619,18 +648,20 @@ export default function ProspectsPage() {
 }
 
 function ProspectForm({
-  formName, formStage, formValue, formSource, formNotes, formErr,
-  onSubmit, onNameChange, onStageChange, onValueChange, onSourceChange, onNotesChange,
+  formName, formStage, formValue, formSource, formNotes, formProfile, formErr,
+  onSubmit, onNameChange, onStageChange, onValueChange, onSourceChange, onNotesChange, onProfileChange,
 }: {
-  formName: string; formStage: string; formValue: string; formSource: string; formNotes: string; formErr: string | null;
+  formName: string; formStage: string; formValue: string; formSource: string; formNotes: string;
+  formProfile: CrmProfileFormState; formErr: string | null;
   onSubmit: (e: React.FormEvent) => void;
   onNameChange: (v: string) => void; onStageChange: (v: string) => void; onValueChange: (v: string) => void;
   onSourceChange: (v: string) => void; onNotesChange: (v: string) => void;
+  onProfileChange: (v: CrmProfileFormState) => void;
 }) {
   return (
     <form id="prospect-form" onSubmit={onSubmit} className="stack" style={{ gap: "0.65rem" }}>
       <label className="field">
-        <span className="label">Company name *</span>
+        <span className="label">Organization name *</span>
         <input className="input" value={formName} onChange={(e) => onNameChange(e.target.value)} required placeholder="Acme Corp" />
       </label>
       <label className="field">
@@ -649,6 +680,7 @@ function ProspectForm({
         <span className="label">Source</span>
         <input className="input" value={formSource} onChange={(e) => onSourceChange(e.target.value)} placeholder="Referral, website, cold call…" />
       </label>
+      <CrmProfileFields value={formProfile} onChange={onProfileChange} showContact />
       <label className="field">
         <span className="label">Notes</span>
         <MarkdownEditor value={formNotes} onChange={onNotesChange} rows={3} />

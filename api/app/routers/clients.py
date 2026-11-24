@@ -18,6 +18,7 @@ from app.schemas import (
     ClientUpdate,
     slugify,
 )
+from app.services.crm_profile import CLIENT_PROFILE_KEYS, apply_profile_update, profile_kwargs
 from app.services.tenancy import resolve_write_tenant_id
 from app.services.webhook_dispatcher import dispatch_event
 
@@ -86,6 +87,7 @@ async def create_client(
         notes=body.notes.strip() if body.notes else None,
         created_by=user.id,
         tenant_id=effective_tenant_id,
+        **profile_kwargs(body, CLIENT_PROFILE_KEYS),
     )
     db.add(row)
     await db.commit()
@@ -136,6 +138,7 @@ async def update_client(
         row.industry = body.industry.strip() if body.industry else None
     if body.notes is not None:
         row.notes = body.notes.strip() if body.notes else None
+    apply_profile_update(row, body, CLIENT_PROFILE_KEYS)
     await db.commit()
     await db.refresh(row)
     return ClientOut.model_validate(row)

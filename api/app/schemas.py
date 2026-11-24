@@ -1079,6 +1079,17 @@ class ProspectCreate(BaseModel):
     source: str | None = Field(default=None, max_length=30)
     first_contact_date: date | None = None
     notes: str | None = Field(default=None, max_length=16000)
+    contact_name: str | None = Field(default=None, max_length=200)
+    contact_email: str | None = Field(default=None, max_length=320)
+    contact_phone: str | None = Field(default=None, max_length=50)
+    org_email: str | None = Field(default=None, max_length=320)
+    org_phone: str | None = Field(default=None, max_length=50)
+    working_schedule: str | None = Field(default=None, max_length=4000)
+    message: str | None = Field(default=None, max_length=16000)
+    service: str | None = Field(default=None, max_length=200)
+    address: str | None = Field(default=None, max_length=4000)
+    latitude: float | None = Field(default=None, ge=-90, le=90)
+    longitude: float | None = Field(default=None, ge=-180, le=180)
 
     @field_validator("pipeline_stage")
     @classmethod
@@ -1095,6 +1106,17 @@ class ProspectUpdate(BaseModel):
     source: str | None = Field(default=None, max_length=30)
     first_contact_date: date | None = None
     notes: str | None = Field(default=None, max_length=16000)
+    contact_name: str | None = Field(default=None, max_length=200)
+    contact_email: str | None = Field(default=None, max_length=320)
+    contact_phone: str | None = Field(default=None, max_length=50)
+    org_email: str | None = Field(default=None, max_length=320)
+    org_phone: str | None = Field(default=None, max_length=50)
+    working_schedule: str | None = Field(default=None, max_length=4000)
+    message: str | None = Field(default=None, max_length=16000)
+    service: str | None = Field(default=None, max_length=200)
+    address: str | None = Field(default=None, max_length=4000)
+    latitude: float | None = Field(default=None, ge=-90, le=90)
+    longitude: float | None = Field(default=None, ge=-180, le=180)
 
     @field_validator("pipeline_stage")
     @classmethod
@@ -1126,6 +1148,17 @@ class ProspectOut(BaseModel):
     next_action: str | None = None
     next_action_date: date | None = None
     notes: str | None = None
+    contact_name: str | None = None
+    contact_email: str | None = None
+    contact_phone: str | None = None
+    org_email: str | None = None
+    org_phone: str | None = None
+    working_schedule: str | None = None
+    message: str | None = None
+    service: str | None = None
+    address: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
     client_id: uuid.UUID | None = None
     created_by: uuid.UUID
     created_at: datetime
@@ -1163,12 +1196,28 @@ class ClientCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     industry: str | None = Field(default=None, max_length=100)
     notes: str | None = Field(default=None, max_length=16000)
+    email: str | None = Field(default=None, max_length=320)
+    phone: str | None = Field(default=None, max_length=50)
+    working_schedule: str | None = Field(default=None, max_length=4000)
+    message: str | None = Field(default=None, max_length=16000)
+    service: str | None = Field(default=None, max_length=200)
+    address: str | None = Field(default=None, max_length=4000)
+    latitude: float | None = Field(default=None, ge=-90, le=90)
+    longitude: float | None = Field(default=None, ge=-180, le=180)
 
 
 class ClientUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=200)
     industry: str | None = Field(default=None, max_length=100)
     notes: str | None = Field(default=None, max_length=16000)
+    email: str | None = Field(default=None, max_length=320)
+    phone: str | None = Field(default=None, max_length=50)
+    working_schedule: str | None = Field(default=None, max_length=4000)
+    message: str | None = Field(default=None, max_length=16000)
+    service: str | None = Field(default=None, max_length=200)
+    address: str | None = Field(default=None, max_length=4000)
+    latitude: float | None = Field(default=None, ge=-90, le=90)
+    longitude: float | None = Field(default=None, ge=-180, le=180)
 
 
 class ClientOut(BaseModel):
@@ -1178,6 +1227,14 @@ class ClientOut(BaseModel):
     slug: str
     industry: str | None = None
     notes: str | None = None
+    email: str | None = None
+    phone: str | None = None
+    working_schedule: str | None = None
+    message: str | None = None
+    service: str | None = None
+    address: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
     created_by: uuid.UUID
     created_at: datetime
     updated_at: datetime

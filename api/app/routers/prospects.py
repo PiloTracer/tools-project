@@ -28,6 +28,11 @@ from app.schemas import (
     ProspectStageChangeResponse,
     ProspectUpdate,
 )
+from app.services.crm_profile import (
+    PROSPECT_PROFILE_KEYS,
+    apply_profile_update,
+    profile_kwargs,
+)
 from app.services.pipeline_service import auto_scaffold_onboarding_project, promote_prospect_to_client
 from app.services.tenancy import resolve_write_tenant_id
 from app.services.webhook_dispatcher import dispatch_event
@@ -112,6 +117,7 @@ async def create_prospect(
         notes=body.notes.strip() if body.notes else None,
         created_by=user.id,
         tenant_id=effective_tenant_id,
+        **profile_kwargs(body, PROSPECT_PROFILE_KEYS),
     )
     db.add(row)
     await db.commit()
@@ -164,6 +170,7 @@ async def update_prospect(
         row.first_contact_date = body.first_contact_date
     if body.notes is not None:
         row.notes = body.notes.strip() if body.notes else None
+    apply_profile_update(row, body, PROSPECT_PROFILE_KEYS)
     await db.commit()
     await db.refresh(row)
     return ProspectOut.model_validate(row)

@@ -192,6 +192,31 @@ async def promote_prospect_to_client(
         prospect_id=prospect.id,
         created_by=created_by or prospect.created_by,
         tenant_id=prospect.tenant_id,
+        notes=prospect.notes,
+        email=prospect.org_email,
+        phone=prospect.org_phone,
+        working_schedule=prospect.working_schedule,
+        message=prospect.message,
+        service=prospect.service,
+        address=prospect.address,
+        latitude=prospect.latitude,
+        longitude=prospect.longitude,
     )
     db.add(client)
+    await db.flush()
+    # Carry the primary lead contact onto the client when an email is present
+    # (client_contacts.email is NOT NULL).
+    if prospect.contact_email:
+        db.add(
+            ClientContact(
+                client_id=client.id,
+                prospect_id=prospect.id,
+                name=(prospect.contact_name or prospect.contact_email).strip(),
+                email=prospect.contact_email.strip().lower(),
+                phone=prospect.contact_phone,
+                role="contact",
+                is_primary=True,
+                tenant_id=prospect.tenant_id,
+            )
+        )
     return client

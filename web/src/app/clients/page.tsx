@@ -8,8 +8,14 @@ import { DataTable, type Column } from "@/components/DataTable";
 import { Dialog } from "@/components/Dialog";
 import { toast } from "@/components/Toast";
 import { useDownload } from "@/components/useDownload";
+import { CrmProfileFields } from "@/components/CrmProfileFields";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { redirectToLogin } from "@/shared/client/api";
+import {
+  clientProfileBody,
+  emptyCrmProfileForm,
+  type CrmProfileFormState,
+} from "@/shared/crm-profile";
 
 type ClientRow = {
   id: string;
@@ -17,6 +23,14 @@ type ClientRow = {
   slug: string;
   industry: string | null;
   notes: string | null;
+  email: string | null;
+  phone: string | null;
+  working_schedule: string | null;
+  message: string | null;
+  service: string | null;
+  address: string | null;
+  latitude: number | null;
+  longitude: number | null;
   created_at: string;
 };
 
@@ -58,6 +72,7 @@ export default function ClientsPage() {
   const [formName, setFormName] = useState("");
   const [formIndustry, setFormIndustry] = useState("");
   const [formNotes, setFormNotes] = useState("");
+  const [formProfile, setFormProfile] = useState<CrmProfileFormState>(emptyCrmProfileForm);
   const [formErr, setFormErr] = useState<string | null>(null);
 
   const fetchRows = useCallback(async () => {
@@ -98,10 +113,21 @@ export default function ClientsPage() {
     !search || r.name.toLowerCase().includes(search.toLowerCase()) || r.slug.toLowerCase().includes(search.toLowerCase())
   );
 
+  const resetCreateForm = () => {
+    setFormName("");
+    setFormIndustry("");
+    setFormNotes("");
+    setFormProfile(emptyCrmProfileForm());
+    setFormErr(null);
+  };
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormErr(null);
-    const body: Record<string, string> = { name: formName.trim() };
+    const body: Record<string, unknown> = {
+      name: formName.trim(),
+      ...clientProfileBody(formProfile),
+    };
     if (formIndustry.trim()) body.industry = formIndustry.trim();
     if (formNotes.trim()) body.notes = formNotes.trim();
     const r = await fetch("/api/clients", {
@@ -115,7 +141,7 @@ export default function ClientsPage() {
       return;
     }
     setShowCreate(false);
-    setFormName(""); setFormIndustry(""); setFormNotes("");
+    resetCreateForm();
     toast(`Created client ${formName.trim()}`);
     fetchRows();
   };
@@ -185,7 +211,7 @@ export default function ClientsPage() {
           <button className="btn btn-sm" style={{ marginRight: "0.5rem" }} onClick={() => { setHealthTab(!healthTab); if (!healthTab) fetchHealth(); }}>
             {healthTab ? "List" : "Health"}
           </button>
-          <button className="btn btn-primary" onClick={() => { setFormName(""); setFormIndustry(""); setFormNotes(""); setFormErr(null); setShowCreate(true); }}>
+          <button className="btn btn-primary" onClick={() => { resetCreateForm(); setShowCreate(true); }}>
             New client
           </button>
         </div>
@@ -301,13 +327,14 @@ export default function ClientsPage() {
       >
         <form id="client-form" onSubmit={handleCreate} className="stack" style={{ gap: "0.65rem" }}>
           <label className="field">
-            <span className="label">Company name *</span>
+            <span className="label">Organization name *</span>
             <input className="input" value={formName} onChange={(e) => setFormName(e.target.value)} required placeholder="Acme Corp" />
           </label>
           <label className="field">
             <span className="label">Industry</span>
             <input className="input" value={formIndustry} onChange={(e) => setFormIndustry(e.target.value)} placeholder="Technology, Healthcare…" />
           </label>
+          <CrmProfileFields value={formProfile} onChange={setFormProfile} showContact={false} />
           <label className="field">
             <span className="label">Notes</span>
             <MarkdownEditor value={formNotes} onChange={setFormNotes} rows={3} />

@@ -661,5 +661,32 @@ DO $$ BEGIN
   END IF;
 END $$;
 
+-- CRM intake profile (prospects + clients): org/contact details for flexible acquisition.
+-- Additive and idempotent — existing rows keep NULL for new columns; re-run safe on every start.
+-- Organization Name remains prospects.company_name / clients.name.
+-- Contact Name/Email/Phone on prospects are the primary lead contact; clients keep
+-- multi-contact detail on client_contacts (name/email/phone already present).
+
+ALTER TABLE prospects ADD COLUMN IF NOT EXISTS contact_name VARCHAR(200);
+ALTER TABLE prospects ADD COLUMN IF NOT EXISTS contact_email VARCHAR(320);
+ALTER TABLE prospects ADD COLUMN IF NOT EXISTS contact_phone VARCHAR(50);
+ALTER TABLE prospects ADD COLUMN IF NOT EXISTS org_email VARCHAR(320);
+ALTER TABLE prospects ADD COLUMN IF NOT EXISTS org_phone VARCHAR(50);
+ALTER TABLE prospects ADD COLUMN IF NOT EXISTS working_schedule TEXT;
+ALTER TABLE prospects ADD COLUMN IF NOT EXISTS message TEXT;
+ALTER TABLE prospects ADD COLUMN IF NOT EXISTS service VARCHAR(200);
+ALTER TABLE prospects ADD COLUMN IF NOT EXISTS address TEXT;
+ALTER TABLE prospects ADD COLUMN IF NOT EXISTS latitude NUMERIC(10, 7);
+ALTER TABLE prospects ADD COLUMN IF NOT EXISTS longitude NUMERIC(10, 7);
+
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS email VARCHAR(320);
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS phone VARCHAR(50);
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS working_schedule TEXT;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS message TEXT;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS service VARCHAR(200);
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS address TEXT;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS latitude NUMERIC(10, 7);
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS longitude NUMERIC(10, 7);
+
 
 

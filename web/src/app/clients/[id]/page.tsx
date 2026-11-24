@@ -7,8 +7,15 @@ import Link from "next/link";
 import { Badge } from "@/components/Badge";
 import { Dialog } from "@/components/Dialog";
 import { toast } from "@/components/Toast";
+import { CrmProfileFields } from "@/components/CrmProfileFields";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { apiRequest } from "@/shared/client/api";
+import {
+  clientProfileBody,
+  crmProfileFromClient,
+  emptyCrmProfileForm,
+  type CrmProfileFormState,
+} from "@/shared/crm-profile";
 
 type ClientDetail = {
   id: string;
@@ -16,6 +23,14 @@ type ClientDetail = {
   slug: string;
   industry: string | null;
   notes: string | null;
+  email: string | null;
+  phone: string | null;
+  working_schedule: string | null;
+  message: string | null;
+  service: string | null;
+  address: string | null;
+  latitude: number | null;
+  longitude: number | null;
   contacts_count: number;
   created_by: string;
   created_at: string;
@@ -59,6 +74,7 @@ export default function ClientDetailPage() {
   const [editName, setEditName] = useState("");
   const [editIndustry, setEditIndustry] = useState("");
   const [editNotes, setEditNotes] = useState("");
+  const [editProfile, setEditProfile] = useState<CrmProfileFormState>(emptyCrmProfileForm);
   const [editErr, setEditErr] = useState<string | null>(null);
 
   const [showDelete, setShowDelete] = useState(false);
@@ -127,15 +143,25 @@ export default function ClientDetailPage() {
     };
   }, [userSearchQuery, showLinkUser, selectedUser, id]);
 
+  const openEdit = () => {
+    if (!client) return;
+    setEditing(true);
+    setEditName(client.name);
+    setEditIndustry(client.industry ?? "");
+    setEditNotes(client.notes ?? "");
+    setEditProfile(crmProfileFromClient(client));
+    setEditErr(null);
+  };
+
   const handleEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     setEditErr(null);
-    const body: Record<string, string> = {};
+    const body: Record<string, unknown> = { ...clientProfileBody(editProfile) };
     if (editName.trim()) body.name = editName.trim();
     if (editIndustry.trim()) body.industry = editIndustry.trim();
-    else body.industry = "";
+    else body.industry = null;
     if (editNotes.trim()) body.notes = editNotes.trim();
-    else body.notes = "";
+    else body.notes = null;
     const r = await fetch(`/api/clients/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -289,7 +315,7 @@ export default function ClientDetailPage() {
             </div>
           </div>
           <div style={{ display: "flex", gap: "0.5rem", flexShrink: 0 }}>
-            <button className="btn btn-sm btn-secondary" onClick={() => { setEditing(true); setEditName(client.name); setEditIndustry(client.industry ?? ""); setEditNotes(client.notes ?? ""); setEditErr(null); }}>
+            <button className="btn btn-sm btn-secondary" onClick={openEdit}>
               Edit
             </button>
             <button className="btn btn-sm btn-ghost" onClick={() => setShowDelete(true)} style={{ color: "var(--danger)" }}>Delete</button>
@@ -305,10 +331,46 @@ export default function ClientDetailPage() {
             <span>{client.industry ?? "—"}</span>
           </div>
           <div>
+            <span className="text-sm muted" style={{ display: "block", marginBottom: "0.15rem" }}>Organization email</span>
+            <span>{client.email ?? "—"}</span>
+          </div>
+          <div>
+            <span className="text-sm muted" style={{ display: "block", marginBottom: "0.15rem" }}>Organization phone</span>
+            <span>{client.phone ?? "—"}</span>
+          </div>
+          <div>
+            <span className="text-sm muted" style={{ display: "block", marginBottom: "0.15rem" }}>Service</span>
+            <span>{client.service ?? "—"}</span>
+          </div>
+          <div>
+            <span className="text-sm muted" style={{ display: "block", marginBottom: "0.15rem" }}>Working schedule</span>
+            <span>{client.working_schedule ?? "—"}</span>
+          </div>
+          <div>
+            <span className="text-sm muted" style={{ display: "block", marginBottom: "0.15rem" }}>Coordinates</span>
+            <span>
+              {client.latitude != null && client.longitude != null
+                ? `${client.latitude}, ${client.longitude}`
+                : "—"}
+            </span>
+          </div>
+          <div>
             <span className="text-sm muted" style={{ display: "block", marginBottom: "0.15rem" }}>Created</span>
             <span>{formatDate(client.created_at)}</span>
           </div>
         </div>
+        {client.address ? (
+          <div style={{ marginTop: "1rem", borderTop: "1px solid var(--border)", paddingTop: "1rem" }}>
+            <span className="text-sm muted" style={{ display: "block", marginBottom: "0.35rem" }}>Address</span>
+            <p className="text-sm" style={{ whiteSpace: "pre-wrap", margin: 0 }}>{client.address}</p>
+          </div>
+        ) : null}
+        {client.message ? (
+          <div style={{ marginTop: "1rem", borderTop: client.address ? undefined : "1px solid var(--border)", paddingTop: client.address ? undefined : "1rem" }}>
+            <span className="text-sm muted" style={{ display: "block", marginBottom: "0.35rem" }}>Message</span>
+            <p className="text-sm" style={{ whiteSpace: "pre-wrap", margin: 0 }}>{client.message}</p>
+          </div>
+        ) : null}
         {client.notes ? (
           <div style={{ marginTop: "1rem", borderTop: "1px solid var(--border)", paddingTop: "1rem" }}>
             <span className="text-sm muted" style={{ display: "block", marginBottom: "0.35rem" }}>Notes</span>
@@ -414,13 +476,14 @@ export default function ClientDetailPage() {
       >
         <form id="edit-client-form" onSubmit={handleEdit} className="stack" style={{ gap: "0.65rem" }}>
           <label className="field">
-            <span className="label">Company name</span>
+            <span className="label">Organization name</span>
             <input className="input" value={editName} onChange={(e) => setEditName(e.target.value)} required />
           </label>
           <label className="field">
             <span className="label">Industry</span>
             <input className="input" value={editIndustry} onChange={(e) => setEditIndustry(e.target.value)} />
           </label>
+          <CrmProfileFields value={editProfile} onChange={setEditProfile} showContact={false} />
           <label className="field">
             <span className="label">Notes</span>
             <MarkdownEditor value={editNotes} onChange={setEditNotes} rows={3} />

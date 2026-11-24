@@ -30,9 +30,16 @@ Open: **production deploy pending** for the Activity repair (committed this sess
 Active: **Activity tab repair complete** (kind validation, attachments, internal replies, pagination, live SSE, client visibility; 80 tests) — **awaiting production deploy** · **TNT iteration complete** (tenant context: single-tenant writes + multi-tenant selection; stack control plane + env-file contract) — **committed 2026-09-30** · **agent-query-api P0–P2 complete (2026-10-30)** — 154 tests green; version **0.1.4**; hosted 0.1.4 deploy pending (owner)
 
 ### Recommended next
-**Recommended next (one):** deploy this build (API + web). Ships tenant-create BFF, user/project tenant assignment, and **isolation by `users.tenant_id` even when MULTI_TENANCY_ENABLED=false** (Prospects/Projects no longer leak from `default` after a user moves orgs). After deploy: sign out/in as the bound user — expect an empty org until you create or move data. Guide: `.work/docs/guides/TENANCY.md`.
+**Recommended next (one):** deploy this build (API + web). Ships **CRM intake profile** (org/contact fields on prospects and clients, idempotent DDL, promote copy) plus tenant-create BFF, user/project tenant assignment, and **isolation by `users.tenant_id` even when MULTI_TENANCY_ENABLED=false**. After deploy: sign out/in as the bound user; create a prospect with contact/org fields and confirm promote carries them to the client. Guide: `.work/docs/guides/TENANCY.md`.
 
 Prior next, still open: the `project-query-setup update` patch in `/mnt/work/Projects/pilo.ai.logicbison`, consumer MCP refresh, and the authorization-boundary review for agent API 1.1.0.
+
+### Done this iteration (2026-11-24 CRM profile)
+- Prospect/client models + schemas + routers for org/contact profile fields
+- Idempotent `schema_changes.sql` ADD COLUMN IF NOT EXISTS (apply-ddl ×2)
+- Promote copies org profile and primary ClientContact when contact email present
+- Web forms: shared `CrmProfileFields` on prospects/clients create·edit·detail
+- Tests: `api/tests/test_crm_profile.py` (create/patch/promote + helpers)
 
 ### Next session — verify today's changes (owner directive)
 Run `@code-verify last` on the close commit — it includes the integration fix, the P1 activity feed and the web-URL resolve route — (new `reference/APP_INTEGRATION.md`, corrected `API.md`/`AUTH.md`/`GITHUB.md`/`GITHUB_SETUP.md`/guide, MCP error payloads with `status`/`request_id`/`hint`, webhook `last_delivered_at`, 4 new tests, UNKNOWNS #8), re-run the MCP end-to-end checks, review the doc set for coherence, and record the cross-model/human review of the authorization boundary. Note: **AQA P1** (paginated activities + `list_ticket_activities`) and **web-URL ticket resolution** (`/v1/agent/tickets/resolve`, MCP `url`) were implemented post-close on owner direction — see SPEC amendment 02. Then deploy the 1.1.0 build, run R22, and `@code-implementation plan` for AQA P1.
