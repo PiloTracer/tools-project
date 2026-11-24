@@ -15,7 +15,9 @@ export function ProjectSettingsForm({
   initialProjectKey,
   initialRegistryEnabled,
   initialAutoPrefix,
+  initialTenantSlug,
   canEdit,
+  canAssignTenant,
 }: {
   projectId: string;
   initialName: string;
@@ -24,7 +26,9 @@ export function ProjectSettingsForm({
   initialProjectKey: string;
   initialRegistryEnabled: boolean;
   initialAutoPrefix: boolean;
+  initialTenantSlug?: string;
   canEdit: boolean;
+  canAssignTenant?: boolean;
 }) {
   const router = useRouter();
   const { pending, addFiles, remove, clear } = usePendingImages();
@@ -34,6 +38,7 @@ export function ProjectSettingsForm({
   const [projectKey, setProjectKey] = useState(initialProjectKey);
   const [registryEnabled, setRegistryEnabled] = useState(initialRegistryEnabled);
   const [autoPrefix, setAutoPrefix] = useState(initialAutoPrefix);
+  const [tenantSlug, setTenantSlug] = useState(initialTenantSlug ?? "");
   if (!canEdit) {
     return (
       <p className="muted text-sm">
@@ -82,7 +87,7 @@ export function ProjectSettingsForm({
       clear();
     }
 
-    const body = {
+    const body: Record<string, unknown> = {
       name: name.trim(),
       description: descVal,
       status,
@@ -90,6 +95,13 @@ export function ProjectSettingsForm({
       github_task_registry_enabled: registryEnabled,
       auto_prefix_enabled: autoPrefix,
     };
+    if (canAssignTenant) {
+      const next = tenantSlug.trim().toLowerCase();
+      const prev = (initialTenantSlug ?? "").trim().toLowerCase();
+      if (next && next !== prev) {
+        body.tenant_slug = next;
+      }
+    }
     const r = await fetch(`/api/projects/${projectId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -116,6 +128,22 @@ export function ProjectSettingsForm({
         <span className="text-sm muted">Name</span>
         <input className="input" value={name} onChange={(e) => setName(e.target.value)} required />
       </label>
+      {canAssignTenant ? (
+        <label className="stack" style={{ gap: "0.25rem" }}>
+          <span className="text-sm muted">Tenant slug</span>
+          <input
+            className="input"
+            value={tenantSlug}
+            onChange={(e) => setTenantSlug(e.target.value)}
+            placeholder="e.g. logicbison"
+            maxLength={50}
+            style={{ fontFamily: "monospace" }}
+          />
+          <span className="muted text-sm">
+            Cross-tenant admin only. Changing this moves the project into that organization.
+          </span>
+        </label>
+      ) : null}
       <label className="stack" style={{ gap: "0.25rem" }}>
         <span className="text-sm muted">Description</span>
         <MarkdownEditor

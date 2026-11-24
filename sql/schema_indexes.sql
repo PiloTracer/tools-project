@@ -10,7 +10,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_users_email_tenant ON users (email, tenant_
 CREATE UNIQUE INDEX IF NOT EXISTS uq_users_email_global_superuser ON users (email)
   WHERE tenant_id IS NULL;
 
-CREATE UNIQUE INDEX IF NOT EXISTS uq_projects_slug ON projects (slug);
+-- Project slugs are unique per tenant (aligned with clients.slug + tenants.slug).
+-- Drop the legacy global unique index when present, then create the per-tenant one.
+DROP INDEX IF EXISTS uq_projects_slug;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_projects_slug_tenant ON projects (slug, tenant_id);
 CREATE INDEX IF NOT EXISTS ix_projects_owner_id ON projects (owner_id);
 CREATE INDEX IF NOT EXISTS ix_projects_status ON projects (status);
 

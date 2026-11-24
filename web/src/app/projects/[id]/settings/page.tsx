@@ -19,6 +19,7 @@ type ProjectRow = {
   project_key: string | null;
   github_task_registry_enabled: boolean;
   auto_prefix_enabled: boolean;
+  tenant_slug?: string | null;
   membership_role?: string | null;
 };
 
@@ -88,7 +89,9 @@ export default async function ProjectSettingsPage({
           initialProjectKey={project.project_key ?? ""}
           initialRegistryEnabled={project.github_task_registry_enabled ?? false}
           initialAutoPrefix={project.auto_prefix_enabled ?? false}
+          initialTenantSlug={project.tenant_slug ?? ""}
           canEdit={canEditSettings}
+          canAssignTenant={Boolean(me.is_superuser && !me.tenant_id)}
         />
       </div>
 

@@ -98,6 +98,9 @@ class AdminUserUpdate(BaseModel):
     display_name: str | None = None
     is_active: bool | None = None
     is_superuser: bool | None = None
+    # Cross-tenant superuser only: bind the user to a tenant (or "" / null sentinel
+    # handled in the router — empty string clears to cross-tenant for superusers).
+    tenant_slug: str | None = Field(default=None, max_length=50)
 
 
 class AdminUserOut(BaseModel):
@@ -108,6 +111,9 @@ class AdminUserOut(BaseModel):
     auth_source: str = "local"
     is_active: bool
     is_superuser: bool
+    tenant_id: uuid.UUID | None = None
+    tenant_slug: str | None = None
+    tenant_name: str | None = None
     memberships: list[UserMembershipOut] = Field(default_factory=list)
     client_contacts: list[UserClientContactOut] = Field(default_factory=list)
 
@@ -164,6 +170,9 @@ class ProjectCreate(BaseModel):
         pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$",
     )
     template_key: str | None = Field(default=None, max_length=32)
+    # Cross-tenant superuser: stamp the project into this tenant (overrides
+    # X-Tenant-Slug / default when provided).
+    tenant_slug: str | None = Field(default=None, max_length=50)
 
 
 class ProjectUpdate(BaseModel):
@@ -173,6 +182,8 @@ class ProjectUpdate(BaseModel):
         default=None,
         pattern=r"^(active|archived)$",
     )
+    # Cross-tenant superuser only: move the project to another tenant.
+    tenant_slug: str | None = Field(default=None, max_length=50)
     project_key: str | None = Field(
         default=None,
         max_length=32,
@@ -193,6 +204,9 @@ class ProjectOut(BaseModel):
     github_task_registry_enabled: bool = False
     auto_prefix_enabled: bool = False
     template_key: str | None = None
+    tenant_id: uuid.UUID | None = None
+    tenant_slug: str | None = None
+    tenant_name: str | None = None
     created_at: datetime
     updated_at: datetime
     membership_role: str | None = None
@@ -1438,7 +1452,11 @@ class WhoamiResponse(BaseModel):
 # --- Multi-tenancy ---
 
 class TenantCreate(BaseModel):
-    slug: str = Field(min_length=1, max_length=50)
+    slug: str = Field(
+        min_length=1,
+        max_length=50,
+        pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$",
+    )
     name: str = Field(min_length=1, max_length=200)
     settings: dict | None = Field(default=None)
 

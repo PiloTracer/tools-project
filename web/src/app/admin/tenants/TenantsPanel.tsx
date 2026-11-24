@@ -5,15 +5,11 @@ import { useState } from "react";
 import type { TenantRow } from "./page";
 import { errorTextFromBody } from "@/shared/client/api";
 
-export function TenantsPanel({
-  tenants,
-  token,
-  base,
-}: {
-  tenants: TenantRow[];
-  token: string;
-  base: string;
-}) {
+function normalizeSlug(raw: string): string {
+  return raw.trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "");
+}
+
+export function TenantsPanel({ tenants }: { tenants: TenantRow[] }) {
   const router = useRouter();
   const [items, setItems] = useState(tenants);
   const [showCreate, setShowCreate] = useState(false);
@@ -28,15 +24,21 @@ export function TenantsPanel({
   async function createTenant(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    const normalized = normalizeSlug(slug);
+    if (!normalized) {
+      setError("Slug must use lowercase letters, numbers, and hyphens");
+      return;
+    }
+    if (!name.trim()) {
+      setError("Display name is required");
+      return;
+    }
     setPending(true);
     try {
-      const r = await fetch(`${base}/v1/admin/tenants`, {
+      const r = await fetch("/api/admin/tenants", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ slug: slug.trim().toLowerCase(), name: name.trim() }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug: normalized, name: name.trim() }),
       });
       if (!r.ok) {
         const j = await r.json().catch(() => ({}));
@@ -60,12 +62,9 @@ export function TenantsPanel({
     setError(null);
     setPending(true);
     try {
-      const r = await fetch(`${base}/v1/admin/tenants/${id}`, {
+      const r = await fetch(`/api/admin/tenants/${id}`, {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: editName.trim(), is_active: editActive }),
       });
       if (!r.ok) {
@@ -114,9 +113,9 @@ export function TenantsPanel({
             <span className="muted text-sm">Slug (URL-friendly, lowercase)</span>
             <input
               value={slug}
-              onChange={(e) => setSlug(e.target.value)}
+              onChange={(e) => setSlug(normalizeSlug(e.target.value))}
               required
-              pattern="[a-z0-9-]+"
+              pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
               placeholder="acme-corp"
               style={{ padding: "0.4rem 0.6rem", borderRadius: 6, border: "1px solid #cbd5e1" }}
             />

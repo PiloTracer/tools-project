@@ -339,6 +339,7 @@ function UserRowView({
   const [displayName, setDisplayName] = useState(user.display_name ?? "");
   const [isActive, setIsActive] = useState(user.is_active);
   const [isSuperuser, setIsSuperuser] = useState(user.is_superuser);
+  const [tenantSlug, setTenantSlug] = useState(user.tenant_slug ?? "");
   const [password, setPassword] = useState("");
 
   // Contact linking state
@@ -374,6 +375,12 @@ function UserRowView({
     if (isSuperuser !== user.is_superuser) {
       payload.is_superuser = isSuperuser;
     }
+    const nextTenant = tenantSlug.trim().toLowerCase();
+    const prevTenant = (user.tenant_slug ?? "").trim().toLowerCase();
+    if (nextTenant !== prevTenant) {
+      // Empty string clears to cross-tenant (superusers only — API enforces).
+      payload.tenant_slug = nextTenant;
+    }
     if (password) {
       payload.password = password;
     }
@@ -390,6 +397,7 @@ function UserRowView({
     setDisplayName(user.display_name ?? "");
     setIsActive(user.is_active);
     setIsSuperuser(user.is_superuser);
+    setTenantSlug(user.tenant_slug ?? "");
     setPassword("");
     setEditing(false);
   }
@@ -711,6 +719,21 @@ function UserRowView({
                     placeholder="unchanged"
                     autoComplete="new-password"
                     style={{ minHeight: "2.25rem" }}
+                  />
+                </label>
+                <label className="stack" style={{ gap: "0.15rem", flex: "1 1 140px" }}>
+                  <span className="text-sm muted">Tenant slug</span>
+                  <input
+                    className="input text-sm"
+                    value={editing ? tenantSlug : (user.tenant_slug ?? "")}
+                    onChange={(e) => {
+                      setTenantSlug(e.target.value);
+                      if (!editing) setEditing(true);
+                    }}
+                    placeholder={user.is_superuser ? "empty = cross-tenant" : "e.g. logicbison"}
+                    maxLength={50}
+                    autoComplete="off"
+                    style={{ minHeight: "2.25rem", fontFamily: "monospace" }}
                   />
                 </label>
                 {editing && (

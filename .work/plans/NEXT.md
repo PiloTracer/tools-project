@@ -30,11 +30,9 @@ Open: **production deploy pending** for the Activity repair (committed this sess
 Active: **Activity tab repair complete** (kind validation, attachments, internal replies, pagination, live SSE, client visibility; 80 tests) — **awaiting production deploy** · **TNT iteration complete** (tenant context: single-tenant writes + multi-tenant selection; stack control plane + env-file contract) — **committed 2026-09-30** · **agent-query-api P0–P2 complete (2026-10-30)** — 154 tests green; version **0.1.4**; hosted 0.1.4 deploy pending (owner)
 
 ### Recommended next
-**Recommended next (one):** deploy this build. API start loads the department templates and moves task and ticket counters past refs that already exist. Rebuild the web image so the department picker is live. Postgres is on host port 21189 in dev and production.
+**Recommended next (one):** deploy this build (API + web). Ships the tenant-create BFF fix, user/project tenant assignment UI, per-tenant project slug index, and department templates from TPR-5. After deploy, create/bind tenants in Admin; set `MULTI_TENANCY_ENABLED=true` in `.env.prd` when login should enforce org isolation. Guide: `.work/docs/guides/TENANCY.md`.
 
-Templates shipped 2026-11-22 as TPR-5. SPECs: `.work/features/project-templates/20261122-SPEC.md` and `.work.ui/screens/project-templates/20261122-SCREEN-SPEC.md`.
-
-Prior next, still open and not this change: the `project-query-setup update` patch in `/mnt/work/Projects/pilo.ai.logicbison`, consumer MCP refresh, and the authorization-boundary review for agent API 1.1.0. The `bin/env-check.sh` fix is already on `main` (`f850ca7`).
+Prior next, still open: the `project-query-setup update` patch in `/mnt/work/Projects/pilo.ai.logicbison`, consumer MCP refresh, and the authorization-boundary review for agent API 1.1.0.
 
 ### Next session — verify today's changes (owner directive)
 Run `@code-verify last` on the close commit — it includes the integration fix, the P1 activity feed and the web-URL resolve route — (new `reference/APP_INTEGRATION.md`, corrected `API.md`/`AUTH.md`/`GITHUB.md`/`GITHUB_SETUP.md`/guide, MCP error payloads with `status`/`request_id`/`hint`, webhook `last_delivered_at`, 4 new tests, UNKNOWNS #8), re-run the MCP end-to-end checks, review the doc set for coherence, and record the cross-model/human review of the authorization boundary. Note: **AQA P1** (paginated activities + `list_ticket_activities`) and **web-URL ticket resolution** (`/v1/agent/tickets/resolve`, MCP `url`) were implemented post-close on owner direction — see SPEC amendment 02. Then deploy the 1.1.0 build, run R22, and `@code-implementation plan` for AQA P1.
@@ -42,10 +40,10 @@ Run `@code-verify last` on the close commit — it includes the integration fix,
 **Backlog (queued, not this next session):**
 
 1. ~~**NEXT SESSION (user directive 2026-09-29): cross-LLM verification of the plan-sync P1 commit.**~~ **DISCHARGED 2026-09-30 — PASS**, run by a different model than the author (`11432fe`; gates re-run green in the container, no SPEC violations — `.work/context/HANDOFF.md` § Cross-LLM verification).
-2. **Multi-tenancy:** mark `.work/features/multi-tenancy/20260706-SPEC.md` as **Approved**, then add HTTP-level cross-tenant leak tests for all tenant-scoped routers (prospects, clients, client_contacts, admin_users, admin_webhooks, projects, agent_query).
+2. **Multi-tenancy:** SPEC is **Approved**; add HTTP-level cross-tenant leak tests for remaining routers; enable `MULTI_TENANCY_ENABLED=true` in production when ready (owner env approval).
 3. Add automated tests for the ecosystem hub modifications (Mod 1–4) if not already covered.
 4. Build satellite apps (CompanyBrain, OpsBoard, SignFlow, LedgerLite) that consume the ecosystem APIs.
-5. Restart the dev stack and smoke-test tenant-scoped login + CRUD end-to-end.
+5. ~~Restart the dev stack and smoke-test tenant-scoped login + CRUD~~ — tenant create BFF + bindings verified 2026-11-24 (176 tests); production enablement still owner action.
 6. **plan-sync P3:** web UI — milestone list, task-by-milestone filter, obsolete badge (SPEC §2); next iteration per plan-sync P1 scope split.
 7. **plan-sync P2:** `@plan-sync` agent skill — work order for the framework handed over at `.work/prompts/20260929-plan-sync-skill-instructions.md` (decision: direct HTTP, option (a); MCP stays read-only). Deliver to `pilo.ai.logicbison`, then `@deploy-basic` here to pick up the skills table row.
 

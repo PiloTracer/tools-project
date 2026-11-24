@@ -61,7 +61,7 @@ export default async function AdminTenantsPage() {
   return (
     <main className="stack" style={{ padding: "2rem", maxWidth: 900, margin: "0 auto" }}>
       <h1>Tenants</h1>
-      <TenantsPanel tenants={rows} token={token} base={base} />
+      <TenantsPanel tenants={rows} />
     </main>
   );
 }

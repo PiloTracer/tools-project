@@ -90,6 +90,14 @@ async def _enrich_users(
         obj = AdminUserOut.model_validate(u)
         obj.memberships = memberships_map.get(u.id, [])
         obj.client_contacts = contacts_map.get(u.id, [])
+        if u.tenant is not None:
+            obj.tenant_id = u.tenant.id
+            obj.tenant_slug = u.tenant.slug
+            obj.tenant_name = u.tenant.name
+        else:
+            obj.tenant_id = None
+            obj.tenant_slug = None
+            obj.tenant_name = None
         out.append(obj)
     return out
 
@@ -134,17 +142,22 @@ async def create_user(
     target_tenant_id: uuid.UUID | None
     if not is_cross_tenant_superuser:
         target_tenant_id = admin.tenant_id
-    elif get_settings().multi_tenancy_enabled:
-        if not body.tenant_slug:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="tenant_slug is required for cross-tenant superuser")
-        tenant_row = await db.scalar(select(Tenant).where(Tenant.slug == body.tenant_slug))
+    elif body.tenant_slug:
+        # Explicit slug wins even when MULTI_TENANCY_ENABLED=false so operators can
+        # stage user↔tenant bindings before flipping the flag.
+        tenant_row = await db.scalar(
+            select(Tenant).where(Tenant.slug == body.tenant_slug.strip().lower())
+        )
         if tenant_row is None:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Tenant not found")
         target_tenant_id = tenant_row.id
+    elif get_settings().multi_tenancy_enabled:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail="tenant_slug is required for cross-tenant superuser",
+        )
     else:
-        # Single-tenant deployment: there is exactly one tenant, so the bootstrap
-        # cross-tenant superuser creates users inside `default` — an explicit
-        # tenant_slug has no meaning here and is ignored.
+        # Single-tenant deployment with no explicit slug: stamp into `default`.
         target_tenant_id = resolve_write_tenant_id(admin, await get_current_tenant(request, db))
 
     email = body.email.strip().lower()
@@ -207,6 +220,41 @@ async def update_user(
                 detail="Cannot remove superuser from yourself",
             )
         user.is_superuser = body.is_superuser
+
+    # Tenant reassignment — cross-tenant superusers only (R4a / R13a).
+    if body.tenant_slug is not None:
+        if admin.tenant_id is not None:
+            raise HTTPException(
+                status.HTTP_403_FORBIDDEN,
+                detail="Only cross-tenant superusers can reassign tenants",
+            )
+        slug = body.tenant_slug.strip().lower()
+        if slug == "":
+            # Empty string → cross-tenant binding; only allowed for superusers.
+            if not user.is_superuser:
+                raise HTTPException(
+                    status.HTTP_400_BAD_REQUEST,
+                    detail="Regular users must belong to a tenant",
+                )
+            user.tenant_id = None
+        else:
+            tenant_row = await db.scalar(select(Tenant).where(Tenant.slug == slug))
+            if tenant_row is None:
+                raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Tenant not found")
+            # Per-tenant email uniqueness: refuse if the same email already exists there.
+            dup = await db.scalar(
+                select(User).where(
+                    User.email == user.email,
+                    User.tenant_id == tenant_row.id,
+                    User.id != user.id,
+                )
+            )
+            if dup is not None:
+                raise HTTPException(
+                    status.HTTP_409_CONFLICT,
+                    detail="User with this email already exists in that tenant",
+                )
+            user.tenant_id = tenant_row.id
 
     await db.commit()
     await db.refresh(user)
@@ -372,6 +420,17 @@ async def add_user_to_project(
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Project not found")
     if admin.tenant_id is not None and project.tenant_id != admin.tenant_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Project not found")
+    # Membership must stay inside one tenant: a LogicBison user cannot join a
+    # default-tenant project (and the reverse).
+    if (
+        user.tenant_id is not None
+        and project.tenant_id is not None
+        and user.tenant_id != project.tenant_id
+    ):
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail="User and project belong to different tenants",
+        )
 
     role = parse_member_role(body.role)
 

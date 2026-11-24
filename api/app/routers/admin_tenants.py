@@ -48,6 +48,11 @@ async def create_tenant(
             detail="Only cross-tenant superusers can create tenants",
         )
     slug = body.slug.strip().lower()
+    if not slug or not all(c.isalnum() or c == "-" for c in slug) or slug.startswith("-") or slug.endswith("-"):
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Slug must be lowercase letters, numbers, and hyphens",
+        )
     existing = await db.scalar(select(Tenant).where(Tenant.slug == slug))
     if existing is not None:
         raise HTTPException(status.HTTP_409_CONFLICT, detail="Tenant slug already exists")

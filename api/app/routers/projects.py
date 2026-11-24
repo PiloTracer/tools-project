@@ -18,6 +18,7 @@ from app.models.project import Project
 from app.models.project_client import ProjectClient
 from app.models.project_member import ProjectMember
 from app.models.task import Task
+from app.models.tenant import Tenant
 from app.models.ticket import Ticket
 from app.models.user import User
 from app.schemas import (
@@ -52,6 +53,45 @@ from app.services.tenancy import resolve_write_tenant_id
 router = APIRouter(prefix="/v1/projects", tags=["projects"])
 
 _SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+
+
+def _project_out(project: Project, **updates: object) -> ProjectOut:
+    """Serialize a project and surface its tenant binding."""
+    tenant = project.tenant
+    payload = ProjectOut.model_validate(project).model_copy(
+        update={
+            "tenant_id": project.tenant_id,
+            "tenant_slug": tenant.slug if tenant is not None else None,
+            "tenant_name": tenant.name if tenant is not None else None,
+            **updates,
+        }
+    )
+    return payload
+
+
+async def _resolve_explicit_tenant_id(
+    db: AsyncSession,
+    user: User,
+    tenant_slug: str | None,
+    fallback: uuid.UUID,
+) -> uuid.UUID:
+    """Stamp a project into an explicit tenant when a cross-tenant admin asks."""
+    if not tenant_slug:
+        return fallback
+    if user.tenant_id is not None or not user.is_superuser:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            detail="Only cross-tenant superusers can set tenant_slug on a project",
+        )
+    slug = tenant_slug.strip().lower()
+    tenant_row = await db.scalar(select(Tenant).where(Tenant.slug == slug))
+    if tenant_row is None:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Tenant not found")
+    if not tenant_row.is_active:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, detail="Organization account is disabled"
+        )
+    return tenant_row.id
 
 
 def _slugify(name: str) -> str:
@@ -139,9 +179,7 @@ async def list_projects(
                     oldest_open_ticket_days=oldest_days,
                 )
             items.append(
-                ProjectOut.model_validate(p).model_copy(
-                    update={"membership_role": role, "health": health}
-                )
+                _project_out(p, membership_role=role, health=health)
             )
     return ProjectListResponse(items=items)
 
@@ -154,7 +192,12 @@ async def create_project(
     request: Request,
 ):
     tenant = await get_current_tenant(request, db)
-    effective_tenant_id = resolve_write_tenant_id(user, tenant)
+    effective_tenant_id = await _resolve_explicit_tenant_id(
+        db,
+        user,
+        body.tenant_slug,
+        resolve_write_tenant_id(user, tenant),
+    )
     template_key = (body.template_key or "basic").strip() or "basic"
     if template_key != "basic" and await get_template(db, template_key) is None:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="unknown_template")
@@ -188,9 +231,7 @@ async def create_project(
         )
     await db.commit()
     await db.refresh(row)
-    return ProjectOut.model_validate(row).model_copy(
-        update={"membership_role": MemberRole.owner.value}
-    )
+    return _project_out(row, membership_role=MemberRole.owner.value)
 
 
 @router.get("/{project_id}/board-columns", response_model=BoardColumnListResponse)
@@ -222,11 +263,10 @@ async def get_project(
         ClientSummary(id=pc.client.id, name=pc.client.name, slug=pc.client.slug)
         for pc in client_rows.all()
     ]
-    return ProjectOut.model_validate(acc.project).model_copy(
-        update={
-            "membership_role": acc.role.value,
-            "clients_summary": clients_summary,
-        }
+    return _project_out(
+        acc.project,
+        membership_role=acc.role.value,
+        clients_summary=clients_summary,
     )
 
 
@@ -251,6 +291,25 @@ async def patch_project(
         proj.description = v if v else None
     if body.status is not None:
         proj.status = body.status
+    if body.tenant_slug is not None:
+        new_tenant_id = await _resolve_explicit_tenant_id(
+            db, user, body.tenant_slug, proj.tenant_id
+        )
+        if new_tenant_id != proj.tenant_id:
+            # Keep slug unique inside the destination tenant.
+            clash = await db.scalar(
+                select(Project).where(
+                    Project.slug == proj.slug,
+                    Project.tenant_id == new_tenant_id,
+                    Project.id != proj.id,
+                )
+            )
+            if clash is not None:
+                raise HTTPException(
+                    status.HTTP_409_CONFLICT,
+                    detail="A project with this slug already exists in the target tenant",
+                )
+            proj.tenant_id = new_tenant_id
     if body.project_key is not None:
         v = body.project_key.strip()
         if v:
@@ -319,9 +378,7 @@ async def patch_project(
         proj.auto_prefix_enabled = body.auto_prefix_enabled
     await db.commit()
     await db.refresh(proj)
-    return ProjectOut.model_validate(proj).model_copy(
-        update={"membership_role": acc.role.value}
-    )
+    return _project_out(proj, membership_role=acc.role.value)
 
 
 def _member_out(m: ProjectMember) -> ProjectMemberOut:
