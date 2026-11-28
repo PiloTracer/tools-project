@@ -24,12 +24,16 @@
 **Next recommended:** `@code-implementation plan - project-templates`
 
 ## Session status
-**Closed:** 2026-11-24 — **CRM Giro/Zona/Fuente + Customize fields.** Classification columns on prospects/clients; durable `users.ui_preferences` with `PATCH /v1/auth/me/preferences`; form field toggles (localStorage + server) on create/edit. Gates: `test_crm_profile` 6/6, apply-ddl idempotent, web tsc clean.
-**Updated:** 2026-11-24
-**Repository state:** CRM classification + prefs on `main` after this close commit.
-**Recommended pick-up:** production deploy (`git pull` + `./bin/start.sh prd start`), then open New prospect → Customize fields and confirm prefs survive refresh.
-**Open owner actions:** production deploy; optional `MULTI_TENANCY_ENABLED=true` for subdomain/picker UX only.
+**Closed:** 2026-11-27 — **Blueprint increment on the current stack.** Added onboarding and delivery templates plus support, implementation, and renewal. Calendar, workload, timeline, time and budget, custom fields, CRM edit history, task links, optional recurrence, grouped reports, and Postgres full-text search. Email sync, a durable workflow runner, and a separate search server are documented and not built. Plan: `.work/plans/20261127-blueprint-increment.md`.
+**Updated:** 2026-11-27
+**Repository state:** this close commit on `main`.
+**Recommended pick-up:** production deploy (`git pull` + `./bin/start.sh prd start`), then open Calendar, a project Timeline, and Reports.
+**Open owner actions:** production deploy; optional `MULTI_TENANCY_ENABLED=true` for subdomain UX only.
 **Explicit unknowns:** UNKNOWNS #8 (webhook tenant filter) remains open.
+
+**Prior Closed:** 2026-11-24 — **CRM Giro/Zona/Fuente + Customize fields.**
+
+**Prior Closed:** 2026-11-24 — **CRM Giro/Zona/Fuente + Customize fields.**
 
 ## Cross-framework action (@x-director)
 **Date:** 2026-11-24

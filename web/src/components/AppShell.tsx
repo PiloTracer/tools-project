@@ -37,6 +37,8 @@ export async function AppShell({ children }: { children: ReactNode }) {
               <>
                 <Link href="/">Home</Link>
                 <Link href="/today">Today</Link>
+                <Link href="/calendar">Calendar</Link>
+                <Link href="/workload">Workload</Link>
                 <Link href="/projects">Projects</Link>
                 <Link href="/templates">Templates</Link>
                 <Link href="/inbox">Inbox</Link>

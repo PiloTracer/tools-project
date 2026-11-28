@@ -35,6 +35,7 @@ from app.routers import (
     me_api_keys,
     me_focus,
     milestones,
+    planning,
     platform,
     project_client_access,
     project_clients,
@@ -159,6 +160,8 @@ app.include_router(github.router)
 app.include_router(commit_refs.router)
 app.include_router(stats.router)
 app.include_router(reports.router)
+app.include_router(planning.router)
+app.include_router(planning.project_router)
 app.include_router(agent_query.router)
 app.include_router(agent_attachments.router)
 app.include_router(integrations.router)

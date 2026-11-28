@@ -10,6 +10,7 @@ import { toast } from "@/components/Toast";
 import { useDownload } from "@/components/useDownload";
 import { CrmFormFieldsCustomize } from "@/components/CrmFormFieldsCustomize";
 import { CrmProfileFields } from "@/components/CrmProfileFields";
+import { CustomFieldsEditor } from "@/components/CustomFieldsEditor";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { useCrmFormPrefs } from "@/components/useCrmFormPrefs";
 import { redirectToLogin } from "@/shared/client/api";
@@ -35,6 +36,7 @@ type ClientRow = {
   address: string | null;
   latitude: number | null;
   longitude: number | null;
+  custom_fields?: Record<string, string> | null;
   created_at: string;
 };
 
@@ -77,6 +79,7 @@ export default function ClientsPage() {
   const [formSource, setFormSource] = useState("");
   const [formNotes, setFormNotes] = useState("");
   const [formProfile, setFormProfile] = useState<CrmProfileFormState>(emptyCrmProfileForm);
+  const [formCustom, setFormCustom] = useState<Record<string, string>>({});
   const [formErr, setFormErr] = useState<string | null>(null);
   const { fields: crmFields, setField: setCrmField, isVisible } = useCrmFormPrefs();
 
@@ -123,6 +126,7 @@ export default function ClientsPage() {
     setFormSource("");
     setFormNotes("");
     setFormProfile(emptyCrmProfileForm());
+    setFormCustom({});
     setFormErr(null);
   };
 
@@ -132,6 +136,7 @@ export default function ClientsPage() {
     const body: Record<string, unknown> = {
       name: formName.trim(),
       ...clientProfileBody(formProfile, { source: formSource }),
+      custom_fields: formCustom,
     };
     if (formNotes.trim()) body.notes = formNotes.trim();
     const r = await fetch("/api/clients", {
@@ -369,6 +374,7 @@ export default function ClientsPage() {
             showContact={false}
             isVisible={isVisible}
           />
+          <CustomFieldsEditor value={formCustom} onChange={setFormCustom} />
           {isVisible("notes") ? (
             <label className="field">
               <span className="label">Notes</span>

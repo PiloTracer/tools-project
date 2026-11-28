@@ -696,4 +696,59 @@ ALTER TABLE clients ADD COLUMN IF NOT EXISTS zone VARCHAR(100);
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS source VARCHAR(30);
 ALTER TABLE users ADD COLUMN IF NOT EXISTS ui_preferences JSONB NOT NULL DEFAULT '{}'::jsonb;
 
+-- Blueprint increment (2026-11-27). Additive. Empty values keep today's behavior.
+ALTER TABLE prospects ADD COLUMN IF NOT EXISTS custom_fields JSONB NOT NULL DEFAULT '{}'::jsonb;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS custom_fields JSONB NOT NULL DEFAULT '{}'::jsonb;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS recurrence VARCHAR(16);
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS recurred_from_id UUID;
+
+CREATE TABLE IF NOT EXISTS crm_field_changes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID NOT NULL REFERENCES tenants (id),
+    entity_type VARCHAR(20) NOT NULL,
+    entity_id UUID NOT NULL,
+    actor_id UUID REFERENCES users (id),
+    field_name VARCHAR(64) NOT NULL,
+    old_value TEXT,
+    new_value TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS ix_crm_field_changes_entity
+    ON crm_field_changes (entity_type, entity_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS task_dependencies (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    project_id UUID NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
+    predecessor_id UUID NOT NULL REFERENCES tasks (id) ON DELETE CASCADE,
+    successor_id UUID NOT NULL REFERENCES tasks (id) ON DELETE CASCADE,
+    dependency_type VARCHAR(32) NOT NULL DEFAULT 'finish_to_start',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT uq_task_dependencies_pair UNIQUE (predecessor_id, successor_id),
+    CONSTRAINT ck_task_dependencies_distinct CHECK (predecessor_id <> successor_id)
+);
+
+CREATE INDEX IF NOT EXISTS ix_task_dependencies_project ON task_dependencies (project_id);
+
+CREATE TABLE IF NOT EXISTS time_entries (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    project_id UUID NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
+    task_id UUID REFERENCES tasks (id) ON DELETE SET NULL,
+    user_id UUID NOT NULL REFERENCES users (id),
+    minutes INTEGER NOT NULL,
+    note TEXT,
+    work_date DATE NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT ck_time_entries_minutes CHECK (minutes > 0 AND minutes <= 1440)
+);
+
+CREATE INDEX IF NOT EXISTS ix_time_entries_project ON time_entries (project_id, work_date);
+
+CREATE TABLE IF NOT EXISTS project_budgets (
+    project_id UUID PRIMARY KEY REFERENCES projects (id) ON DELETE CASCADE,
+    revenue_amount NUMERIC(12, 2),
+    hourly_cost NUMERIC(12, 2),
+    currency VARCHAR(3) NOT NULL DEFAULT 'USD'
+);
+
 

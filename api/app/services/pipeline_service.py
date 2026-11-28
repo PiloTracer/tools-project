@@ -19,6 +19,9 @@ from app.models.task import Task
 from app.models.user import User
 from app.schemas import slugify
 from app.services.project_access import MemberRole
+from app.services.project_templates import apply_template, get_template
+
+ONBOARDING_TEMPLATE_KEY = "customer-onboarding"
 
 ONBOARDING_TASKS: list[str] = [
     "Welcome and introduction call",
@@ -86,6 +89,13 @@ async def auto_scaffold_onboarding_project(
     """
     base_slug = slugify(f"{prospect.company_name}-onboarding")
     slug = await _unique_onboarding_slug(db, base_slug, prospect.tenant_id)
+    onboarding = await get_template(db, ONBOARDING_TEMPLATE_KEY)
+    use_template = (
+        onboarding is not None
+        and onboarding.key != "basic"
+        and bool(onboarding.columns)
+        and bool(onboarding.work_types)
+    )
 
     project = Project(
         name=f"{prospect.company_name} Onboarding",
@@ -95,6 +105,7 @@ async def auto_scaffold_onboarding_project(
         status="active",
         project_key=None,
         tenant_id=prospect.tenant_id,
+        template_key=ONBOARDING_TEMPLATE_KEY if use_template else None,
     )
     db.add(project)
     await db.flush()
@@ -115,16 +126,24 @@ async def auto_scaffold_onboarding_project(
         )
     )
 
-    for title in ONBOARDING_TASKS:
-        db.add(
-            Task(
-                project_id=project.id,
-                title=title,
-                status="todo",
-                priority="normal",
-                reporter_id=promoting_user_id,
-            )
+    if use_template:
+        await apply_template(
+            db,
+            project_id=project.id,
+            template_key=ONBOARDING_TEMPLATE_KEY,
+            reporter_id=promoting_user_id,
         )
+    else:
+        for title in ONBOARDING_TASKS:
+            db.add(
+                Task(
+                    project_id=project.id,
+                    title=title,
+                    status="todo",
+                    priority="normal",
+                    reporter_id=promoting_user_id,
+                )
+            )
 
     contacts = (
         await db.execute(

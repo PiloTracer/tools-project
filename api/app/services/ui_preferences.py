@@ -43,6 +43,23 @@ def merge_ui_preferences(existing: dict | None, patch: dict[str, Any]) -> dict[s
             if key in CRM_FORM_FIELD_KEYS and isinstance(val, bool):
                 merged[key] = val
         out["crm_form_fields"] = merged
+    if "saved_views" in patch and isinstance(patch["saved_views"], dict):
+        current = out.get("saved_views")
+        views = dict(current) if isinstance(current, dict) else {}
+        for key, val in list(patch["saved_views"].items())[:20]:
+            if not isinstance(key, str) or not isinstance(val, dict):
+                continue
+            name = key.strip()[:40]
+            if not name:
+                continue
+            if val.get("remove") is True:
+                views.pop(name, None)
+                continue
+            views[name] = {
+                "label": str(val.get("label") or name)[:80],
+                "query": str(val.get("query") or "")[:200],
+            }
+        out["saved_views"] = views
     return out
 
 
@@ -58,4 +75,10 @@ def resolved_crm_form_fields(prefs: dict | None) -> dict[str, bool]:
 
 
 def public_ui_preferences(prefs: dict | None) -> dict[str, Any]:
-    return {"crm_form_fields": resolved_crm_form_fields(prefs)}
+    views = {}
+    if isinstance(prefs, dict) and isinstance(prefs.get("saved_views"), dict):
+        views = prefs["saved_views"]
+    return {
+        "crm_form_fields": resolved_crm_form_fields(prefs),
+        "saved_views": views,
+    }

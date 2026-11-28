@@ -9,6 +9,7 @@ import { Dialog } from "@/components/Dialog";
 import { toast } from "@/components/Toast";
 import { CrmFormFieldsCustomize } from "@/components/CrmFormFieldsCustomize";
 import { CrmProfileFields } from "@/components/CrmProfileFields";
+import { CustomFieldsEditor } from "@/components/CustomFieldsEditor";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { useCrmFormPrefs } from "@/components/useCrmFormPrefs";
 import { apiRequest } from "@/shared/client/api";
@@ -35,6 +36,7 @@ type ClientDetail = {
   address: string | null;
   latitude: number | null;
   longitude: number | null;
+  custom_fields?: Record<string, string> | null;
   contacts_count: number;
   created_by: string;
   created_at: string;
@@ -60,6 +62,14 @@ type UserHit = {
   display_name: string | null;
 };
 
+type LinkedProject = {
+  id: string;
+  name: string;
+  slug: string;
+  status: string;
+  template_key: string | null;
+};
+
 function formatDate(d: string) {
   return new Date(d).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
 }
@@ -71,6 +81,9 @@ export default function ClientDetailPage() {
 
   const [client, setClient] = useState<ClientDetail | null>(null);
   const [contacts, setContacts] = useState<ContactRow[]>([]);
+  const [projects, setProjects] = useState<LinkedProject[]>([]);
+  const [timeline, setTimeline] = useState<{ id: string; body: string; created_at: string | null }[]>([]);
+  const [changes, setChanges] = useState<{ id: string; field_name: string; old_value: string | null; new_value: string | null }[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -79,6 +92,7 @@ export default function ClientDetailPage() {
   const [editSource, setEditSource] = useState("");
   const [editNotes, setEditNotes] = useState("");
   const [editProfile, setEditProfile] = useState<CrmProfileFormState>(emptyCrmProfileForm);
+  const [editCustom, setEditCustom] = useState<Record<string, string>>({});
   const [editErr, setEditErr] = useState<string | null>(null);
   const { fields: crmFields, setField: setCrmField, isVisible } = useCrmFormPrefs();
 
@@ -104,15 +118,34 @@ export default function ClientDetailPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [cr, ctr] = await Promise.all([
+      const [cr, ctr, pr] = await Promise.all([
         fetch(`/api/clients/${id}`),
         fetch(`/api/clients/${id}/contacts`),
+        fetch(`/api/clients/${id}/projects`),
       ]);
       if (cr.status === 404) { router.push("/clients"); return; }
       if (!cr.ok || !ctr.ok) throw new Error("Failed to load");
       setClient(await cr.json() as ClientDetail);
       const cd = await ctr.json() as { items: ContactRow[] };
       setContacts(cd.items ?? []);
+      if (pr.ok) {
+        const pd = await pr.json() as { items: LinkedProject[] };
+        setProjects(pd.items ?? []);
+      } else {
+        setProjects([]);
+      }
+      const [tl, ch] = await Promise.all([
+        fetch(`/api/planning/clients/${id}/timeline`),
+        fetch(`/api/planning/changes?entity_type=client&entity_id=${id}`),
+      ]);
+      if (tl.ok) {
+        const body = await tl.json() as { items: { id: string; body: string; created_at: string | null }[] };
+        setTimeline(body.items ?? []);
+      }
+      if (ch.ok) {
+        const body = await ch.json() as { items: { id: string; field_name: string; old_value: string | null; new_value: string | null }[] };
+        setChanges(body.items ?? []);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown error");
     } finally {
@@ -155,6 +188,7 @@ export default function ClientDetailPage() {
     setEditSource(client.source ?? "");
     setEditNotes(client.notes ?? "");
     setEditProfile(crmProfileFromClient(client));
+    setEditCustom(client.custom_fields ?? {});
     setEditErr(null);
   };
 
@@ -163,6 +197,7 @@ export default function ClientDetailPage() {
     setEditErr(null);
     const body: Record<string, unknown> = {
       ...clientProfileBody(editProfile, { source: editSource }),
+      custom_fields: editCustom,
     };
     if (editName.trim()) body.name = editName.trim();
     if (editNotes.trim()) body.notes = editNotes.trim();
@@ -343,6 +378,12 @@ export default function ClientDetailPage() {
             <span className="text-sm muted" style={{ display: "block", marginBottom: "0.15rem" }}>Fuente</span>
             <span>{client.source ?? "—"}</span>
           </div>
+          {client.custom_fields && Object.keys(client.custom_fields).length > 0 ? (
+            <div>
+              <span className="text-sm muted" style={{ display: "block", marginBottom: "0.15rem" }}>Custom fields</span>
+              <span>{Object.entries(client.custom_fields).map(([key, value]) => `${key}: ${value}`).join(" · ")}</span>
+            </div>
+          ) : null}
           <div>
             <span className="text-sm muted" style={{ display: "block", marginBottom: "0.15rem" }}>Organization email</span>
             <span>{client.email ?? "—"}</span>
@@ -390,6 +431,60 @@ export default function ClientDetailPage() {
             <p className="text-sm" style={{ whiteSpace: "pre-wrap", margin: 0 }}>{client.notes}</p>
           </div>
         ) : null}
+      </div>
+
+      <div style={{ maxWidth: "700px" }}>
+        <h2 style={{ margin: "0 0 0.75rem", fontSize: "1rem" }}>Recent activity</h2>
+        {timeline.length === 0 ? <p className="muted text-sm">No project activity yet.</p> : (
+          <ul className="text-sm">
+            {timeline.slice(0, 8).map((row) => <li key={row.id}>{row.body}</li>)}
+          </ul>
+        )}
+        <h2 style={{ margin: "1rem 0 0.75rem", fontSize: "1rem" }}>Field history</h2>
+        {changes.length === 0 ? <p className="muted text-sm">No edits recorded yet.</p> : (
+          <ul className="text-sm">
+            {changes.slice(0, 8).map((row) => (
+              <li key={row.id}>{row.field_name}: {row.old_value ?? "—"} → {row.new_value ?? "—"}</li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <div style={{ maxWidth: "700px" }}>
+        <h2 style={{ margin: "0 0 0.75rem", fontSize: "1rem" }}>
+          Projects
+          <span className="muted text-sm" style={{ fontWeight: 400 }}> ({projects.length})</span>
+        </h2>
+        {projects.length === 0 ? (
+          <p className="muted text-sm">No projects linked to this client yet.</p>
+        ) : (
+          <div className="stack" style={{ gap: "0.5rem" }}>
+            {projects.map((p) => (
+              <Link
+                key={p.id}
+                href={`/projects/${p.id}`}
+                className="card"
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: "0.75rem",
+                  textDecoration: "none",
+                  color: "inherit",
+                  padding: "0.75rem 1rem",
+                }}
+              >
+                <span>
+                  <span style={{ fontWeight: 600 }}>{p.name}</span>
+                  <span className="muted text-sm" style={{ display: "block" }}>{p.slug}</span>
+                </span>
+                <span className="muted text-sm">
+                  {p.template_key ? p.template_key : p.status}
+                </span>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* --- Contacts section (sub-component) --- */}
@@ -510,6 +605,7 @@ export default function ClientDetailPage() {
             showContact={false}
             isVisible={isVisible}
           />
+          <CustomFieldsEditor value={editCustom} onChange={setEditCustom} />
           {isVisible("notes") ? (
             <label className="field">
               <span className="label">Notes</span>

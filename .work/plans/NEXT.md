@@ -30,7 +30,19 @@ Open: **production deploy pending** for the Activity repair (committed this sess
 Active: **Activity tab repair complete** (kind validation, attachments, internal replies, pagination, live SSE, client visibility; 80 tests) — **awaiting production deploy** · **TNT iteration complete** (tenant context: single-tenant writes + multi-tenant selection; stack control plane + env-file contract) — **committed 2026-09-30** · **agent-query-api P0–P2 complete (2026-10-30)** — 154 tests green; version **0.1.4**; hosted 0.1.4 deploy pending (owner)
 
 ### Recommended next
-**Recommended next (one):** deploy this build (API + web). Ships **Giro/Zona/Fuente**, **Customize fields** (account-scoped prefs), CRM intake profile, tenant BFF, and isolation by `users.tenant_id`. After deploy: New prospect → Customize fields → hard refresh and confirm the same field set. Guide: `.work/docs/guides/TENANCY.md`.
+**Recommended next (one):** deploy this build (API + web). It adds Calendar, Workload, project Timeline (time, budget, task links), custom CRM fields, grouped reports, and more workflow templates. Email sync, a restart-safe workflow runner, and a separate search server are not in this build. After deploy: open Calendar and a project's Timeline.
+
+### Done this iteration (2026-11-27 blueprint increment)
+- Templates: customer onboarding (used when a prospect is won), engineering delivery, support queue, implementation, renewal
+- Calendar, workload, timeline bars, dependencies, optional weekly/monthly tasks
+- Time entries, project budget, margin
+- Custom fields and CRM field history
+- Saved task-list views on the account
+- Grouped prospect/client report and Postgres full-text search alongside name search
+- Deferred, documented only: email sync, durable workflow runner, separate search index
+
+### Recommended next (previous)
+**Previous:** deploy Giro/Zona/Fuente and Customize fields. That work is already on `main` as `c4564b2` and is included in this deploy.
 
 Prior next, still open: the `project-query-setup update` patch in `/mnt/work/Projects/pilo.ai.logicbison`, consumer MCP refresh, and the authorization-boundary review for agent API 1.1.0.
 

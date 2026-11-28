@@ -87,9 +87,10 @@ class MeResponse(BaseModel):
 
 
 class UiPreferencesUpdate(BaseModel):
-    """Partial UI prefs; currently supports crm_form_fields toggles."""
+    """Partial UI prefs. Omitted keys stay as they are."""
 
     crm_form_fields: dict[str, bool] | None = None
+    saved_views: dict[str, dict] | None = None
 
 
 class AdminUserCreate(BaseModel):
@@ -473,6 +474,7 @@ class TaskCreate(BaseModel):
     due_at: datetime | None = None
     parent_task_id: uuid.UUID | None = None
     is_todo: bool = False
+    recurrence: str | None = Field(default=None, max_length=16)
 
 
 class TaskPatch(BaseModel):
@@ -486,6 +488,7 @@ class TaskPatch(BaseModel):
     due_at: datetime | None = None
     parent_task_id: uuid.UUID | None = None
     is_todo: bool | None = None
+    recurrence: str | None = Field(default=None, max_length=16)
 
 
 class TaskTransition(BaseModel):
@@ -511,6 +514,8 @@ class TaskOut(BaseModel):
     plan_state: str = "active"
     is_todo: bool
     closed_at: datetime | None = None
+    recurrence: str | None = None
+    recurred_from_id: uuid.UUID | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -1099,6 +1104,7 @@ class ProspectCreate(BaseModel):
     address: str | None = Field(default=None, max_length=4000)
     latitude: float | None = Field(default=None, ge=-90, le=90)
     longitude: float | None = Field(default=None, ge=-180, le=180)
+    custom_fields: dict[str, str] | None = None
 
     @field_validator("pipeline_stage")
     @classmethod
@@ -1128,6 +1134,7 @@ class ProspectUpdate(BaseModel):
     address: str | None = Field(default=None, max_length=4000)
     latitude: float | None = Field(default=None, ge=-90, le=90)
     longitude: float | None = Field(default=None, ge=-180, le=180)
+    custom_fields: dict[str, str] | None = None
 
     @field_validator("pipeline_stage")
     @classmethod
@@ -1172,6 +1179,7 @@ class ProspectOut(BaseModel):
     address: str | None = None
     latitude: float | None = None
     longitude: float | None = None
+    custom_fields: dict[str, str] = Field(default_factory=dict)
     client_id: uuid.UUID | None = None
     created_by: uuid.UUID
     created_at: datetime
@@ -1219,6 +1227,7 @@ class ClientCreate(BaseModel):
     address: str | None = Field(default=None, max_length=4000)
     latitude: float | None = Field(default=None, ge=-90, le=90)
     longitude: float | None = Field(default=None, ge=-180, le=180)
+    custom_fields: dict[str, str] | None = None
 
 
 class ClientUpdate(BaseModel):
@@ -1235,6 +1244,7 @@ class ClientUpdate(BaseModel):
     address: str | None = Field(default=None, max_length=4000)
     latitude: float | None = Field(default=None, ge=-90, le=90)
     longitude: float | None = Field(default=None, ge=-180, le=180)
+    custom_fields: dict[str, str] | None = None
 
 
 class ClientOut(BaseModel):
@@ -1254,6 +1264,7 @@ class ClientOut(BaseModel):
     address: str | None = None
     latitude: float | None = None
     longitude: float | None = None
+    custom_fields: dict[str, str] = Field(default_factory=dict)
     created_by: uuid.UUID
     created_at: datetime
     updated_at: datetime
@@ -1265,6 +1276,18 @@ class ClientListResponse(BaseModel):
     items: list[ClientOut]
     total: int | None = None
     has_more: bool = False
+
+
+class ClientProjectOut(BaseModel):
+    id: uuid.UUID
+    name: str
+    slug: str
+    status: str
+    template_key: str | None = None
+
+
+class ClientProjectListResponse(BaseModel):
+    items: list[ClientProjectOut]
 
 
 # --- Client Health Dashboard ---

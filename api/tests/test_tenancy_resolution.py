@@ -442,3 +442,40 @@ async def test_cross_tenant_superuser_needs_tenant_slug_for_users(
     row = await db.scalar(select(User).where(User.email == f"with-slug-{tag}@example.com"))
     assert row is not None
     assert row.tenant_id == tenant.id
+
+
+async def test_bound_user_search_hides_other_tenant_crm(
+    client: AsyncClient, db: AsyncSession
+) -> None:
+    """Command search must not return another org's clients or prospects."""
+    other = await _tenant(db, "searchorg")
+    home = await _tenant(db, "searchhome")
+    bound = await _user_in(db, home, is_superuser=True)
+    tag = uuid.uuid4().hex[:8]
+    secret = f"SecretCo {tag}"
+    db.add(
+        Client(
+            name=secret,
+            slug=f"secret-{tag}",
+            created_by=bound.id,
+            tenant_id=other.id,
+        )
+    )
+    db.add(
+        Prospect(
+            company_name=secret,
+            pipeline_stage="target",
+            created_by=bound.id,
+            tenant_id=other.id,
+        )
+    )
+    await db.commit()
+
+    found = await client.get(
+        "/v1/me/search",
+        params={"q": secret},
+        headers=_jwt(bound),
+    )
+    assert found.status_code == 200, found.text
+    labels = [hit["label"] for hit in found.json()]
+    assert secret not in labels

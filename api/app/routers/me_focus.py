@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
@@ -315,6 +315,7 @@ async def unified_search(
     """Unified search across projects, tasks, tickets, clients, and prospects."""
     term = q.strip()
     results: list[UnifiedSearchHit] = []
+    bound_tenant = user.tenant_id
 
     # Get projects the user can access
     member_subq = select(ProjectMember.project_id).where(ProjectMember.user_id == user.id)
@@ -324,10 +325,17 @@ async def unified_search(
         stmt = (
             select(Project.id, Project.name, Project.slug)
             .where(Project.id.in_(member_subq))
-            .where(Project.name.ilike(f"%{term}%"))
+            .where(
+                or_(
+                    Project.name.ilike(f"%{term}%"),
+                    func.to_tsvector("simple", Project.name).op("@@")(func.plainto_tsquery("simple", term)),
+                )
+            )
             .order_by(Project.updated_at.desc())
             .limit(limit - len(results))
         )
+        if bound_tenant is not None:
+            stmt = stmt.where(Project.tenant_id == bound_tenant)
         rows = (await db.execute(stmt)).all()
         for pid, name, slug in rows:
             results.append(UnifiedSearchHit(
@@ -342,10 +350,16 @@ async def unified_search(
             select(Task.id, Task.title, Task.ref, Task.project_id, Project.name)
             .join(Project, Task.project_id == Project.id)
             .where(Task.project_id.in_(member_subq))
-            .where((Task.title.ilike(f"%{term}%")) | (Task.ref.ilike(f"{term}%")))
+            .where(
+                (Task.title.ilike(f"%{term}%"))
+                | (Task.ref.ilike(f"{term}%"))
+                | func.to_tsvector("simple", Task.title).op("@@")(func.plainto_tsquery("simple", term))
+            )
             .order_by(Task.updated_at.desc())
             .limit(limit - len(results))
         )
+        if bound_tenant is not None:
+            stmt = stmt.where(Project.tenant_id == bound_tenant)
         rows = (await db.execute(stmt)).all()
         for tid, title, ref, pid, pname in rows:
             results.append(UnifiedSearchHit(
@@ -365,6 +379,8 @@ async def unified_search(
             .order_by(Ticket.updated_at.desc())
             .limit(limit - len(results))
         )
+        if bound_tenant is not None:
+            stmt = stmt.where(Project.tenant_id == bound_tenant)
         rows = (await db.execute(stmt)).all()
         for tid, title, ref, pid, pname in rows:
             results.append(UnifiedSearchHit(
@@ -378,10 +394,17 @@ async def unified_search(
     if len(results) < limit:
         stmt = (
             select(Client.id, Client.name, Client.slug)
-            .where(Client.name.ilike(f"%{term}%"))
+            .where(
+                or_(
+                    Client.name.ilike(f"%{term}%"),
+                    func.to_tsvector("simple", Client.name).op("@@")(func.plainto_tsquery("simple", term)),
+                )
+            )
             .order_by(Client.name.asc())
             .limit(limit - len(results))
         )
+        if bound_tenant is not None:
+            stmt = stmt.where(Client.tenant_id == bound_tenant)
         rows = (await db.execute(stmt)).all()
         for cid, name, slug in rows:
             results.append(UnifiedSearchHit(
@@ -393,10 +416,19 @@ async def unified_search(
     if len(results) < limit:
         stmt = (
             select(Prospect.id, Prospect.company_name, Prospect.pipeline_stage)
-            .where(Prospect.company_name.ilike(f"%{term}%"))
+            .where(
+                or_(
+                    Prospect.company_name.ilike(f"%{term}%"),
+                    func.to_tsvector("simple", Prospect.company_name).op("@@")(
+                        func.plainto_tsquery("simple", term)
+                    ),
+                )
+            )
             .order_by(Prospect.updated_at.desc())
             .limit(limit - len(results))
         )
+        if bound_tenant is not None:
+            stmt = stmt.where(Prospect.tenant_id == bound_tenant)
         rows = (await db.execute(stmt)).all()
         for pid, company, stage in rows:
             results.append(UnifiedSearchHit(

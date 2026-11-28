@@ -11,6 +11,7 @@ export function ProjectSubNav({
     | "components"
     | "work-types"
     | "tasks"
+    | "gantt"
     | "activity"
     | "tickets"
     | "github"
@@ -39,6 +40,9 @@ export function ProjectSubNav({
       </Link>
       <Link href={`${base}/tasks`} className={cls("tasks")}>
         Tasks
+      </Link>
+      <Link href={`${base}/gantt`} className={cls("gantt")}>
+        Timeline
       </Link>
       <Link href={`${base}/activity`} className={cls("activity")}>
         Activity

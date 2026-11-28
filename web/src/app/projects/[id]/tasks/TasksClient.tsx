@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { CopyRefButton } from "@/components/CopyRefButton";
@@ -60,6 +60,8 @@ export function NewTaskForm({
   const [workTypeId, setWorkTypeId] = useState(
     () => workTypes.find((row) => row.is_default)?.id ?? "",
   );
+  const [dueAt, setDueAt] = useState("");
+  const [recurrence, setRecurrence] = useState("");
   const selectedType = findWorkType(workTypes, workTypeId);
   if (!canEdit) {
     return <p className="muted text-sm">Viewers cannot create tasks.</p>;
@@ -79,6 +81,8 @@ export function NewTaskForm({
     if (workTypeId) {
       body.work_type_id = workTypeId;
     }
+    if (dueAt) body.due_at = new Date(dueAt).toISOString();
+    if (recurrence) body.recurrence = recurrence;
     const r = await fetch(`/api/projects/${projectId}/tasks`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -162,6 +166,18 @@ export function NewTaskForm({
               </option>
             ))}
           </select>
+        </label>
+        <label className="stack" style={{ gap: "0.25rem" }}>
+          <span className="text-sm muted">Repeats</span>
+          <select className="input" value={recurrence} onChange={(e) => setRecurrence(e.target.value)}>
+            <option value="">Does not repeat</option>
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+          </select>
+        </label>
+        <label className="stack" style={{ gap: "0.25rem" }}>
+          <span className="text-sm muted">Due</span>
+          <input className="input" type="datetime-local" value={dueAt} onChange={(e) => setDueAt(e.target.value)} />
         </label>
         <button type="submit" className="btn btn-primary">
           Add task
@@ -697,6 +713,9 @@ export function TasksView({
   const [view, setView] = useState<"milestones" | "board" | "table">(initialView ?? defaultView);
   const [milestoneFilter, setMilestoneFilter] = useState(initialMilestone);
   const [planStateFilter, setPlanStateFilter] = useState(initialPlanState);
+  const [titleFilter, setTitleFilter] = useState("");
+  const [viewName, setViewName] = useState("");
+  const [savedViews, setSavedViews] = useState<Record<string, { label: string; query: string }>>({});
 
   const milestoneNames = useMemo(() => {
     const map: Record<string, string> = {};
@@ -709,9 +728,10 @@ export function TasksView({
       tasks.filter((t) => {
         if (milestoneFilter && (t.milestone_id ?? "") !== milestoneFilter) return false;
         if (planStateFilter !== "all" && (t.plan_state ?? "active") !== planStateFilter) return false;
+        if (titleFilter.trim() && !t.title.toLowerCase().includes(titleFilter.trim().toLowerCase())) return false;
         return true;
       }),
-    [tasks, milestoneFilter, planStateFilter],
+    [tasks, milestoneFilter, planStateFilter, titleFilter],
   );
 
   const hidden = useMemo(
@@ -733,6 +753,7 @@ export function TasksView({
     if (nextView !== defaultView) qs.set("view", nextView);
     if (nextMilestone) qs.set("milestone", nextMilestone);
     if (nextPlanState !== "active") qs.set("plan_state", nextPlanState);
+    if (titleFilter.trim()) qs.set("q", titleFilter.trim());
     return qs.toString();
   }
 
@@ -750,6 +771,49 @@ export function TasksView({
   const returnQuery = queryFor();
   const taskHref = (taskId: string) =>
     `/projects/${projectId}/tasks/${taskId}${returnQuery ? `?${returnQuery}` : ""}`;
+
+  useEffect(() => {
+    void (async () => {
+      const r = await fetch("/api/auth/me");
+      if (!r.ok) return;
+      const body = (await r.json()) as { ui_preferences?: { saved_views?: Record<string, { label: string; query: string }> } };
+      const all = body.ui_preferences?.saved_views ?? {};
+      const prefix = `tasks-${projectId}-`;
+      setSavedViews(Object.fromEntries(Object.entries(all).filter(([key]) => key.startsWith(prefix))));
+    })();
+  }, [projectId]);
+
+  function applySaved(query: string) {
+    const qs = new URLSearchParams(query);
+    const nextView = (qs.get("view") as "milestones" | "board" | "table" | null) ?? defaultView;
+    const nextMilestone = qs.get("milestone") ?? "";
+    const nextPlan = qs.get("plan_state") ?? "active";
+    const nextQ = qs.get("q") ?? "";
+    setView(nextView);
+    setMilestoneFilter(nextMilestone);
+    setPlanStateFilter(nextPlan);
+    setTitleFilter(nextQ);
+    router.replace(query ? `/projects/${projectId}/tasks?${query}` : `/projects/${projectId}/tasks`, { scroll: false });
+  }
+
+  async function saveCurrentView(e: React.FormEvent) {
+    e.preventDefault();
+    const slug = viewName.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 24);
+    if (!slug) return;
+    const key = `tasks-${projectId}-${slug}`;
+    const r = await fetch("/api/auth/me/preferences", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ saved_views: { [key]: { label: viewName.trim(), query: queryFor() } } }),
+    });
+    if (!r.ok) {
+      toast("Could not save the view", "error");
+      return;
+    }
+    setSavedViews((prev) => ({ ...prev, [key]: { label: viewName.trim(), query: queryFor() } }));
+    setViewName("");
+    toast("View saved");
+  }
 
   const boardItems = useMemo(
     () =>
@@ -803,7 +867,24 @@ export function TasksView({
         {milestones.length > 0 ? viewButton("milestones", "Milestones") : null}
         {viewButton("board", "Board")}
         {viewButton("table", "Table")}
+        <input
+          className="input text-sm"
+          value={titleFilter}
+          onChange={(e) => setTitleFilter(e.target.value)}
+          placeholder="Filter titles"
+          aria-label="Filter titles"
+          style={{ maxWidth: 180, minHeight: 0, padding: "0.25rem 0.4rem" }}
+        />
       </div>
+      <form onSubmit={saveCurrentView} style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", alignItems: "center" }}>
+        {Object.entries(savedViews).map(([key, view]) => (
+          <button key={key} type="button" className="btn btn-sm btn-secondary" onClick={() => applySaved(view.query)}>
+            {view.label}
+          </button>
+        ))}
+        <input className="input text-sm" value={viewName} onChange={(e) => setViewName(e.target.value)} placeholder="Save this view" style={{ maxWidth: 180, minHeight: 0 }} />
+        <button type="submit" className="btn btn-sm btn-ghost">Save</button>
+      </form>
 
       {milestones.length > 0 || tasks.some((t) => t.plan_state) ? (
         <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>

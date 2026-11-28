@@ -15,6 +15,7 @@ import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { ProspectBoard } from "@/components/ProspectBoard";
 import { CrmFormFieldsCustomize } from "@/components/CrmFormFieldsCustomize";
 import { CrmProfileFields } from "@/components/CrmProfileFields";
+import { CustomFieldsEditor } from "@/components/CustomFieldsEditor";
 import { useCrmFormPrefs } from "@/components/useCrmFormPrefs";
 import { apiRequest, redirectToLogin } from "@/shared/client/api";
 import type { CrmFormFieldKey } from "@/shared/crm-form-prefs";
@@ -68,6 +69,7 @@ type ProspectRow = {
   address: string | null;
   latitude: number | null;
   longitude: number | null;
+  custom_fields?: Record<string, string> | null;
   client_id: string | null;
   created_at: string;
 };
@@ -122,6 +124,7 @@ export default function ProspectsPage() {
   const [formSource, setFormSource] = useState("");
   const [formNotes, setFormNotes] = useState("");
   const [formProfile, setFormProfile] = useState<CrmProfileFormState>(emptyCrmProfileForm);
+  const [formCustom, setFormCustom] = useState<Record<string, string>>({});
   const [formErr, setFormErr] = useState<string | null>(null);
 
   const fetchRows = useCallback(async (opts?: { stage?: string; source?: string }) => {
@@ -216,6 +219,7 @@ export default function ProspectsPage() {
       company_name: formName.trim(),
       pipeline_stage: formStage,
       ...prospectProfileBody(formProfile),
+      custom_fields: formCustom,
     };
     if (formValue) body.pipeline_value = parseFloat(formValue);
     if (formSource.trim()) body.source = formSource.trim();
@@ -240,7 +244,7 @@ export default function ProspectsPage() {
     e.preventDefault();
     if (!showEdit) return;
     setFormErr(null);
-    const body: Record<string, unknown> = { ...prospectProfileBody(formProfile) };
+    const body: Record<string, unknown> = { ...prospectProfileBody(formProfile), custom_fields: formCustom };
     if (formName.trim()) body.company_name = formName.trim();
     if (formStage) body.pipeline_stage = formStage;
     if (formValue) body.pipeline_value = parseFloat(formValue);
@@ -282,6 +286,7 @@ export default function ProspectsPage() {
     setFormSource("");
     setFormNotes("");
     setFormProfile(emptyCrmProfileForm());
+    setFormCustom({});
     setFormErr(null);
   };
 
@@ -293,6 +298,7 @@ export default function ProspectsPage() {
     setFormSource(row.source ?? "");
     setFormNotes(row.notes ?? "");
     setFormProfile(crmProfileFromProspect(row));
+    setFormCustom(row.custom_fields ?? {});
     setFormErr(null);
   };
 
@@ -568,6 +574,7 @@ export default function ProspectsPage() {
           formSource={formSource}
           formNotes={formNotes}
           formProfile={formProfile}
+          formCustom={formCustom}
           formErr={formErr}
           crmFields={crmFields}
           isVisible={isVisible}
@@ -579,6 +586,7 @@ export default function ProspectsPage() {
           onSourceChange={setFormSource}
           onNotesChange={setFormNotes}
           onProfileChange={setFormProfile}
+          onCustomChange={setFormCustom}
         />
       </Dialog>
 
@@ -600,6 +608,7 @@ export default function ProspectsPage() {
           formSource={formSource}
           formNotes={formNotes}
           formProfile={formProfile}
+          formCustom={formCustom}
           formErr={formErr}
           crmFields={crmFields}
           isVisible={isVisible}
@@ -611,6 +620,7 @@ export default function ProspectsPage() {
           onSourceChange={setFormSource}
           onNotesChange={setFormNotes}
           onProfileChange={setFormProfile}
+          onCustomChange={setFormCustom}
         />
       </Dialog>
 
@@ -672,12 +682,12 @@ export default function ProspectsPage() {
 }
 
 function ProspectForm({
-  formName, formStage, formValue, formSource, formNotes, formProfile, formErr,
+  formName, formStage, formValue, formSource, formNotes, formProfile, formCustom, formErr,
   crmFields, isVisible, onCrmFieldToggle,
-  onSubmit, onNameChange, onStageChange, onValueChange, onSourceChange, onNotesChange, onProfileChange,
+  onSubmit, onNameChange, onStageChange, onValueChange, onSourceChange, onNotesChange, onProfileChange, onCustomChange,
 }: {
   formName: string; formStage: string; formValue: string; formSource: string; formNotes: string;
-  formProfile: CrmProfileFormState; formErr: string | null;
+  formProfile: CrmProfileFormState; formCustom: Record<string, string>; formErr: string | null;
   crmFields: Record<CrmFormFieldKey, boolean>;
   isVisible: (key: CrmFormFieldKey) => boolean;
   onCrmFieldToggle: (key: CrmFormFieldKey, visible: boolean) => void;
@@ -685,6 +695,7 @@ function ProspectForm({
   onNameChange: (v: string) => void; onStageChange: (v: string) => void; onValueChange: (v: string) => void;
   onSourceChange: (v: string) => void; onNotesChange: (v: string) => void;
   onProfileChange: (v: CrmProfileFormState) => void;
+  onCustomChange: (v: Record<string, string>) => void;
 }) {
   return (
     <form id="prospect-form" onSubmit={onSubmit} className="stack" style={{ gap: "0.65rem" }}>
@@ -716,6 +727,7 @@ function ProspectForm({
         </label>
       ) : null}
       <CrmProfileFields value={formProfile} onChange={onProfileChange} showContact isVisible={isVisible} />
+      <CustomFieldsEditor value={formCustom} onChange={onCustomChange} />
       {isVisible("notes") ? (
         <label className="field">
           <span className="label">Notes</span>

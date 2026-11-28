@@ -10,14 +10,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db import get_db
 from app.deps import get_current_tenant, get_current_user, require_superuser
 from app.models.client import Client
+from app.models.project import Project
+from app.models.project_client import ProjectClient
 from app.models.user import User
 from app.schemas import (
     ClientCreate,
     ClientListResponse,
     ClientOut,
+    ClientProjectListResponse,
+    ClientProjectOut,
     ClientUpdate,
     slugify,
 )
+from app.services.crm_audit import as_text, clean_custom_fields, record_changes
 from app.services.crm_profile import CLIENT_PROFILE_KEYS, apply_profile_update, profile_kwargs
 from app.services.tenancy import resolve_write_tenant_id
 from app.services.webhook_dispatcher import dispatch_event
@@ -87,6 +92,7 @@ async def create_client(
         notes=body.notes.strip() if body.notes else None,
         created_by=user.id,
         tenant_id=effective_tenant_id,
+        custom_fields=clean_custom_fields(body.custom_fields),
         **profile_kwargs(body, CLIENT_PROFILE_KEYS),
     )
     db.add(row)
@@ -117,6 +123,44 @@ async def get_client(
     return ClientOut.model_validate(row)
 
 
+@router.get("/{client_id}/projects", response_model=ClientProjectListResponse)
+async def list_client_projects(
+    client_id: uuid.UUID,
+    user: Annotated[User, Depends(get_current_user)],
+    _admin: Annotated[User, Depends(require_superuser)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    request: Request,
+):
+    """Projects linked to this client — the operational slice of the customer workspace."""
+    tenant = await get_current_tenant(request, db)
+    row = await db.get(Client, client_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Client not found")
+    if tenant is not None and user.tenant_id is not None and row.tenant_id != user.tenant_id:
+        raise HTTPException(status_code=404, detail="Client not found")
+    q = (
+        select(Project)
+        .join(ProjectClient, ProjectClient.project_id == Project.id)
+        .where(ProjectClient.client_id == client_id)
+        .order_by(Project.created_at.desc())
+    )
+    if user.tenant_id is not None:
+        q = q.where(Project.tenant_id == user.tenant_id)
+    projects = list((await db.scalars(q)).all())
+    return ClientProjectListResponse(
+        items=[
+            ClientProjectOut(
+                id=p.id,
+                name=p.name,
+                slug=p.slug,
+                status=p.status,
+                template_key=p.template_key,
+            )
+            for p in projects
+        ]
+    )
+
+
 @router.patch("/{client_id}", response_model=ClientOut)
 async def update_client(
     client_id: uuid.UUID,
@@ -132,6 +176,8 @@ async def update_client(
         raise HTTPException(status_code=404, detail="Client not found")
     if tenant is not None and user.tenant_id is not None and row.tenant_id != user.tenant_id:
         raise HTTPException(status_code=404, detail="Client not found")
+    tracked = ("name", "industry", "zone", "source", "service", "email", "custom_fields")
+    before = {key: as_text(getattr(row, key)) for key in tracked}
     if body.name is not None:
         row.name = body.name.strip()
     if body.industry is not None:
@@ -139,6 +185,17 @@ async def update_client(
     if body.notes is not None:
         row.notes = body.notes.strip() if body.notes else None
     apply_profile_update(row, body, CLIENT_PROFILE_KEYS)
+    if "custom_fields" in body.model_fields_set:
+        row.custom_fields = clean_custom_fields(body.custom_fields)
+    record_changes(
+        db,
+        tenant_id=row.tenant_id,
+        entity_type="client",
+        entity_id=row.id,
+        actor_id=user.id,
+        before=before,
+        after={key: as_text(getattr(row, key)) for key in tracked},
+    )
     await db.commit()
     await db.refresh(row)
     return ClientOut.model_validate(row)

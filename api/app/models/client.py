@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import DateTime, ForeignKey, Numeric, String, Text, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
@@ -33,6 +33,7 @@ class Client(Base):
     address: Mapped[str | None] = mapped_column(Text, nullable=True)
     latitude: Mapped[float | None] = mapped_column(Numeric(10, 7), nullable=True)
     longitude: Mapped[float | None] = mapped_column(Numeric(10, 7), nullable=True)
+    custom_fields: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     created_by: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
     )

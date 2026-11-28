@@ -213,7 +213,11 @@ async def test_promote_copies_profile_and_primary_contact(
     assert won.status_code == 200, won.text
     body = won.json()
     assert body.get("promoted_client") is not None
+    assert body["promoted_project"]["template_key"] == "customer-onboarding"
     client_out = body["promoted_client"]
+    linked = await client.get(f"/v1/clients/{client_out['id']}/projects", headers=headers)
+    assert linked.status_code == 200, linked.text
+    assert any(p["id"] == body["promoted_project"]["id"] for p in linked.json()["items"])
     assert client_out["email"] == f"hello-{tag}@win.example"
     assert client_out["phone"] == "+1 555 0301"
     assert client_out["industry"] == "Finance"

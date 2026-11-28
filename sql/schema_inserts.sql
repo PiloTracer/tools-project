@@ -454,3 +454,217 @@ WHERE t.key = 'procurement'
   AND NOT EXISTS (
     SELECT 1 FROM project_template_items c WHERE c.template_id = t.id
   );
+
+-- Blueprint workflow slices that fit the existing template catalog.
+-- customer-onboarding is the project created when a prospect is won.
+-- engineering-delivery is Discovery → Architecture → Development → QA → Deployed.
+
+INSERT INTO project_templates (key, name, team, description, is_builtin)
+SELECT 'customer-onboarding', 'Customer onboarding', 'Operations',
+       'Start a won customer: kickoff, paperwork, setup, and the first plan.', TRUE
+WHERE NOT EXISTS (SELECT 1 FROM project_templates WHERE key = 'customer-onboarding');
+
+INSERT INTO project_template_columns (template_id, key, label, sort_order, is_finished)
+SELECT t.id, v.key, v.label, v.sort_order, v.is_finished
+FROM project_templates t
+JOIN (VALUES
+    ('kickoff', 'Kickoff', 0, FALSE),
+    ('paperwork', 'Paperwork', 1, FALSE),
+    ('setup', 'Setup', 2, FALSE),
+    ('plan', 'Plan', 3, FALSE),
+    ('live', 'Live', 4, TRUE)
+) AS v(key, label, sort_order, is_finished) ON TRUE
+WHERE t.key = 'customer-onboarding'
+  AND NOT EXISTS (
+    SELECT 1 FROM project_template_columns c WHERE c.template_id = t.id
+  );
+
+INSERT INTO project_template_work_types (template_id, key, name, description, is_default, sort_order)
+SELECT t.id, v.key, v.name, v.description, v.is_default, v.sort_order
+FROM project_templates t
+JOIN (VALUES
+    ('onboarding', 'Onboarding', 'A step that brings a new customer live.', TRUE, 0),
+    ('admin', 'Admin', 'Paperwork or payment for the new customer.', FALSE, 1)
+) AS v(key, name, description, is_default, sort_order) ON TRUE
+WHERE t.key = 'customer-onboarding'
+  AND NOT EXISTS (
+    SELECT 1 FROM project_template_work_types c WHERE c.template_id = t.id
+  );
+
+INSERT INTO project_template_items (template_id, title, column_key, work_type_key, sort_order)
+SELECT t.id, v.title, v.column_key, v.work_type_key, v.sort_order
+FROM project_templates t
+JOIN (VALUES
+    ('Welcome and introduction call', 'kickoff', 'onboarding', 0),
+    ('Stakeholder introductions', 'kickoff', 'onboarding', 1),
+    ('Contract and paperwork', 'paperwork', 'admin', 2),
+    ('Deposit or initial payment', 'paperwork', 'admin', 3),
+    ('Repository and tooling setup', 'setup', 'onboarding', 4),
+    ('Communication channel setup', 'setup', 'onboarding', 5),
+    ('First milestone planning', 'plan', 'onboarding', 6)
+) AS v(title, column_key, work_type_key, sort_order) ON TRUE
+WHERE t.key = 'customer-onboarding'
+  AND NOT EXISTS (
+    SELECT 1 FROM project_template_items c WHERE c.template_id = t.id
+  );
+
+INSERT INTO project_templates (key, name, team, description, is_builtin)
+SELECT 'engineering-delivery', 'Engineering delivery', 'Engineering',
+       'Move a slice from discovery through architecture, build, QA, and deploy.', TRUE
+WHERE NOT EXISTS (SELECT 1 FROM project_templates WHERE key = 'engineering-delivery');
+
+INSERT INTO project_template_columns (template_id, key, label, sort_order, is_finished)
+SELECT t.id, v.key, v.label, v.sort_order, v.is_finished
+FROM project_templates t
+JOIN (VALUES
+    ('discovery', 'Discovery', 0, FALSE),
+    ('architecture', 'Architecture', 1, FALSE),
+    ('development', 'Development', 2, FALSE),
+    ('qa', 'QA', 3, FALSE),
+    ('deployed', 'Deployed', 4, TRUE)
+) AS v(key, label, sort_order, is_finished) ON TRUE
+WHERE t.key = 'engineering-delivery'
+  AND NOT EXISTS (
+    SELECT 1 FROM project_template_columns c WHERE c.template_id = t.id
+  );
+
+INSERT INTO project_template_work_types (template_id, key, name, description, is_default, sort_order)
+SELECT t.id, v.key, v.name, v.description, v.is_default, v.sort_order
+FROM project_templates t
+JOIN (VALUES
+    ('story', 'Story', 'A slice of product work.', TRUE, 0),
+    ('spike', 'Spike', 'Time-boxed investigation.', FALSE, 1)
+) AS v(key, name, description, is_default, sort_order) ON TRUE
+WHERE t.key = 'engineering-delivery'
+  AND NOT EXISTS (
+    SELECT 1 FROM project_template_work_types c WHERE c.template_id = t.id
+  );
+
+INSERT INTO project_template_items (template_id, title, column_key, work_type_key, sort_order)
+SELECT t.id, v.title, v.column_key, v.work_type_key, v.sort_order
+FROM project_templates t
+JOIN (VALUES
+    ('Capture the problem', 'discovery', 'story', 0),
+    ('Sketch the design', 'architecture', 'spike', 1),
+    ('Build the first slice', 'development', 'story', 2),
+    ('Verify the release', 'qa', 'story', 3)
+) AS v(title, column_key, work_type_key, sort_order) ON TRUE
+WHERE t.key = 'engineering-delivery'
+  AND NOT EXISTS (
+    SELECT 1 FROM project_template_items c WHERE c.template_id = t.id
+  );
+
+INSERT INTO project_templates (key, name, team, description, is_builtin)
+SELECT 'support-queue', 'Support queue', 'Operations',
+       'Take a customer issue from intake to a confirmed fix.', TRUE
+WHERE NOT EXISTS (SELECT 1 FROM project_templates WHERE key = 'support-queue');
+
+INSERT INTO project_template_columns (template_id, key, label, sort_order, is_finished)
+SELECT t.id, v.key, v.label, v.sort_order, v.is_finished
+FROM project_templates t
+JOIN (VALUES
+    ('intake', 'Intake', 0, FALSE),
+    ('working', 'Working', 1, FALSE),
+    ('waiting', 'Waiting', 2, FALSE),
+    ('resolved', 'Resolved', 3, TRUE)
+) AS v(key, label, sort_order, is_finished) ON TRUE
+WHERE t.key = 'support-queue'
+  AND NOT EXISTS (SELECT 1 FROM project_template_columns c WHERE c.template_id = t.id);
+
+INSERT INTO project_template_work_types (template_id, key, name, description, is_default, sort_order)
+SELECT t.id, v.key, v.name, v.description, v.is_default, v.sort_order
+FROM project_templates t
+JOIN (VALUES
+    ('issue', 'Issue', 'Something a customer reported.', TRUE, 0),
+    ('question', 'Question', 'A question that needs an answer.', FALSE, 1)
+) AS v(key, name, description, is_default, sort_order) ON TRUE
+WHERE t.key = 'support-queue'
+  AND NOT EXISTS (SELECT 1 FROM project_template_work_types c WHERE c.template_id = t.id);
+
+INSERT INTO project_template_items (template_id, title, column_key, work_type_key, sort_order)
+SELECT t.id, v.title, v.column_key, v.work_type_key, v.sort_order
+FROM project_templates t
+JOIN (VALUES
+    ('Confirm the report', 'intake', 'issue', 0),
+    ('Reproduce the issue', 'working', 'issue', 1),
+    ('Tell the customer the outcome', 'waiting', 'question', 2)
+) AS v(title, column_key, work_type_key, sort_order) ON TRUE
+WHERE t.key = 'support-queue'
+  AND NOT EXISTS (SELECT 1 FROM project_template_items c WHERE c.template_id = t.id);
+
+INSERT INTO project_templates (key, name, team, description, is_builtin)
+SELECT 'implementation', 'Implementation', 'Project Management',
+       'Deliver a scoped change from kickoff to handover.', TRUE
+WHERE NOT EXISTS (SELECT 1 FROM project_templates WHERE key = 'implementation');
+
+INSERT INTO project_template_columns (template_id, key, label, sort_order, is_finished)
+SELECT t.id, v.key, v.label, v.sort_order, v.is_finished
+FROM project_templates t
+JOIN (VALUES
+    ('kickoff', 'Kickoff', 0, FALSE),
+    ('build', 'Build', 1, FALSE),
+    ('verify', 'Verify', 2, FALSE),
+    ('handover', 'Handover', 3, TRUE)
+) AS v(key, label, sort_order, is_finished) ON TRUE
+WHERE t.key = 'implementation'
+  AND NOT EXISTS (SELECT 1 FROM project_template_columns c WHERE c.template_id = t.id);
+
+INSERT INTO project_template_work_types (template_id, key, name, description, is_default, sort_order)
+SELECT t.id, v.key, v.name, v.description, v.is_default, v.sort_order
+FROM project_templates t
+JOIN (VALUES
+    ('deliverable', 'Deliverable', 'A piece of the implementation.', TRUE, 0),
+    ('decision', 'Decision', 'A choice the team must record.', FALSE, 1)
+) AS v(key, name, description, is_default, sort_order) ON TRUE
+WHERE t.key = 'implementation'
+  AND NOT EXISTS (SELECT 1 FROM project_template_work_types c WHERE c.template_id = t.id);
+
+INSERT INTO project_template_items (template_id, title, column_key, work_type_key, sort_order)
+SELECT t.id, v.title, v.column_key, v.work_type_key, v.sort_order
+FROM project_templates t
+JOIN (VALUES
+    ('Confirm scope', 'kickoff', 'decision', 0),
+    ('Build the first slice', 'build', 'deliverable', 1),
+    ('Hand over to the customer', 'verify', 'deliverable', 2)
+) AS v(title, column_key, work_type_key, sort_order) ON TRUE
+WHERE t.key = 'implementation'
+  AND NOT EXISTS (SELECT 1 FROM project_template_items c WHERE c.template_id = t.id);
+
+INSERT INTO project_templates (key, name, team, description, is_builtin)
+SELECT 'renewal', 'Renewal', 'Sales',
+       'Track a renewal from outreach to a signed term.', TRUE
+WHERE NOT EXISTS (SELECT 1 FROM project_templates WHERE key = 'renewal');
+
+INSERT INTO project_template_columns (template_id, key, label, sort_order, is_finished)
+SELECT t.id, v.key, v.label, v.sort_order, v.is_finished
+FROM project_templates t
+JOIN (VALUES
+    ('upcoming', 'Upcoming', 0, FALSE),
+    ('conversation', 'Conversation', 1, FALSE),
+    ('proposal', 'Proposal', 2, FALSE),
+    ('renewed', 'Renewed', 3, TRUE),
+    ('churned', 'Churned', 4, TRUE)
+) AS v(key, label, sort_order, is_finished) ON TRUE
+WHERE t.key = 'renewal'
+  AND NOT EXISTS (SELECT 1 FROM project_template_columns c WHERE c.template_id = t.id);
+
+INSERT INTO project_template_work_types (template_id, key, name, description, is_default, sort_order)
+SELECT t.id, v.key, v.name, v.description, v.is_default, v.sort_order
+FROM project_templates t
+JOIN (VALUES
+    ('renewal', 'Renewal', 'A term that is coming due.', TRUE, 0),
+    ('risk', 'Risk', 'A reason the renewal might fail.', FALSE, 1)
+) AS v(key, name, description, is_default, sort_order) ON TRUE
+WHERE t.key = 'renewal'
+  AND NOT EXISTS (SELECT 1 FROM project_template_work_types c WHERE c.template_id = t.id);
+
+INSERT INTO project_template_items (template_id, title, column_key, work_type_key, sort_order)
+SELECT t.id, v.title, v.column_key, v.work_type_key, v.sort_order
+FROM project_templates t
+JOIN (VALUES
+    ('Note the renewal date', 'upcoming', 'renewal', 0),
+    ('Talk with the customer', 'conversation', 'renewal', 1),
+    ('Send the renewal proposal', 'proposal', 'renewal', 2)
+) AS v(title, column_key, work_type_key, sort_order) ON TRUE
+WHERE t.key = 'renewal'
+  AND NOT EXISTS (SELECT 1 FROM project_template_items c WHERE c.template_id = t.id);

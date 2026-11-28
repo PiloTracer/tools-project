@@ -10,6 +10,7 @@ import { DropdownMenu, DropdownItem } from "@/components/DropdownMenu";
 import { toast } from "@/components/Toast";
 import { CrmFormFieldsCustomize } from "@/components/CrmFormFieldsCustomize";
 import { CrmProfileFields } from "@/components/CrmProfileFields";
+import { CustomFieldsEditor } from "@/components/CustomFieldsEditor";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { useCrmFormPrefs } from "@/components/useCrmFormPrefs";
 import { apiRequest } from "@/shared/client/api";
@@ -58,6 +59,7 @@ type ProspectDetail = {
   address: string | null;
   latitude: number | null;
   longitude: number | null;
+  custom_fields?: Record<string, string> | null;
   client_id: string | null;
   created_by: string;
   created_at: string;
@@ -91,6 +93,8 @@ export default function ProspectDetailPage() {
   const [editSource, setEditSource] = useState("");
   const [editNotes, setEditNotes] = useState("");
   const [editProfile, setEditProfile] = useState<CrmProfileFormState>(emptyCrmProfileForm);
+  const [editCustom, setEditCustom] = useState<Record<string, string>>({});
+  const [changes, setChanges] = useState<{ id: string; field_name: string; old_value: string | null; new_value: string | null }[]>([]);
   const [editErr, setEditErr] = useState<string | null>(null);
   const { fields: crmFields, setField: setCrmField, isVisible } = useCrmFormPrefs();
 
@@ -104,6 +108,11 @@ export default function ProspectDetailPage() {
       if (!r.ok) throw new Error(`Failed to load (${r.status})`);
       const data = await r.json() as ProspectDetail;
       setProspect(data);
+      const history = await fetch(`/api/planning/changes?entity_type=prospect&entity_id=${id}`);
+      if (history.ok) {
+        const body = await history.json() as { items: { id: string; field_name: string; old_value: string | null; new_value: string | null }[] };
+        setChanges(body.items ?? []);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown error");
     } finally {
@@ -140,7 +149,7 @@ export default function ProspectDetailPage() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setEditErr(null);
-    const body: Record<string, unknown> = { ...prospectProfileBody(editProfile) };
+    const body: Record<string, unknown> = { ...prospectProfileBody(editProfile), custom_fields: editCustom };
     if (editName.trim()) body.company_name = editName.trim();
     if (editStage) body.pipeline_stage = editStage;
     if (editValue) body.pipeline_value = parseFloat(editValue);
@@ -173,6 +182,7 @@ export default function ProspectDetailPage() {
     setEditSource(prospect.source ?? "");
     setEditNotes(prospect.notes ?? "");
     setEditProfile(crmProfileFromProspect(prospect));
+    setEditCustom(prospect.custom_fields ?? {});
     setEditErr(null);
   };
 
@@ -234,6 +244,11 @@ export default function ProspectDetailPage() {
             <Badge variant={stageBadgeVariant(prospect.pipeline_stage)}>
               {STAGE_LABELS[prospect.pipeline_stage] ?? prospect.pipeline_stage}
             </Badge>
+            {prospect.client_id ? (
+              <Link href={`/clients/${prospect.client_id}`} className="text-sm" style={{ marginLeft: "0.6rem" }}>
+                Open client
+              </Link>
+            ) : null}
           </div>
           <DropdownMenu
             trigger={
@@ -288,6 +303,12 @@ export default function ProspectDetailPage() {
             <span className="text-sm muted" style={{ display: "block", marginBottom: "0.15rem" }}>Zona</span>
             <span>{prospect.zone ?? "—"}</span>
           </div>
+          {prospect.custom_fields && Object.keys(prospect.custom_fields).length > 0 ? (
+            <div>
+              <span className="text-sm muted" style={{ display: "block", marginBottom: "0.15rem" }}>Custom fields</span>
+              <span>{Object.entries(prospect.custom_fields).map(([key, value]) => `${key}: ${value}`).join(" · ")}</span>
+            </div>
+          ) : null}
           <div>
             <span className="text-sm muted" style={{ display: "block", marginBottom: "0.15rem" }}>First contact</span>
             <span>{formatDate(prospect.first_contact_date)}</span>
@@ -361,6 +382,16 @@ export default function ProspectDetailPage() {
         ) : null}
       </div>
 
+      {changes.length > 0 ? (
+        <div className="card" style={{ maxWidth: "700px" }}>
+          <h2 style={{ marginBottom: "0.5rem" }}>Field history</h2>
+          <ul className="text-sm">
+            {changes.slice(0, 8).map((row) => (
+              <li key={row.id}>{row.field_name}: {row.old_value ?? "—"} → {row.new_value ?? "—"}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
       {prospect.notes ? (
         <div className="card" style={{ maxWidth: "700px" }}>
           <h2 style={{ marginBottom: "0.5rem" }}>Notes</h2>
@@ -494,6 +525,7 @@ export default function ProspectDetailPage() {
             </label>
           ) : null}
           <CrmProfileFields value={editProfile} onChange={setEditProfile} showContact isVisible={isVisible} />
+          <CustomFieldsEditor value={editCustom} onChange={setEditCustom} />
           {isVisible("notes") ? (
             <label className="field">
               <span className="label">Notes</span>

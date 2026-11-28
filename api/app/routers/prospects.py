@@ -28,6 +28,7 @@ from app.schemas import (
     ProspectStageChangeResponse,
     ProspectUpdate,
 )
+from app.services.crm_audit import as_text, clean_custom_fields, record_changes
 from app.services.crm_profile import (
     PROSPECT_PROFILE_KEYS,
     apply_profile_update,
@@ -117,6 +118,7 @@ async def create_prospect(
         notes=body.notes.strip() if body.notes else None,
         created_by=user.id,
         tenant_id=effective_tenant_id,
+        custom_fields=clean_custom_fields(body.custom_fields),
         **profile_kwargs(body, PROSPECT_PROFILE_KEYS),
     )
     db.add(row)
@@ -158,6 +160,11 @@ async def update_prospect(
         raise HTTPException(status_code=404, detail="Prospect not found")
     if tenant is not None and user.tenant_id is not None and row.tenant_id != user.tenant_id:
         raise HTTPException(status_code=404, detail="Prospect not found")
+    tracked = (
+        "company_name", "pipeline_stage", "source", "industry", "zone",
+        "service", "org_email", "contact_email", "custom_fields",
+    )
+    before = {key: as_text(getattr(row, key)) for key in tracked}
     if body.company_name is not None:
         row.company_name = body.company_name.strip()
     if body.pipeline_stage is not None:
@@ -171,6 +178,17 @@ async def update_prospect(
     if body.notes is not None:
         row.notes = body.notes.strip() if body.notes else None
     apply_profile_update(row, body, PROSPECT_PROFILE_KEYS)
+    if "custom_fields" in body.model_fields_set:
+        row.custom_fields = clean_custom_fields(body.custom_fields)
+    record_changes(
+        db,
+        tenant_id=row.tenant_id,
+        entity_type="prospect",
+        entity_id=row.id,
+        actor_id=user.id,
+        before=before,
+        after={key: as_text(getattr(row, key)) for key in tracked},
+    )
     await db.commit()
     await db.refresh(row)
     return ProspectOut.model_validate(row)

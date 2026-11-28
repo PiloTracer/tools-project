@@ -49,6 +49,11 @@ async def test_catalog_lists_basic_and_the_ten_processes(db: AsyncSession, clien
         "sales-pipeline",
         "campaign",
         "procurement",
+        "customer-onboarding",
+        "engineering-delivery",
+        "support-queue",
+        "implementation",
+        "renewal",
     }
     bug = next(row for row in items if row["key"] == "bug-tracking")
     assert [column["label"] for column in bug["columns"]] == [

@@ -129,6 +129,10 @@ export function CmdkPalette({
   const actions: SearchResult[] = [
     { id: "act-today", label: "Go to Today", subtitle: "My Focus", href: "/today" },
     { id: "act-projects", label: "Go to Projects", subtitle: "All projects", href: "/projects" },
+    { id: "act-new-project", label: "New project", subtitle: "Start from a workflow template", href: "/projects/new" },
+    { id: "act-templates", label: "Workflow templates", subtitle: "Department boards", href: "/templates" },
+    { id: "act-prospects", label: "Go to Prospects", subtitle: "CRM pipeline", href: "/prospects" },
+    { id: "act-clients", label: "Go to Clients", subtitle: "Customer workspace", href: "/clients" },
     { id: "act-inbox", label: "Go to Inbox", subtitle: "Quick capture", href: "/inbox" },
     { id: "act-admin", label: "Go to Admin", subtitle: "Admin users", href: "/admin/users" },
   ];

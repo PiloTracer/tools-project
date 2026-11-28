@@ -39,6 +39,7 @@ from app.services.project_access import (
     require_project_access,
 )
 from app.services.ref_alloc import allocate_ref
+from app.services.task_extras import RECURRENCE, spawn_next_occurrence
 from app.services.webhook_dispatcher import dispatch_event
 
 project_router = APIRouter(
@@ -145,6 +146,9 @@ async def create_task(
                 status.HTTP_400_BAD_REQUEST,
                 detail="parent_task_id must belong to this project",
             )
+    recurrence = (body.recurrence or "").strip().lower() or None
+    if recurrence and recurrence not in RECURRENCE:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="recurrence must be weekly or monthly")
     status_val, closed_at = await _checked_status(db, project_id, body.status)
     ref = await allocate_ref(db, project_id, "task")
     row = Task(
@@ -162,6 +166,7 @@ async def create_task(
         parent_task_id=body.parent_task_id,
         is_todo=body.is_todo,
         closed_at=closed_at,
+        recurrence=(body.recurrence or "").strip().lower() or None,
     )
     db.add(row)
     await db.flush()
@@ -232,6 +237,7 @@ async def patch_task(
         v = body.description.strip()
         row.description = v if v else None
     _prev_status = row.status
+    _prev_closed = row.closed_at
     _prev_assignee = row.assignee_id
     if body.status is not None:
         status_val, closed_at = await _checked_status(db, row.project_id, body.status)
@@ -251,7 +257,14 @@ async def patch_task(
         row.parent_task_id = body.parent_task_id
     if body.is_todo is not None:
         row.is_todo = body.is_todo
+    if "recurrence" in body.model_fields_set:
+        raw = (body.recurrence or "").strip().lower()
+        if raw and raw not in RECURRENCE:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="recurrence must be weekly or monthly")
+        row.recurrence = raw or None
     await db.flush()
+    if row.closed_at is not None and _prev_closed is None:
+        await spawn_next_occurrence(db, row, user.id)
     if body.status is not None and _prev_status != row.status:
         await write_activity(
             db=db,
@@ -297,9 +310,12 @@ async def transition_task(
         )
     status_val, closed_at = await _checked_status(db, row.project_id, body.status)
     prev = row.status
+    prev_closed = row.closed_at
     row.status = status_val
     row.closed_at = closed_at
     await db.flush()
+    if row.closed_at is not None and prev_closed is None:
+        await spawn_next_occurrence(db, row, user.id)
     if prev != status_val:
         await write_activity(
             db=db,

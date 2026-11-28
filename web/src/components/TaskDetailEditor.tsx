@@ -23,6 +23,7 @@ type TaskOut = {
   priority: string;
   assignee_id: string | null;
   due_at: string | null;
+  recurrence?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -51,6 +52,7 @@ export function TaskDetailEditor({
   const [workTypeId, setWorkTypeId] = useState(task.work_type_id ?? "");
   const selectedType = findWorkType(workTypes, workTypeId);
   const [dueAt, setDueAt] = useState(task.due_at ? task.due_at.slice(0, 16) : "");
+  const [recurrence, setRecurrence] = useState(task.recurrence ?? "");
   const [busy, setBusy] = useState(false);
 
   const assigneeLabel = (uid: string | null) => {
@@ -175,6 +177,7 @@ export function TaskDetailEditor({
       if (newAssignee !== task.assignee_id) body.assignee_id = newAssignee;
       const dueVal = dueAt ? new Date(dueAt).toISOString() : null;
       if (dueVal !== task.due_at) body.due_at = dueVal;
+      if ((recurrence || null) !== (task.recurrence ?? null)) body.recurrence = recurrence || null;
 
       if (Object.keys(body).length === 0) {
         setEditing(false);
@@ -215,6 +218,7 @@ export function TaskDetailEditor({
     setAssigneeId(task.assignee_id ?? "");
     setWorkTypeId(task.work_type_id ?? "");
     setDueAt(task.due_at ? task.due_at.slice(0, 16) : "");
+    setRecurrence(task.recurrence ?? "");
     setEditing(false);
   }
 
@@ -288,6 +292,14 @@ export function TaskDetailEditor({
             value={dueAt}
             onChange={(e) => setDueAt(e.target.value)}
           />
+        </label>
+        <label className="field">
+          <span className="label">Repeats</span>
+          <select className="input" value={recurrence} onChange={(e) => setRecurrence(e.target.value)}>
+            <option value="">Does not repeat</option>
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+          </select>
         </label>
         <label className="field">
           <span className="label">Description</span>

@@ -9,6 +9,7 @@ import { LinkedCommitsList } from "@/components/LinkedCommitsList";
 import type { MilestoneRow } from "../MilestoneGroups";
 import { parseTaskText } from "@/shared/plan-text";
 import { TaskDetailEditor } from "@/components/TaskDetailEditor";
+import { TaskLinks } from "@/components/TaskLinks";
 import type { BoardColumn } from "@/shared/board-columns";
 import { TaskDiscussion } from "@/components/TaskDiscussion";
 import { ProjectSubNav } from "../../ProjectSubNav";
@@ -38,6 +39,7 @@ type TaskOut = {
   plan_state: string;
   is_todo: boolean;
   closed_at: string | null;
+  recurrence?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -193,6 +195,8 @@ export default async function TaskDetailPage({
         workTypes={workTypes}
         statuses={statuses.length > 0 ? statuses : undefined}
       />
+
+      <TaskLinks projectId={projectId} taskId={taskId} />
 
       <LinkedCommitsList projectId={projectId} subjectType="task" subjectId={taskId} />
 

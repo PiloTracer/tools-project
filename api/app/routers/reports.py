@@ -5,7 +5,8 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
-from sqlalchemy import select
+from pydantic import BaseModel, Field
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
@@ -20,6 +21,61 @@ from app.models.user import User
 from app.services.project_access import require_project_access
 
 router = APIRouter(prefix="/v1/reports", tags=["reports"])
+
+
+class ReportQuery(BaseModel):
+    dataset: str = Field(pattern="^(prospects|clients)$")
+    dimension: str = Field(min_length=1, max_length=40)
+    measure: str = Field(default="count", pattern="^(count|pipeline_value)$")
+
+
+_PROSPECT_DIMS = {
+    "pipeline_stage": Prospect.pipeline_stage,
+    "source": Prospect.source,
+    "industry": Prospect.industry,
+    "zone": Prospect.zone,
+}
+_CLIENT_DIMS = {
+    "industry": Client.industry,
+    "zone": Client.zone,
+    "source": Client.source,
+}
+
+
+@router.post("/query")
+async def query_report(
+    body: ReportQuery,
+    user: Annotated[User, Depends(get_current_user)],
+    _admin: Annotated[User, Depends(require_superuser)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Group an allowlisted CRM column. Unknown fields are rejected."""
+    if body.dataset == "prospects":
+        column = _PROSPECT_DIMS.get(body.dimension)
+        model = Prospect
+        if body.measure == "pipeline_value":
+            value = func.coalesce(func.sum(Prospect.pipeline_value), 0)
+        else:
+            value = func.count()
+    else:
+        if body.measure != "count":
+            raise HTTPException(status_code=400, detail="Clients only support a count")
+        column = _CLIENT_DIMS.get(body.dimension)
+        model = Client
+        value = func.count()
+    if column is None:
+        raise HTTPException(status_code=400, detail="Unknown dimension")
+    stmt = select(column, value).group_by(column).order_by(value.desc()).limit(50)
+    if user.tenant_id is not None:
+        stmt = stmt.where(model.tenant_id == user.tenant_id)
+    rows = (await db.execute(stmt)).all()
+    return {
+        "rows": [
+            {"key": key or "(empty)", "value": float(amount) if amount is not None else 0}
+            for key, amount in rows
+        ]
+    }
+
 
 STAGE_LABELS: dict[str, str] = {
     "target": "Target",
